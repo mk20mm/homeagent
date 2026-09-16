@@ -1,0 +1,36 @@
+.bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: #fffc; /* 毛玻璃半透明 */
+  backdrop-filter: blur(12px);
+  border-top: 0.5px solid #e5e5ea;
+  padding-bottom: env(safe-area-inset-bottom); /* 苹果 HIG 安全区适配 */
+  z-index: 100;
+}
+
+.item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 6px;
+  text-decoration: none;
+  color: #8e8e93;
+}
+
+.active {
+  color: #0a84ff;
+}
+
+.icon {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.label {
+  font-size: 12px;
+  margin-top: 2px;
+}

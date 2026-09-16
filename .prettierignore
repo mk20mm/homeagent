@@ -1,0 +1,9 @@
+**/dist/**
+**/node_modules/**
+**/coverage/**
+**/schema.d.ts
+**/*.gen.go
+bin/**
+data/**
+pnpm-lock.yaml
+*.min.*

@@ -1,0 +1,38 @@
+.card {
+  background: #fff;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+  padding: 14px;
+  margin: 12px 0;
+  border: 1px solid #7c3aed33; /* 紫色描边：工具执行卡片 */
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.undo {
+  background: none;
+  border: none;
+  color: #ff3b30;
+  font-size: 13px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.undo:hover {
+  background: #ff3b3010;
+}
+
+.body {
+  margin-top: 8px;
+  color: #8e8e93;
+  font-size: 14px;
+}

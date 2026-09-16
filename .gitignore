@@ -1,0 +1,43 @@
+# Go
+bin/
+*.exe
+*.exe~
+
+# 数据与密钥
+data/
+*.db
+*.db-journal
+.env
+.env.*
+server.pid
+body.json
+
+# ent 生成代码（由 make gen-ent 产出，不入库）
+# schema/ 与 generate.go 是源码，必须入库
+/internal/store/ent/*
+!/internal/store/ent/generate.go
+!/internal/store/ent/schema/
+
+# OpenAPI 生成代码（由 make gen-api 产出，不入库）
+internal/openapi/*.gen.go
+
+# 前端
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+*.tsbuildinfo
+# 前端生成的 API 类型（由 make gen-web 产出）
+web/src/api/schema.d.ts
+admin/src/api/schema.d.ts
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db

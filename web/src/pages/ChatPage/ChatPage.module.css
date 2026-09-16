@@ -1,0 +1,115 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 76px - env(safe-area-inset-bottom));
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0 16px;
+}
+
+.title {
+  font-weight: 700;
+}
+
+.modelSelect {
+  border: 1px solid #e5e5ea;
+  border-radius: 12px;
+  padding: 6px 10px;
+  background: #fff;
+  font-size: 13px;
+  color: #8e8e93;
+}
+
+.messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.empty {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 16px;
+  color: #8e8e93;
+  text-align: center;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #b0b0b5;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.user {
+  align-self: flex-end;
+  background: #0a84ff;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.ai {
+  align-self: flex-start;
+  background: #fff;
+  color: #000;
+  border-bottom-left-radius: 4px;
+}
+
+.error {
+  align-self: center;
+  color: #ff3b30;
+  font-size: 13px;
+  padding: 8px 14px;
+  background: #ff3b3010;
+  border-radius: 12px;
+}
+
+.inputBar {
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #f2f3f7;
+}
+
+.input {
+  flex: 1;
+  border: 1px solid #e5e5ea;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  background: #fff;
+  outline: none;
+}
+
+.send {
+  border: none;
+  border-radius: 12px;
+  background: #0a84ff;
+  color: #fff;
+  padding: 0 20px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.send:disabled {
+  opacity: 0.4;
+}

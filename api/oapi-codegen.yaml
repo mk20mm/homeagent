@@ -1,0 +1,15 @@
+# oapi-codegen 配置（v2）。
+# 生成内容：Gin 严格服务端接口 + 客户端 + 类型 + 内嵌 spec。
+# 由 internal/openapi/gen.go 的 go:generate 触发，make gen-api 执行。
+package: openapi
+output: api.gen.go
+generate:
+  gin-server: true
+  strict-server: true
+  models: true
+  client: true
+  embedded-spec: true
+output-options:
+  skip-prune: true
+compatibility:
+  always-prefix-enum-values: true

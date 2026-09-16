@@ -1,0 +1,60 @@
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 8px 0 16px;
+}
+
+.summary {
+  background: linear-gradient(135deg, #0a84ff, #7c3aed);
+  border-radius: 16px;
+  padding: 20px 16px;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.summaryLabel {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.summaryAmount {
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+}
+
+.main {
+  flex: 1;
+}
+
+.category {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+.amount {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

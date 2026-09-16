@@ -1,0 +1,10 @@
+packages:
+  - 'web'
+  - 'admin'
+  - 'packages/*'
+allowBuilds:
+  msw: true
+onlyBuiltDependencies:
+  - msw
+minimumReleaseAgeExclude:
+  - react-router@8.4.0

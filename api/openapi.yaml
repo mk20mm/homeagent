@@ -1,0 +1,918 @@
+openapi: 3.0.3
+info:
+  title: 家事 Agent API
+  version: 0.1.0
+  description: |
+    家事 Agent（HomeAgent）后端接口。
+    对话为主入口：SSE 流式对话 + 工具调用 + 结果卡片 + 撤销。
+    契约先行：改接口先改本文件，再 make generate（CONVENTIONS-backend §1）。
+servers:
+  - url: /api/v1
+    description: 同域反向代理
+  - url: http://localhost:8080/api/v1
+    description: 本地开发
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+    description: 认证（JWT 令牌）
+  - name: system
+    description: 健康/模型/工具清单
+  - name: chat
+    description: 对话（SSE 流式）
+  - name: expense
+    description: 记账/预算
+  - name: task
+    description: 家务任务
+  - name: meal
+    description: 报饭
+  - name: undo
+    description: 撤销
+  - name: admin
+    description: 审计/用量（管理端）
+
+paths:
+  /auth/token:
+    post:
+      tags: [auth]
+      security: []
+      summary: 换取 JWT 访问令牌
+      description: "成员名 + auth_token 换 JWT，后续请求带 Authorization: Bearer <token>"
+      operationId: createToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: 令牌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /health:
+    get:
+      tags: [system]
+      security: []
+      summary: 健康检查
+      operationId: health
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /tools:
+    get:
+      tags: [system]
+      summary: 当前成员权限内的工具清单
+      description: 权限双保险的源头过滤（ADR-005），只返回该成员有权限调用的工具。
+      operationId: listTools
+      responses:
+        '200':
+          description: 工具清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tools]
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ToolSpec'
+
+  /models:
+    get:
+      tags: [system]
+      summary: 已启用模型清单（会话内切换用）
+      operationId: listModels
+      responses:
+        '200':
+          description: 模型清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [models]
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Model'
+
+  /chat:
+    post:
+      tags: [chat]
+      summary: 发送对话消息（SSE 流式回复）
+      description: |
+        流式返回三类事件：token（文本增量）、tool_call（工具执行回执）、done（结束）。
+        客户端断开必须触发取消（CONVENTIONS-backend §5）。
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: SSE 流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 'event: token|tool_call|done; data: json'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /conversations:
+    get:
+      tags: [chat]
+      summary: 会话列表
+      operationId: listConversations
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+                  next_cursor:
+                    type: string
+    post:
+      tags: [chat]
+      summary: 新建会话（可指定模型）
+      operationId: createConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model_id:
+                  type: string
+                  description: 为空则用默认模型
+                title:
+                  type: string
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+  /conversations/{conversationId}/messages:
+    get:
+      tags: [chat]
+      summary: 会话历史消息
+      operationId: listMessages
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 消息列表（按时间正序）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+
+  /expenses:
+    get:
+      tags: [expense]
+      summary: 记账流水（按成员隔离）
+      operationId: listExpenses
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+        - in: query
+          name: category
+          description: 按分类过滤
+          schema:
+            type: string
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 流水列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Expense'
+                  next_cursor:
+                    type: string
+    post:
+      tags: [expense]
+      summary: 手动记一笔（对话外直接记账，同样幂等可撤销）
+      operationId: createExpense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseCreate'
+      responses:
+        '201':
+          description: 已记录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /expenses/summary:
+    get:
+      tags: [expense]
+      summary: 记账汇总（按分类/按月）
+      operationId: expenseSummary
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [month, year]
+            default: month
+      responses:
+        '200':
+          description: 汇总
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total_cents, categories]
+                properties:
+                  total_cents:
+                    type: integer
+                    description: 总支出（分）
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      required: [category, total_cents]
+                      properties:
+                        category:
+                          type: string
+                        total_cents:
+                          type: integer
+
+  /budget:
+    get:
+      tags: [expense]
+      summary: 预算执行情况（query_budget 工具的 HTTP 出口）
+      operationId: queryBudget
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 预算执行
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [budget_cents, spent_cents]
+                properties:
+                  budget_cents:
+                    type: integer
+                  spent_cents:
+                    type: integer
+                  over_budget:
+                    type: boolean
+
+  /tasks:
+    get:
+      tags: [task]
+      summary: 我的任务（list_my_tasks 的 HTTP 出口，只返当前成员）
+      operationId: listTasks
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+      responses:
+        '200':
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+    post:
+      tags: [task]
+      summary: 派任务（assign_task 的 HTTP 出口）
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: 已派发
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /tasks/{taskId}/complete:
+    post:
+      tags: [task]
+      summary: 打卡完成（complete_task 的 HTTP 出口，防重复打卡）
+      operationId: completeTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 已完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /meals:
+    get:
+      tags: [meal]
+      summary: 今日报饭汇总（给做饭人）
+      operationId: listMeals
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+            description: 为空取今日
+      responses:
+        '200':
+          description: 报饭汇总
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [date, at_home_count, not_at_home_count, members]
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  at_home_count:
+                    type: integer
+                  not_at_home_count:
+                    type: integer
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      required: [member_id, name, at_home]
+                      properties:
+                        member_id:
+                          type: string
+                        name:
+                          type: string
+                        at_home:
+                          type: boolean
+    post:
+      tags: [meal]
+      summary: 报饭（report_meal 的 HTTP 出口，人+日期幂等）
+      operationId: reportMeal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [at_home]
+              properties:
+                at_home:
+                  type: boolean
+                date:
+                  type: string
+                  format: date
+                  description: 为空取今日
+                note:
+                  type: string
+      responses:
+        '200':
+          description: 已报饭
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealReport'
+
+  /undo/{undoId}:
+    post:
+      tags: [undo]
+      summary: 撤销一次写操作（24h 内有效）
+      operationId: undo
+      parameters:
+        - $ref: '#/components/parameters/UndoId'
+      responses:
+        '200':
+          description: 已撤销
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [undone]
+                properties:
+                  undone:
+                    type: boolean
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          description: 撤销已过期或已使用
+
+  /audit:
+    get:
+      tags: [admin]
+      summary: 审计日志（只增不改，按权限可见）
+      operationId: listAudit
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+        - in: query
+          name: tool_name
+          schema:
+            type: string
+        - in: query
+          name: permission_denied
+          description: 只看越权尝试
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 审计列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  next_cursor:
+                    type: string
+
+  /usage:
+    get:
+      tags: [admin]
+      summary: LLM 用量统计（管理端仪表盘）
+      operationId: listUsage
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            default: 7
+      responses:
+        '200':
+          description: 用量
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total_cost, total_tokens, items]
+                properties:
+                  total_cost:
+                    type: number
+                    format: double
+                  total_tokens:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [date, tokens, cost]
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        tokens:
+                          type: integer
+                        cost:
+                          type: number
+                          format: double
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageSize:
+      in: query
+      name: page_size
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    PageCursor:
+      in: query
+      name: cursor
+      schema:
+        type: string
+    ConversationId:
+      in: path
+      name: conversationId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TaskId:
+      in: path
+      name: taskId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UndoId:
+      in: path
+      name: undoId
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: 未认证
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: 无权限
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: 幂等冲突（重复提交）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    TokenRequest:
+      type: object
+      required: [name, auth_token]
+      properties:
+        name:
+          type: string
+          example: 爸爸
+          description: 成员名（家庭内唯一）
+        auth_token:
+          type: string
+          format: password
+          description: 成员预共享密钥，开发期由 --migrate 生成并打印到日志
+
+    TokenResponse:
+      type: object
+      required: [token, member_id, role, expires_at]
+      properties:
+        token:
+          type: string
+          description: "JWT，请求头放 Authorization: Bearer <token>"
+        member_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          description: 成员角色（parent/elder/child 等）
+        expires_at:
+          type: string
+          format: date-time
+
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [invalid_input, unauthorized, permission_denied, not_found, conflict, internal]
+          description: 程序判断用（apperr.Code）
+        message:
+          type: string
+          description: 面向用户的中文信息（不泄漏堆栈/SQL）
+        trace_id:
+          type: string
+
+    ToolSpec:
+      type: object
+      required: [name, description, risk, permission, module]
+      properties:
+        name:
+          type: string
+          example: record_expense
+        description:
+          type: string
+        input_schema:
+          type: object
+          additionalProperties: true
+        risk:
+          $ref: '#/components/schemas/RiskLevel'
+        permission:
+          type: string
+          example: expense.write
+        module:
+          type: string
+          example: expense
+        idempotency:
+          type: string
+          example: user+amount+hint+day
+
+    RiskLevel:
+      type: string
+      enum: [low, medium, high]
+
+    Model:
+      type: object
+      required: [id, model_name, display_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        model_name:
+          type: string
+          example: gpt-4o
+        display_name:
+          type: string
+          example: GPT-4o
+        provider:
+          type: string
+          example: openai
+        is_default:
+          type: boolean
+
+    ChatRequest:
+      type: object
+      required: [content]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+          description: 为空则新建会话
+        content:
+          type: string
+          description: 用户消息
+        model_id:
+          type: string
+          format: uuid
+          description: 会话内切模型（为空沿用会话当前模型）
+
+    Conversation:
+      type: object
+      required: [id, member_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        model_id:
+          type: string
+          format: uuid
+        last_message_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      required: [id, conversation_id, role, content]
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, tool, system]
+        content:
+          type: string
+        tool_name:
+          type: string
+        trace_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Expense:
+      type: object
+      required: [id, member_id, amount_cents, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        category:
+          type: string
+          example: 食材
+        amount_cents:
+          type: integer
+          description: 金额（分）
+        hint:
+          type: string
+          example: 买菜
+        note:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        undoable:
+          type: boolean
+          description: 是否在 24h 撤销窗口内
+
+    ExpenseCreate:
+      type: object
+      required: [amount_cents, hint]
+      properties:
+        amount_cents:
+          type: integer
+          minimum: 1
+        hint:
+          type: string
+        category:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+
+    TaskStatus:
+      type: string
+      enum: [pending, in_progress, done]
+
+    Task:
+      type: object
+      required: [id, title, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: 洗碗
+        description:
+          type: string
+        risk:
+          $ref: '#/components/schemas/RiskLevel'
+        assignee_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        due_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        points:
+          type: integer
+
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        assignee_id:
+          type: string
+          format: uuid
+        due_at:
+          type: string
+          format: date-time
+
+    MealReport:
+      type: object
+      required: [id, member_id, date, at_home]
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        at_home:
+          type: boolean
+        note:
+          type: string
+
+    AuditLog:
+      type: object
+      required: [id, tool_name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        trace_id:
+          type: string
+        member_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        risk:
+          $ref: '#/components/schemas/RiskLevel'
+        params:
+          type: object
+          additionalProperties: true
+        result:
+          type: string
+        undone:
+          type: boolean
+        permission_denied:
+          type: boolean
+          description: 越权尝试记录
+        latency_ms:
+          type: integer
+        created_at:
+          type: string
+          format: date-time

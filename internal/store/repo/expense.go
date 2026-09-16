@@ -1,0 +1,151 @@
+﻿package repo
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	sqlite "modernc.org/sqlite"
+
+	"github.com/mk20mm/homeagent/internal/apperr"
+	domexp "github.com/mk20mm/homeagent/internal/domain/expense"
+	"github.com/mk20mm/homeagent/internal/store/ent/category"
+	"github.com/mk20mm/homeagent/internal/store/ent/expense"
+	"github.com/mk20mm/homeagent/internal/store/ent/family"
+	"github.com/mk20mm/homeagent/internal/store/ent/member"
+)
+
+// 编译期接口实现检查（缺失编译不过）。
+var _ domexp.ExpenseRepo = (*Store)(nil)
+
+// SQLITE_CONSTRAINT_UNIQUE modernc 未导出该常量，硬编码错误码。
+const SQLITE_CONSTRAINT_UNIQUE = 2067
+
+// Create 创建账单。幂等冲突（unique idempotency_key）时返回已存在账单 id + CodeConflict。
+func (s *Store) Create(ctx context.Context, memberID string, cmd domexp.RecordExpenseCmd, idempotencyKey string) (string, error) {
+	m, err := s.db.Member.Query().
+		Where(member.IDEQ(toUUID(memberID))).
+		WithFamily().
+		Only(ctx)
+	if err != nil {
+		return "", apperr.New(apperr.CodeNotFound, "成员不存在", err)
+	}
+
+	occur := cmd.OccurredOrNow()
+	create := s.db.Expense.Create().
+		SetAmountCents(cmd.AmountCents).
+		SetHint(cmd.Hint).
+		SetOccurredAt(occur).
+		SetIdempotencyKey(idempotencyKey).
+		SetMember(m)
+
+	// 分类：关联到本家庭已有分类；不存在不报错（归类降级为“其他”）
+	if cmd.Category != "" && m.Edges.Family != nil {
+		cat, err := s.db.Category.Query().Where(
+			category.HasFamilyWith(family.IDEQ(m.Edges.Family.ID)),
+			category.NameEQ(cmd.Category),
+		).Only(ctx)
+		if err == nil {
+			create.SetCategory(cat)
+		}
+	}
+
+	saved, err := create.Save(ctx)
+	if err != nil {
+		if isUniqueViolation(err) {
+			exist, qerr := s.db.Expense.Query().
+				Where(expense.IdempotencyKeyEQ(idempotencyKey), expense.DeletedAtIsNil()).
+				Only(ctx)
+			if qerr != nil || exist == nil {
+				return "", apperr.New(apperr.CodeConflict, "账单已存在但回查失败", err)
+			}
+			// 幂等命中：返回已存在 id，配 CodeConflict 让领域层判定
+			return exist.ID.String(), apperr.New(apperr.CodeConflict, "账单已存在", nil)
+		}
+		return "", apperr.New(apperr.CodeInternal, "记账失败", err)
+	}
+	return saved.ID.String(), nil
+}
+
+// Delete 软删除账单（撤销 = 回滚 deleted_at）。
+func (s *Store) Delete(ctx context.Context, expenseID string) error {
+	n, err := s.db.Expense.UpdateOneID(toUUID(expenseID)).
+		SetDeletedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return apperr.New(apperr.CodeInternal, "撤销账单失败", err)
+	}
+	if n == nil || n.ID == uuid.Nil {
+		return apperr.New(apperr.CodeNotFound, "账单不存在", nil)
+	}
+	return nil
+}
+
+// Summary 本月汇总：总额 + 分类明细 + 预算合计。
+func (s *Store) Summary(ctx context.Context, memberID string, month time.Time) (domexp.ExpenseSummary, error) {
+	start := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
+	end := start.AddDate(0, 1, 0)
+
+	list, err := s.db.Expense.Query().
+		Where(
+			expense.HasMemberWith(member.IDEQ(toUUID(memberID))),
+			expense.DeletedAtIsNil(),
+			expense.OccurredAtGTE(start),
+			expense.OccurredAtLT(end),
+		).
+		WithCategory().
+		All(ctx)
+	if err != nil {
+		return domexp.ExpenseSummary{}, apperr.New(apperr.CodeInternal, "查询账单失败", err)
+	}
+
+	byCat := make(map[string]int64)
+	var total int64
+	for _, e := range list {
+		total += e.AmountCents
+		name := "其他"
+		if e.Edges.Category != nil {
+			name = e.Edges.Category.Name
+		}
+		byCat[name] += e.AmountCents
+	}
+
+	// 预算合计（本家庭全部分类）
+	var budget int64
+	cats, err := s.db.Category.Query().
+		Where(category.HasFamilyWith(family.HasMembersWith(member.IDEQ(toUUID(memberID))))).
+		All(ctx)
+	if err == nil {
+		for _, c := range cats {
+			if c.MonthlyBudgetCents != nil {
+				budget += *c.MonthlyBudgetCents
+			}
+		}
+	}
+
+	return domexp.ExpenseSummary{
+		TotalCents:  total,
+		ByCategory:  byCat,
+		BudgetCents: budget,
+	}, nil
+}
+
+// isUniqueViolation 判定 SQLite 唯一约束冲突（幂等命中）。
+// modernc 驱动：*sqlite.Error{code: 2067}；包装后兜底字符串匹配。
+func isUniqueViolation(err error) bool {
+	var sqliteErr *sqlite.Error
+	if errors.As(err, &sqliteErr) {
+		return sqliteErr.Code() == SQLITE_CONSTRAINT_UNIQUE
+	}
+	return strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+func toUUID(s string) uuid.UUID {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}

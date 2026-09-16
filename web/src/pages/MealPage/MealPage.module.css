@@ -1,0 +1,96 @@
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 8px 0 16px;
+}
+
+.today {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+}
+
+.count {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.sub {
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 4px;
+}
+
+.section {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 10px;
+  color: #8e8e93;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  flex: 1;
+  border: none;
+  border-radius: 16px;
+  padding: 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.btnOn {
+  background: #34c759;
+  color: #fff;
+}
+
+.btnOff {
+  background: #fff;
+  color: #8e8e93;
+  border: 1px solid #e5e5ea;
+}
+
+.btnOffActive {
+  background: #ff9500;
+  color: #fff;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.name {
+  font-size: 15px;
+}
+
+.tagOn {
+  font-size: 13px;
+  color: #34c759;
+  background: #34c75915;
+  padding: 4px 12px;
+  border-radius: 8px;
+}
+
+.tagOff {
+  font-size: 13px;
+  color: #ff9500;
+  background: #ff950015;
+  padding: 4px 12px;
+  border-radius: 8px;
+}
