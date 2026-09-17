@@ -164,6 +164,8 @@ github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
+github.com/sashabaranov/go-openai v1.42.1 h1:9nK2UgDVVSIyoEUNDeWqu3Ttj8EqCO6FT8HK0Cv8VEo=
+github.com/sashabaranov/go-openai v1.42.1/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/sergi/go-diff v1.1.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
 github.com/speakeasy-api/jsonpath v0.6.3 h1:c+QPwzAOdrWvzycuc9HFsIZcxKIaWcNpC+xhOW9rJxU=
 github.com/speakeasy-api/jsonpath v0.6.3/go.mod h1:2cXloNuQ+RSXi5HTRaeBh7JEmjRXTiaKpFTdZiL7URI=

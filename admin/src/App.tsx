@@ -5,8 +5,13 @@ import { AdminPage } from './pages/AdminPage'
 import { AuditPage } from './pages/AuditPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DebugPage } from './pages/DebugPage'
+import { LoginPage } from './pages/LoginPage'
 
 const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
   {
     path: '/',
     element: <AdminLayout />,

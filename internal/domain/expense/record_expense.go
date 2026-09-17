@@ -67,7 +67,7 @@ func (t *RecordExpenseTool) Execute(ctx context.Context, input json.RawMessage) 
 		}
 	}
 
-	id, category, err := t.svc.RecordExpense(ctx, RecordExpenseCmd{
+	id, category, duplicated, err := t.svc.RecordExpense(ctx, RecordExpenseCmd{
 		AmountCents: cents,
 		Hint:        in.Hint,
 		Category:    in.Category,
@@ -77,17 +77,28 @@ func (t *RecordExpenseTool) Execute(ctx context.Context, input json.RawMessage) 
 		return tool.Result{}, err
 	}
 
-	undo, _ := json.Marshal(map[string]any{"expense_id": id})
+	summary := "已记账"
+	if duplicated {
+		// 幂等命中：未重复入库，明确告诉用户，避免"说成功却查不到"
+		summary = "今天已记过这笔，未重复记账"
+	}
+
+	// 幂等命中时本次没有新写入，不生成撤销记录（撤销会误删早先那笔）
+	var undo json.RawMessage
+	if !duplicated {
+		undo, _ = json.Marshal(map[string]any{"expense_id": id})
+	}
 	card, _ := json.Marshal(map[string]any{
-		"type":     "expense",
-		"amount":   in.Amount,
-		"category": category,
-		"hint":     in.Hint,
-		"time":     occurredAt.Format("15:04"),
+		"type":       "expense",
+		"amount":     in.Amount,
+		"category":   category,
+		"hint":       in.Hint,
+		"time":       occurredAt.Format("15:04"),
+		"duplicated": duplicated,
 	})
 
 	return tool.Result{
-		Summary:  "已记账",
+		Summary:  summary,
 		Card:     card,
 		UndoData: undo,
 	}, nil

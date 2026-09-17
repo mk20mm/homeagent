@@ -26,7 +26,8 @@ exec-plans/
 | 计划                                       | 状态           | 说明                                                                         |
 | ------------------------------------------ | -------------- | ---------------------------------------------------------------------------- |
 | [active/skeleton.md](active/skeleton.md)   | 🚧 C 阶段      | 三阶段骨架：A 后端生成链路 ✅ / B 前端工作区 ✅ / C 运行时联通 🚧            |
-| [active/c-runtime.md](active/c-runtime.md) | 🚧 P1 进行中   | C 阶段细化：P0 关键路径 ✅ 9/9（闭环已验收）/ P1 工具集+认证 🚧 / P2 评测+联调 ⏳ |
+| [active/c-runtime.md](active/c-runtime.md) | 🚧 P2 待开始   | C 阶段细化：P0 关键路径 ✅ 9/9 / P1 工具集+JWT ✅ 10/11 / P2 评测+联调 ⏳     |
+| [active/tool-perms-config.md](active/tool-perms-config.md) | ⏳ 下期 | 工具权限可配置化：admin 后台 + 用户自助，权限矩阵出库解耦（不再硬编码种子） |
 
 ## 写作约定
 

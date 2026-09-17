@@ -7,11 +7,16 @@ import (
 )
 
 type Config struct {
-	Port       string
-	DBPath     string
-	JWTSecret  string
-	LogLevel   string
+	Port          string
+	DBPath        string
+	JWTSecret     string
+	LogLevel      string
 	EncryptionKey string
+	// LLM 真实供应商（留空用脚本供应商，本地联调不依赖外网）
+	LLMProvider string
+	LLMAPIKey   string
+	LLMBaseURL  string
+	LLMModel    string
 }
 
 func Load() Config {
@@ -21,6 +26,10 @@ func Load() Config {
 		JWTSecret:     getenv("JWT_SECRET", "dev-only-change-me"),
 		LogLevel:      getenv("LOG_LEVEL", "info"),
 		EncryptionKey: getenv("ENCRYPTION_KEY", "dev-only-32-bytes-key-xxxxx"),
+		LLMProvider:   getenv("LLM_PROVIDER", ""),
+		LLMAPIKey:     getenv("LLM_API_KEY", ""),
+		LLMBaseURL:    getenv("LLM_BASE_URL", ""),
+		LLMModel:      getenv("LLM_MODEL", ""),
 	}
 }
 

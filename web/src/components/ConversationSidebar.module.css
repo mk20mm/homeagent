@@ -1,0 +1,109 @@
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 78%;
+  max-width: 320px;
+  background: #fff;
+  box-shadow: 2px 0 16px rgb(0 0 0 / 12%);
+  transform: translateX(-105%);
+  transition: transform 0.22s ease;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  visibility: hidden;
+}
+
+.open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 35%);
+  z-index: 30;
+}
+
+.newBtn {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px dashed var(--ha-primary, #0a84ff);
+  border-radius: 12px;
+  background: rgb(10 132 255 / 6%);
+  color: #0a84ff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: #f2f3f7;
+}
+
+.active {
+  background: rgb(10 132 255 / 8%);
+}
+
+.itemMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 15px;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemTime {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #8e8e93;
+}
+
+.delBtn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8e8e93;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.delBtn:hover {
+  background: rgb(255 59 48 / 10%);
+  color: #ff3b30;
+}
+
+.empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: #8e8e93;
+  font-size: 13px;
+}

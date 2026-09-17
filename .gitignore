@@ -41,3 +41,13 @@ admin/src/api/schema.d.ts
 # 系统
 .DS_Store
 Thumbs.db
+
+# 开发日志与进程 pid
+*.log
+dev.pid
+
+# Playwright E2E 产物（截图/视频/trace/report）
+e2e-results/
+e2e-out/
+e2e-report/
+e2e-results.json

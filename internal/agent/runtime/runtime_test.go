@@ -87,11 +87,12 @@ type memUndo struct {
 	records []tool.UndoRecord
 }
 
-func (m *memUndo) Save(_ context.Context, r tool.UndoRecord) error {
+func (m *memUndo) Save(_ context.Context, r tool.UndoRecord) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	id := uuid.NewString()
 	m.records = append(m.records, r)
-	return nil
+	return id, nil
 }
 
 type memAudit struct {
@@ -126,7 +127,7 @@ func newMemSession(perms map[string]map[string]bool) *memSession {
 	return &memSession{convs: map[string]*memConv{}, perms: cp}
 }
 
-func (s *memSession) CreateConversation(_ context.Context, memberID, title string) (string, error) {
+func (s *memSession) CreateConversation(_ context.Context, memberID, title, modelID string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id := uuid.NewString()
@@ -182,7 +183,7 @@ func (s *memSession) Ensure(ctx context.Context, convID, memberID string) (sessi
 		return session.Conversation{}, nil, err
 	}
 	if conv.ID == "" {
-		id, err := s.CreateConversation(ctx, memberID, "")
+		id, err := s.CreateConversation(ctx, memberID, "", "")
 		if err != nil {
 			return session.Conversation{}, nil, err
 		}
@@ -193,6 +194,65 @@ func (s *memSession) Ensure(ctx context.Context, convID, memberID string) (sessi
 		return session.Conversation{}, nil, err
 	}
 	return conv, msgs, nil
+}
+
+// Service 接口补齐（会话管理 API 层方法，测试场景给最小实现）
+
+func (s *memSession) Create(ctx context.Context, memberID, title, modelID string) (string, error) {
+	return s.CreateConversation(ctx, memberID, title, modelID)
+}
+
+func (s *memSession) List(_ context.Context, memberID string, limit int, cursor string) ([]session.Conversation, string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]session.Conversation, 0, len(s.convs))
+	for _, c := range s.convs {
+		if c.memberID == memberID {
+			out = append(out, session.Conversation{ID: c.id, MemberID: c.memberID})
+		}
+	}
+	return out, "", nil
+}
+
+func (s *memSession) Load(ctx context.Context, convID, memberID string) (session.Conversation, []session.Message, error) {
+	conv, err := s.LoadConversation(ctx, convID, memberID)
+	if err != nil {
+		return session.Conversation{}, nil, err
+	}
+	msgs, err := s.LoadMessages(ctx, convID, memberID)
+	if err != nil {
+		return session.Conversation{}, nil, err
+	}
+	return conv, msgs, nil
+}
+
+func (s *memSession) ListMessages(ctx context.Context, convID, memberID string, limit int) ([]session.MessageView, error) {
+	msgs, err := s.LoadMessages(ctx, convID, memberID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]session.MessageView, 0, len(msgs))
+	for i, m := range msgs {
+		out = append(out, session.MessageView{
+			ID:             uuid.NewString(),
+			ConversationID: convID,
+			Role:           string(m.Role),
+			Content:        m.Content,
+			CreatedAt:      time.Now().Add(time.Duration(i) * time.Second),
+		})
+	}
+	return out, nil
+}
+
+func (s *memSession) Delete(_ context.Context, convID, memberID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.convs[convID]
+	if !ok || c.memberID != memberID {
+		return nil
+	}
+	delete(s.convs, convID)
+	return nil
 }
 
 // ---- 测试 ----

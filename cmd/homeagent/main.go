@@ -21,7 +21,12 @@ import (
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/api/middleware"
 	v1 "github.com/mk20mm/homeagent/internal/api/v1"
+	"github.com/mk20mm/homeagent/internal/auth"
 	"github.com/mk20mm/homeagent/internal/domain/expense"
+	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
+	"github.com/mk20mm/homeagent/internal/domain/meal"
+	"github.com/mk20mm/homeagent/internal/domain/model"
+	"github.com/mk20mm/homeagent/internal/domain/task"
 	"github.com/mk20mm/homeagent/internal/infra/config"
 	"github.com/mk20mm/homeagent/internal/store"
 	"github.com/mk20mm/homeagent/internal/store/repo"
@@ -52,10 +57,11 @@ func main() {
 			slog.Error("seed failed", "err", err)
 			os.Exit(1)
 		}
-		// 开发期：打印成员 id 供 X-Member-ID 认证使用（P1 换 JWT 后移除）
+		// 开发期：打印成员登录凭据（name + auth_token → POST /auth/token 换 JWT）
 		if members, err := client.Member.Query().All(ctx); err == nil {
 			for _, m := range members {
-				slog.Info("seed member", "id", m.ID, "name", m.Name, "role", m.Role)
+				slog.Info("seed member", "id", m.ID, "name", m.Name, "role", m.Role,
+					"auth_token", m.AuthToken)
 			}
 		}
 		slog.Info("migrate + seed done", "path", cfg.DBPath)
@@ -64,14 +70,32 @@ func main() {
 
 	// 仓储层（聚合：expense/conversation/undolog/audit/usage）
 	storeRepo := repo.New(client)
+	// 供应商仓储（带加密能力，api_key 落库加密）
+	provRepo := repo.NewProviderStore(storeRepo, cfg.EncryptionKey)
 
-	// 工具注册表：一期 9 工具，先注册 record_expense（其余随 P1 补齐）
+	// 工具注册表：一期 9 工具（P1 补齐）
 	registry := tool.NewRegistry()
 	expenseSvc := expense.NewService(storeRepo)
-	if err := registry.Register(expense.NewRecordExpenseTool(expenseSvc)); err != nil {
-		slog.Error("register tool failed", "err", err)
-		os.Exit(1)
+	taskSvc := task.NewService(storeRepo)
+	mealSvc := meal.NewService(storeRepo)
+	modelSvc := model.NewService(storeRepo, provRepo)
+	for _, t := range []tool.Tool{
+		expense.NewRecordExpenseTool(expenseSvc),
+		expense.NewQueryBudgetTool(expenseSvc),
+		task.NewAssignTaskTool(taskSvc),
+		task.NewCompleteTaskTool(taskSvc),
+		task.NewListMyTasksTool(taskSvc),
+		meal.NewReportMealTool(mealSvc),
+		meal.NewSuggestDinnerTool(mealSvc),
+		model.NewListModelsTool(modelSvc),
+		model.NewSwitchModelTool(modelSvc),
+	} {
+		if err := registry.Register(t); err != nil {
+			slog.Error("register tool failed", "tool", t.Spec().Name, "err", err)
+			os.Exit(1)
+		}
 	}
+	slog.Info("tools registered", "count", 9)
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
@@ -79,9 +103,12 @@ func main() {
 	// 会话服务（member 隔离 + 历史持久化）
 	sessions := session.NewService(storeRepo)
 
-	// LLM 网关：P0 用脚本供应商跑通链路（不依赖真实 API Key）
-	provider := gateway.NewScriptedProvider(gateway.RecordExpenseScript())
+	// JWT 签发器（HS256 + JWTSecret；P1 认证）
+	signer := auth.NewSigner(cfg.JWTSecret, "homeagent")
 
+	// LLM 网关：优先用数据库配置的默认模型 + 供应商密钥；
+	// 数据库没配或密钥缺失时，回落环境变量；都没有用脚本供应商（本地联调不依赖外网）
+	provider := buildProvider(ctx, cfg, provRepo)
 	rt := runtime.New(runtime.Options{
 		Provider: provider,
 		Executor: executor,
@@ -92,7 +119,7 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {
@@ -124,4 +151,28 @@ func parseLevel(s string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+// buildProvider 选 LLM 供应商：数据库默认模型 → 环境变量 → 脚本供应商。
+//
+// 优先级设计（配置单一真相源是数据库，环境变量只做开发期覆盖/兜底）：
+//  1. 数据库默认模型 + 其供应商已配密钥 → 真实供应商
+//  2. 环境变量 LLM_API_KEY + LLM_MODEL → 真实供应商（开发期便利）
+//  3. 都没有 → 脚本供应商（本地联调不花一分钱）
+func buildProvider(ctx context.Context, cfg config.Config, provRepo dommodel.ProviderRepo) gateway.Provider {
+	// 1. 数据库默认模型（明文密钥只在 store→main 这一段传递）
+	if conn, ok, err := provRepo.DefaultEnabled(ctx); err == nil && ok {
+		slog.Info("llm provider: db default", "provider", conn.Provider, "model", conn.Model)
+		return gateway.NewOpenAIProvider(conn.APIKey, conn.BaseURL, conn.Model, conn.Provider)
+	}
+
+	// 2. 环境变量兜底
+	if cfg.LLMAPIKey != "" && cfg.LLMModel != "" {
+		slog.Info("llm provider: env", "model", cfg.LLMModel)
+		return gateway.NewOpenAIProvider(cfg.LLMAPIKey, cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMProvider)
+	}
+
+	// 3. 脚本供应商
+	slog.Info("llm provider: scripted (no api_key configured in db or env)")
+	return gateway.NewScriptedProvider(gateway.RecordExpenseScript())
 }

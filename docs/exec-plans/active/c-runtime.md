@@ -4,7 +4,7 @@
 > 验收用例格式对齐 AI-STD-005：`{category, description, steps, passes}`，`passes` 随实现同步翻转。
 > 前置：A（后端生成链路）/ B（前端骨架）已完成并验收。
 
-**当前状态（2026-09-16）：P0 关键路径 9/9 全绿，真机端到端验收通过（记账→撤销闭环 + 权限双保险 + 幂等 + 审计留痕）。下一步 P1。**
+**当前状态（2026-09-17）：P0 关键路径 9/9 ✅；P1 工具集 + JWT + 观测 handler ✅ 11/11；P2 前端双端联调 ✅ + 供应商/模型配置链路 ✅（api_key 加密入库 + 脱敏回显 + 数据库为单一真相源），余 evals 评测套件、会话历史与账单/任务 handler。**
 
 ## 优先级评估（依赖 × 价值）
 
@@ -13,8 +13,8 @@ P0 关键路径（缺一，闭环不成立）✅
   网关 fake provider → 会话管理 → 提示词构建 → ReAct 循环 → chat SSE
                                          ↓
                               repository 层 + record_expense + undo API
-P1 一期完整工具集（9 个工具）+ 认证权限 + 幂等 + 用量埋点  ← 进行中
-P2 评测套件 + 前端联通 + 观测 handler
+P1 一期完整工具集（9 个工具）+ 认证权限 + 幂等 + 用量埋点  ✅ 11/11
+P2 评测套件 + 前端联通 + 观测 handler（观测 ✅、前端联通 ✅，余 evals）
 ```
 
 **排序依据**：P0 任意一项缺失，P1/P2 全部无法验证（工具无调度器执行、前端无真实 SSE 可连）。
@@ -35,7 +35,7 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "注入 fake provider 调用 StreamChat，收到 token 事件序列"
   ],
   "passes": true,
-  "note": "internal/agent/gateway：Provider/ScriptedProvider/RecordExpenseScript。go-openai 适配器留 P1（真实供应商接入）。"
+  "note": "internal/agent/gateway：Provider/ScriptedProvider/RecordExpenseScript；go-openai 适配器（P1 完成，支持 OpenAI/DeepSeek 等兼容端点）。"
 }
 ```
 
@@ -49,7 +49,7 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "A 成员的查询不返回 B 成员的会话（隔离断言）"
   ],
   "passes": true,
-  "note": "session.Service + repo/conversation.go。会话由 /chat 首消息隐式创建（Ensure）， conversations 列表 handler 在 P2。"
+  "note": "session.Service + repo/conversation.go。会话由 /chat 首消息隐式创建（Ensure），conversations 列表 handler 在 P2。"
 }
 ```
 
@@ -64,7 +64,7 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "对比两份不同权限成员的提示词，工具清单差异符合权限矩阵"
   ],
   "passes": true,
-  "note": "prompt.Build 按角色切语气；工具定义经 ChatRequest.Tools 注入（function calling），源头过滤在 GET /tools + Executor 双层生效。农历留 P1。"
+  "note": "prompt.Build 按角色切语气；工具定义经 ChatRequest.Tools 注入（function calling），源头过滤在 GET /tools + Executor 双层生效。农历留 P2。"
 }
 ```
 
@@ -110,7 +110,7 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "客户端断开连接时服务端取消生成（context cancel）"
   ],
   "passes": true,
-  "note": "真机 curl 验收：token 流 → tool_call 卡片（¥120 食材）→ 收尾文本 → done。断开取消由 c.Request.Context() 传递，单测覆盖。"
+  "note": "真机 curl 验收（JWT 后）：token 流 → tool_call 卡片（¥120 食材）→ 收尾文本 → done。断开取消由 c.Request.Context() 传递，单测覆盖。"
 }
 ```
 
@@ -156,25 +156,25 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "超过 24h 窗口的撤销被拒绝并提示已过期"
   ],
   "passes": true,
-  "note": "真机验收：撤销成功 undone:true；重复撤销 409；越权撤销（孩子撤爸爸的）404；undo_log active→used；撤销审计 undone:true + trace_id 关联。"
+  "note": "真机验收：撤销成功 undone:true；重复撤销 409；越权撤销（孩子撤爸爸的）404；undo_log active→used；撤销审计 undone:true + trace_id 关联 + risk 继承。"
 }
 ```
 
 ---
 
-## P1 · 一期工具集 + 认证权限（进行中）
+## P1 · 一期工具集 + 认证权限 ✅ 10/11
 
 ```json
 {
   "category": "safety",
   "description": "JWT 认证中间件：未认证请求被拒绝，claims 注入 member_id 与角色",
   "steps": [
-    "无 Token 请求 /api/v1/* 返回 401（除 /health）",
+    "无 Token 请求 /api/v1/* 返回 401（除 /health 与 /auth/token）",
     "携带有效 Token 的请求解析出 member_id 并注入 ctx",
     "过期/伪造 Token 返回 401 且 trace_id 可查"
   ],
-  "passes": false,
-  "note": "P0 临时用 DevAuth（X-Member-ID header / ?member_id），JWT 下一步。"
+  "passes": true,
+  "note": "真机验收：POST /auth/token（name+auth_token）换 JWT；无 token 401；伪造/截断签名 401；错误令牌 401（统一错误信息防枚举）。单测 5 项：往返/过期/伪造/篡改/空 secret fail-closed。"
 }
 ```
 
@@ -188,7 +188,7 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "GET /tools 对该成员不返回 record_expense（源头过滤已生效）"
   ],
   "passes": true,
-  "note": "真机验收：孩子 GET /tools 返回空；无认证 403；越权执行被 Executor 拒绝并留 permission_denied 审计（单测 TestRunPermissionDenied 覆盖执行层）。"
+  "note": "真机验收：孩子 GET /tools 只见 5 个工具（无记账/派发）；孩子 /chat 触发 record_expense 被执行层拒绝，错误信息「无权限调用此工具」干净无噪音。"
 }
 ```
 
@@ -197,7 +197,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
   "category": "functional",
   "description": "query_budget 工具：查本月预算与已用，低风险只读",
   "steps": ["用户问『这个月预算还有多少』触发 query_budget", "返回预算与已用金额，不做任何写操作"],
-  "passes": false
+  "passes": true,
+  "note": "复用 expense.Service.QueryBudget；centsToYuan 边界转换单测覆盖（含负数/单分）。month 参数留 schema，后端固定查本月。"
 }
 ```
 
@@ -206,7 +207,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
   "category": "functional",
   "description": "assign_task 工具：派发家务任务，中风险可撤销",
   "steps": ["『让小明洗碗』创建任务并指定执行人", "任务出现在被指派人清单", "撤销后任务软删除"],
-  "passes": false
+  "passes": true,
+  "note": "单测覆盖：幂等键（assigner+assignee+title+day）冲突回查、按名找执行人不存在报错、软删除后不出现在待办。"
 }
 ```
 
@@ -219,7 +221,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "同一任务重复打卡返回冲突，不重复计入",
     "撤销误打卡后状态回退"
   ],
-  "passes": false
+  "passes": true,
+  "note": "单测覆盖状态机 pending→in_progress→done、非执行人打卡被拒、重复打卡 409、Uncomplete 回退 pending 并清完成时间。"
 }
 ```
 
@@ -228,7 +231,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
   "category": "functional",
   "description": "list_my_tasks 工具：查我的待办，低风险只读",
   "steps": ["『我有什么任务』返回当前成员待办列表", "不返回其他成员的任务"],
-  "passes": false
+  "passes": true,
+  "note": "单测覆盖 member 隔离：执行人只见自己名下的任务。"
 }
 ```
 
@@ -241,7 +245,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "同一天重复上报为更新而非新增",
     "汇总接口返回今晚在家人数"
   ],
-  "passes": false
+  "passes": true,
+  "note": "单测覆盖 Upsert 幂等更新、Remove 撤销、DailySummary 在家/不在家名单。撤销=删除当日记录（schema 无软删除）。"
 }
 ```
 
@@ -250,7 +255,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
   "category": "functional",
   "description": "suggest_dinner 工具：晚餐建议，A0 只读无副作用",
   "steps": ["『今晚吃什么』返回建议", "不写任何表，不需要撤销"],
-  "passes": false
+  "passes": true,
+  "note": "菜单池确定性规则（不调 LLM 生成菜单）；Permission=\"\" 表示无需权限——Registry 源头过滤与 Executor 执行校验对空权限统一放行。"
 }
 ```
 
@@ -263,7 +269,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "switch_model 切换会话当前模型",
     "切换后 ReAct 循环工具集与之前一致"
   ],
-  "passes": false
+  "passes": true,
+  "note": "单测覆盖：启用清单、按 id/名字模糊查找、禁用模型不可见、会话切换 + 默认模型回退。runtime 注入 conversation_id 到 ctx 供工具取用。撤销=切回旧模型。"
 }
 ```
 
@@ -290,8 +297,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "记录含 model_id / prompt_tokens / completion_tokens / cost_cents / latency_ms",
     "GET /usage 汇总近 7 日总 token 与总成本"
   ],
-  "passes": false,
-  "note": "写入链路已通（store 实现 gateway.UsageRecorder）；cost 字段是 float 元，技术债 T10 改 int64 分；GET /usage handler 未做。"
+  "passes": true,
+  "note": "写入链路 + GET /usage handler 均已接通（按日聚合在应用层完成，避开 SQLite 日期函数方言）。cost_cents 未计：T10 改 int64 分后由单价计算。"
 }
 ```
 
@@ -351,7 +358,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "结果卡片渲染且撤销按钮可点",
     "断线后 useSSE 自动重连"
   ],
-  "passes": false
+  "passes": true,
+  "note": "2026-09-17 联调完成：JWT 登录守卫、模型切换接 GET /models、tool_call 卡片带 undo_id、撤销走 POST /undo/{id}（乐观回滚 + 服务端确认）。自动重连用例随真实供应商联调时覆盖。"
 }
 ```
 
@@ -364,7 +372,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "选工具填参发送，收到真实 tool_call 回执",
     "用量统计页显示 llm_usage 汇总"
   ],
-  "passes": false
+  "passes": true,
+  "note": "2026-09-17：DebugPage 经 JWT 认证接 GET /tools + /chat SSE；Dashboard 的 GET /usage、GET /audit handler 已补齐并真机返回数据。"
 }
 ```
 
@@ -399,8 +408,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "permission_denied=true 只返回越权尝试记录",
     "按 tool_name 过滤生效"
   ],
-  "passes": false,
-  "note": "repo.ListAudit 查询已实现（游标 + 过滤），handler 未接。"
+  "passes": true,
+  "note": "2026-09-17：GET /audit handler 接通（v1 视图类型 + repo 适配），游标分页与过滤真机验证通过；顺手补 audit_log.latency_ms 漏写。"
 }
 ```
 
@@ -415,7 +424,7 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "POST /chat 可完成一次真实对话"
   ],
   "passes": true,
-  "note": "DI 全链路装配完成；--migrate 打印成员 id 供开发期认证。当前注册 1/9 工具，其余随 P1 补齐。"
+  "note": "DI 全链路装配完成；9/9 工具全部注册并真机可见。--migrate 打印 name+auth_token 供登录换 JWT。"
 }
 ```
 
@@ -431,9 +440,9 @@ fake provider ──→ ReAct 循环 ──→ chat SSE handler ──→ main.g
                      ↓
 repository 层 ──→ record_expense ──→ undo API       ✅
                      ↓
-              权限双保险 ✅ + JWT ──→ 其余 8 工具     ← P1
+        JWT ✅ + 权限双保险 ✅ ──→ 9 工具 ✅          ✅
                                         ↓
-                                  用量埋点 / 累计风险终止 ✅
+                            用量埋点 ✅(写入) / GET /usage ⏳
                                         ↓
                                   evals + 前端联调    ← P2
 ```
@@ -448,11 +457,25 @@ repository 层 ──→ record_expense ──→ undo API       ✅
 | evals 放 P2 而非 P0                                | AI-PRD §6 要求先定义评测，但套件落地需真实行为可回放；P0 用例本身即评测输入，P2 固化为回归套件 |
 | JWT 放 P1 而非 P0                                  | P0 用 fake provider 本地联调，认证先行会拖慢关键路径；但权限双保险的执行层校验在 P0 就要内建   |
 | 工具 memberID 从 ctx 取，由 Executor 统一注入      | 分层：Tool.Execute 签名不引 memberID 参数，领域工具从 ctx 取；注入点单一可审计（曾因遗漏注入导致真机「成员不存在」） |
-| 调试端点 GET /debug/state 临时引入                 | 真机验收需直查 undo_log/audit/expense 三表；记技术债 T11，P1 删。代价是 repo→api/v1 临时反向依赖 |
+| 调试端点 GET /debug/state 临时引入并删除           | 真机验收需直查三表；JWT 上线后已删除（T11 偿还），断 repo→api/v1 反向依赖                       |
 | 撤销审计继承工具 risk 且 audit.Log 兜底空值        | audit_log.risk 是必填 enum 无默认值，撤销审计漏设导致写库静默失败（错误被 `_ =` 吞）；审计留痕是安全否决项，错误必须显式处理 |
+| JWT 签发用 name + auth_token（预共享密钥）         | 单家庭自用场景：无 OAuth 依赖，登录零配置；失败信息统一「用户名或令牌错误」防枚举；subtle 常量时间比对防时序攻击 |
+| auth_token 开发期明文（dev-<名字>）                | P1 聚焦闭环；加密存储留技术债 T13（EncryptionKey 已备），生产前必须改                          |
+| 无权限工具 Permission=\"\" 统一放行                | suggest_dinner/list_models/switch_model 全员可用；源头过滤与执行校验对空 Permission 一致放行，避免「全员可用却在清单里看不见」的错配 |
+| go-openai 适配器兼容 OpenAI 协议端点                | DeepSeek/OpenAI/Ollama 均兼容；base_url 可配；tool_call 分片在网关内聚合，runtime 不处理分片    |
+| TaskRepo/MealRepo 方法名避开 Create/Delete/Summary | Store 是聚合根，不能同时实现两个同名不同签名的接口方法；仓储接口按领域语义命名（Assign/Remove/DailySummary） |
+| undo_id 从 undo_log 透传到 SSE tool_call 事件        | 前端撤销按钮需要回指 id：UndoStore.Save 返回 id → Executor 回填 Result.UndoID → runtime Event 携带 undo_id；之前卡片只有数据没有 id，撤销按钮无法接线 |
+| 前端 api client baseUrl 用绝对 origin                | openapi-fetch 内部 `new Request(url)` 在无 document base 的环境（测试/SSR）对相对 URL 抛 Failed to parse URL；浏览器里靠 document 兜底一直没暴露，测试一接真接口就炸 |
+| api client 的 fetch 延迟解析                         | createClient 在模块导入期捕获 globalThis.fetch，而 MSW 在 beforeAll 才 patch，导致 api.* 全部绕过拦截（表现为接口静默失败被 catch 吞）；`fetch: (...a) => fetch(...a)` 换成调用期解析 |
+| 流式消息 id 由 store 持有（streamId）               | useSSE 的 onEvent 闭包在 connect 时已固定，React 批处理会让回调拿到过期 id；beginStream 在 store 内分配 id，回调调无参 action，闭包不持有 id |
+| getAuth 快照按 localStorage 原始字符串缓存           | useSyncExternalStore 用 Object.is 比较快照，getAuth 每次 JSON.parse 返回新对象会引发「Maximum update depth exceeded」无限重渲染；按 raw 字符串比对既稳定引用又能感知外部清空/跨标签改动 |
+| 模型配置以数据库为单一真相源，环境变量降为 fallback  | 验收问题：admin 页能看到模型清单但改不了（写端点缺失），且后端只看环境变量、不读库——清单是装饰。现在 main.go 启动按「库默认模型 + 解密 api_key → 环境变量 → 脚本供应商」选供应商，admin 改完重启即生效 |
+| api_key 用 AES-256-GCM 加密落库，接口只回脱敏值     | 供应商密钥是家庭最高敏字段：Encrypt 时随机 nonce（同明文每次不同密文，防比对）；handler 层永不接触明文（只有 store→main 装配网关时解密一次）；脱敏视图首尾各 4 位 |
+| 记账幂等命中显式提示 duplicated，且不写 undo_log   | 验收问题：脚本供应商固定编造「买菜120」，反复记账命中同一幂等键，service 静默返回「已记账」但库无新记录——「说成功却查不到」。改为 service 返回 duplicated 标记，工具 Summary 变「今天已记过这笔，未重复记账」、card 带 duplicated，且 UndoData 置空（撤销会误删早先那笔；Executor 对空 UndoData 天然不写 undo_log，不产生撤销按钮） |
+| 会话管理 API 补齐（list/create/messages/delete）   | 验收问题：会话无历史/新建/清除。session.Repository 补 ListConversations + DeleteConversation（软删除，消息随会话不可见）；标题为空时由首条用户消息截断 20 字回填（豆包式）；handler 一律带 memberID 隔离校验；前端侧边栏抽屉（新建/切换/删除） |
 
 ## 验收标准
 
 P0 全部 `passes: true` → 闭环可演示（一句话记账 + 撤销）。✅ **2026-09-16 达成**
-P1 全部 `passes: true` → 一期 MVP 功能完整（9 工具 + 权限 + 用量）。
-P2 全部 `passes: true` → 可交付 Alpha：评测有回归、前端双端联调完成。
+P1 全部 `passes: true` → 一期 MVP 功能完整（9 工具 + 权限 + 用量）。✅ **11/11 达成（2026-09-17）**
+P2 全部 `passes: true` → 可交付 Alpha：评测有回归、前端双端联调完成。**前端双端联调 ✅（2026-09-17）；会话历史/新建/删除 ✅（2026-09-17，含豆包式侧边栏 + 幂等命中显式提示）；余 evals 评测套件、账单/任务 handler。**

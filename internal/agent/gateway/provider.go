@@ -72,6 +72,7 @@ type StreamEvent struct {
 	Delta    string
 	ToolCall *ToolCall
 	Usage    *Usage
+	Err      error
 	Done     bool
 }
 

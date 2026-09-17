@@ -8,7 +8,7 @@
 单家庭自用的 AI 协作中枢：家人说一句话，Agent 调用后端工具把家务/用餐/账单/日程办到位。
 Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管理端）+ OpenAPI 契约驱动双端类型。
 
-**当前阶段**：A/B 骨架已完成（后端生成链路 + 前端两端正交）；C 阶段 **P0 关键路径已验收通过**（对话→执行→撤销闭环：fake provider → ReAct → chat SSE → record_expense → undo，含权限双保险/幂等/审计留痕），进行 P1（JWT + 其余 8 工具）。
+**当前阶段**：A/B 骨架已完成；C 阶段 **P0 关键路径 ✅ 9/9**、**P1 工具集+JWT+观测 ✅ 11/11**（9 工具 + JWT 认证 + 权限双保险 + 幂等 + go-openai 适配器 + GET /models·/audit·/usage）、**P2 前端双端联调 ✅**（JWT 登录守卫 + ChatPage 真实 SSE + undo_id 撤销闭环 + admin Debug/仪表盘/审计），进入 P2 剩余项（evals 评测套件、会话历史接口、账单/任务 handler）。
 进度与决策日志见 `docs/exec-plans/active/`，技术债见 `docs/tech-debt.md`。
 
 ## 不可违反的不变量（改任何代码前先读）
@@ -52,6 +52,12 @@ make migrate           # 建库 + 种子数据（data/homeagent.db）
 make test              # go test ./...（无 -race：本机无 gcc）
 go run ./cmd/homeagent # 启服务，:8080，/api/v1/health
 
+# 本地联调认证（JWT）：--migrate 打印 name+auth_token，再换令牌
+curl -X POST http://localhost:8080/api/v1/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"爸爸","auth_token":"dev-baba"}'   # → token，后续 Authorization: Bearer <token>
+# 真实 LLM：LLM_API_KEY + LLM_MODEL + LLM_BASE_URL 环境变量；留空则用脚本供应商
+
 # 前端（pnpm 工作区）
 pnpm -r run typecheck  # 全部类型检查
 pnpm run lint          # ESLint + Stylelint
@@ -71,6 +77,9 @@ pnpm run format        # Prettier
 - **curl 验收用 body 文件**：PowerShell 传 JSON 给 `curl.exe -d` 转义易错（单引号内 `\"` 行为不稳）；`Set-Content -Encoding UTF8` 带 BOM 会导致 JSON 解析 400。正确姿势：`[IO.File]::WriteAllText($f, $json, (New-Object Text.UTF8Encoding $false))` 后 `-d "@$f"`。
 - **启服务前先清残留进程**：`Get-Process go,homeagent | Stop-Process -Force`，否则旧二进制占 8080，新请求路由到旧服务（表现为 /chat 404、/tools 返回旧空清单）。推荐 `go build -o homeagent.exe` 后启二进制，避免 `go run` 编译期占端口。
 - 本机活动代理是 airtcp（127.0.0.1:5780）；配置里若残留 7897（Clash Verge）是死端口。
+- **前端 dev server 用 `Start-Process node -ArgumentList 'node_modules\vite\bin\vite.js'`**（Start-Process pnpm.cmd 会被工具的 ChildProcess.kill 回收）；web 5173 / admin 3001，`/api` 代理到 8080。
+- **openapi-fetch 两个坑**：① baseUrl 必须是绝对 origin（`window.location.origin + '/api/v1'`），相对 URL 在无 document base 的环境（测试/SSR）会抛 `Failed to parse URL`；② client 在**模块导入期**捕获 `globalThis.fetch`，而 MSW 在 `beforeAll` 才 patch，捕获到的引用绕过拦截——用 `fetch: (...a) => fetch(...a)` 延迟到调用期解析。两者在浏览器里靠 document 兜底一直没暴露，接真接口写测试才炸。
+- **临时探针测试**（连开发库查证数据用）：① 文件名**必须**以 `_test.go` 结尾，否则 `go test` 把它当普通源文件，与目录里的 `package store` 冲突报 `found packages store and store_test`；② 库相对路径按**包目录**算——从 `internal/store/repo` 到项目内库是 `../../../data/homeagent.db`（repo→store→internal→根），少写一层会指到项目根之外，曾在 `sun\007\data\` 误建过副本库（清密钥清错库，表现为接口仍显示已配置）。稳妥起见用绝对路径。
 
 ## 工作方式（Harness）
 

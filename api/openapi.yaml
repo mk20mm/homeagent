@@ -108,6 +108,102 @@ paths:
                     items:
                       $ref: '#/components/schemas/Model'
 
+  /admin/providers:
+    get:
+      tags: [admin]
+      summary: 供应商配置清单（含脱敏密钥）
+      description: |
+        api_key 落库加密，此接口只返回脱敏值（如 sk-a***nop）。
+        仅供管理端编辑回显，禁止回传明文（ADR 安全约束）。
+      operationId: listProviders
+      responses:
+        '200':
+          description: 供应商清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Provider'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/providers/{providerId}:
+    put:
+      tags: [admin]
+      summary: 更新供应商配置（加密存密钥）
+      description: |
+        api_key 传入即加密覆盖；传空串或省略表示不改密钥。
+        只有 parent 角色可写（权限双保险：路由层 + 执行层）。
+      operationId: updateProvider
+      parameters:
+        - $ref: '#/components/parameters/ProviderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  format: password
+                  description: 明文密钥，服务端加密入库；空串/省略 = 不修改
+                base_url:
+                  type: string
+                  description: 供应商 API 地址，空用供应商默认
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: 更新后的供应商（脱敏）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/models/{modelId}:
+    put:
+      tags: [admin]
+      summary: 更新模型配置（启停/设默认）
+      description: |
+        设默认模型是互斥操作：旧默认自动取消。
+        只有 parent 角色可写。
+      operationId: updateModel
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                is_default:
+                  type: boolean
+                  description: 设为全局默认（互斥，旧默认自动取消）
+      responses:
+        '200':
+          description: 更新后的模型
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /chat:
     post:
       tags: [chat]
@@ -181,6 +277,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Conversation'
+
+  /conversations/{conversationId}:
+    delete:
+      tags: [chat]
+      summary: 删除会话（软删除）
+      operationId: deleteConversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '204':
+          description: 已删除
 
   /conversations/{conversationId}/messages:
     get:
@@ -587,6 +694,20 @@ components:
       schema:
         type: string
         format: uuid
+    ProviderId:
+      in: path
+      name: providerId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ModelId:
+      in: path
+      name: modelId
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
     Unauthorized:
@@ -714,6 +835,30 @@ components:
           type: string
           example: openai
         is_default:
+          type: boolean
+
+    Provider:
+      type: object
+      required: [id, name, enabled]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: deepseek
+          description: 供应商标识（枚举，见 shared ProviderName）
+        base_url:
+          type: string
+          example: https://api.deepseek.com
+        api_key_masked:
+          type: string
+          example: sk-a***nop
+          description: 脱敏密钥（明文绝不回传）
+        api_key_set:
+          type: boolean
+          description: 是否已配置密钥（空密钥时 false）
+        enabled:
           type: boolean
 
     ChatRequest:

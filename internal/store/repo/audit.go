@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	"github.com/mk20mm/homeagent/internal/agent/gateway"
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/apperr"
@@ -15,14 +16,6 @@ import (
 	"github.com/mk20mm/homeagent/internal/store/ent/llmusage"
 	"github.com/mk20mm/homeagent/internal/store/ent/member"
 )
-
-// AuditQuery 审计查询参数。
-type AuditQuery struct {
-	PageSize         int
-	Cursor           string
-	ToolName         string
-	PermissionDenied bool
-}
 
 // 编译期：实现 tool.AuditLogger。
 var _ tool.AuditLogger = (*Store)(nil)
@@ -41,6 +34,7 @@ func (s *Store) Log(ctx context.Context, e tool.AuditEntry) error {
 		SetParams(params).
 		SetUndone(e.Undone).
 		SetPermissionDenied(e.PermissionDenied).
+		SetLatencyMs(e.LatencyMS).
 		SetMemberID(toUUID(e.MemberID))
 	if e.Result != "" {
 		b.SetResult(e.Result)
@@ -58,7 +52,7 @@ func (s *Store) Log(ctx context.Context, e tool.AuditEntry) error {
 }
 
 // ListAudit 审计列表（游标分页 + 过滤），返回下一页游标。
-func (s *Store) ListAudit(ctx context.Context, memberID string, q AuditQuery) ([]tool.AuditEntry, string, error) {
+func (s *Store) ListAudit(ctx context.Context, memberID string, q v1.AuditQuery) ([]v1.AuditItem, string, error) {
 	query := s.db.AuditLog.Query().
 		Where(auditlog.HasMemberWith(member.IDEQ(toUUID(memberID))))
 	if q.PermissionDenied {
@@ -90,17 +84,64 @@ func (s *Store) ListAudit(ctx context.Context, memberID string, q AuditQuery) ([
 		list = list[:q.PageSize]
 	}
 
-	out := make([]tool.AuditEntry, 0, len(list))
+	out := make([]v1.AuditItem, 0, len(list))
 	for _, l := range list {
-		out = append(out, tool.AuditEntry{
-			TraceID:  l.TraceID,
-			ToolName: l.ToolName,
-			Risk:     tool.RiskLevel(l.Risk),
-			Result:   l.Result,
-			Undone:   l.Undone,
+		out = append(out, v1.AuditItem{
+			ID:               l.ID.String(),
+			CreatedAt:        l.CreatedAt,
+			ToolName:         l.ToolName,
+			Risk:             string(l.Risk),
+			Result:           l.Result,
+			LatencyMS:        l.LatencyMs,
+			Undone:           l.Undone,
+			PermissionDenied: l.PermissionDenied,
+			TraceID:          l.TraceID,
 		})
 	}
 	return out, nextCursor, nil
+}
+
+// UsageSummary 近 N 日按日汇总 LLM 用量（家庭维度，管理端仪表盘）。
+// 按日聚合在应用层完成：单家庭数据量小，避免 SQLite 按日期函数分组方言差异。
+func (s *Store) UsageSummary(ctx context.Context, days int) (v1.UsageSummary, error) {
+	if days <= 0 {
+		days = 7
+	}
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
+		AddDate(0, 0, -(days - 1))
+
+	rows, err := s.db.LLMUsage.Query().
+		Where(llmusage.CreatedAtGTE(start)).
+		All(ctx)
+	if err != nil {
+		return v1.UsageSummary{}, apperr.New(apperr.CodeInternal, "查询用量统计失败", err)
+	}
+
+	buckets := make(map[string]*v1.UsageItem, days)
+	for i := days - 1; i >= 0; i-- {
+		d := start.AddDate(0, 0, i).Format("2006-01-02")
+		buckets[d] = &v1.UsageItem{Date: d}
+	}
+	for _, r := range rows {
+		key := r.CreatedAt.Format("2006-01-02")
+		b, ok := buckets[key]
+		if !ok {
+			continue // 早于窗口的历史行
+		}
+		b.Tokens += r.PromptTokens + r.CompletionTokens
+		b.Cost += r.Cost
+	}
+
+	out := v1.UsageSummary{Items: make([]v1.UsageItem, 0, len(buckets))}
+	for i := days - 1; i >= 0; i-- {
+		d := start.AddDate(0, 0, i).Format("2006-01-02")
+		item := *buckets[d]
+		out.TotalTokens += item.Tokens
+		out.TotalCost += item.Cost
+		out.Items = append(out.Items, item)
+	}
+	return out, nil
 }
 
 // 编译期：实现 gateway.UsageRecorder。

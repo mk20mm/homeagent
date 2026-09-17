@@ -54,6 +54,7 @@ func (Member) Edges() []ent.Edge {
 		edge.To("conversations", Conversation.Type),
 		edge.To("expenses", Expense.Type),
 		edge.To("tasks", Task.Type),
+		edge.To("assigned_tasks", Task.Type),
 		edge.To("meal_reports", MealReport.Type),
 		edge.To("undo_logs", UndoLog.Type),
 		edge.To("audit_logs", AuditLog.Type),

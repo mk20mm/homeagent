@@ -43,6 +43,7 @@ type Result struct {
 	Summary  string          // 一句话总结，给 LLM 继续生成
 	Card     json.RawMessage // 结构化卡片数据（前端渲染 + 撤销按钮）
 	UndoData json.RawMessage // 撤销所需数据，写入 undo_log（写操作必填）
+	UndoID   string          // 撤销记录 id（Executor 写完 undo_log 后回填，透传给前端撤销按钮）
 }
 
 // Tool 是所有工具的基础接口。

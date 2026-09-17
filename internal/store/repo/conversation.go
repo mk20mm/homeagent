@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/mk20mm/homeagent/internal/agent/gateway"
@@ -15,16 +16,121 @@ import (
 
 var _ session.Repository = (*Store)(nil)
 
-// CreateConversation 新建会话。
-func (s *Store) CreateConversation(ctx context.Context, memberID, title string) (string, error) {
-	c, err := s.db.Conversation.Create().
+// CreateConversation 新建会话；modelID 空则不绑定模型（用默认）。
+func (s *Store) CreateConversation(ctx context.Context, memberID, title, modelID string) (string, error) {
+	b := s.db.Conversation.Create().
 		SetTitle(title).
-		SetMemberID(toUUID(memberID)).
-		Save(ctx)
+		SetMemberID(toUUID(memberID))
+	if modelID != "" {
+		b.SetModelID(toUUID(modelID))
+	}
+	c, err := b.Save(ctx)
 	if err != nil {
 		return "", apperr.New(apperr.CodeInternal, "创建会话失败", err)
 	}
 	return c.ID.String(), nil
+}
+
+// ListConversations 成员的会话列表（软删除过滤 + member 隔离，游标分页）。
+// 排序：最后消息时间倒序（SQLite 下 NULL 天然在末尾，新建空会话排最后）。
+func (s *Store) ListConversations(ctx context.Context, memberID string, limit int, cursor string) ([]session.Conversation, string, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	query := s.db.Conversation.Query().
+		Where(
+			conversation.HasMemberWith(member.IDEQ(toUUID(memberID))),
+			conversation.DeletedAtIsNil(),
+		)
+	if cursor != "" {
+		if t, err := time.Parse(time.RFC3339, cursor); err == nil {
+			query = query.Where(conversation.LastMessageAtLT(t))
+		}
+	}
+	list, err := query.
+		Order(ent.Desc(conversation.FieldLastMessageAt)).
+		Limit(limit + 1).
+		All(ctx)
+	if err != nil {
+		return nil, "", apperr.New(apperr.CodeInternal, "查询会话列表失败", err)
+	}
+
+	nextCursor := ""
+	if len(list) > limit {
+		if list[limit-1].LastMessageAt != nil {
+			nextCursor = list[limit-1].LastMessageAt.Format(time.RFC3339)
+		}
+		list = list[:limit]
+	}
+
+	out := make([]session.Conversation, 0, len(list))
+	for _, c := range list {
+		conv := session.Conversation{
+			ID:        c.ID.String(),
+			MemberID:  memberID,
+			Title:     c.Title,
+			CreatedAt: c.CreatedAt,
+		}
+		if c.LastMessageAt != nil {
+			conv.LastMessageAt = *c.LastMessageAt
+		}
+		out = append(out, conv)
+	}
+	return out, nextCursor, nil
+}
+
+// LoadMessageList 消息列表视图（API 层展示用，带 id/时间，按时间正序）。
+func (s *Store) LoadMessageList(ctx context.Context, convID, memberID string, limit int) ([]session.MessageView, error) {
+	if _, err := s.LoadConversation(ctx, convID, memberID); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	list, err := s.db.Message.Query().
+		Where(message.HasConversationWith(conversation.IDEQ(toUUID(convID)))).
+		Order(ent.Asc(message.FieldCreatedAt)).
+		Limit(limit).
+		All(ctx)
+	if err != nil {
+		return nil, apperr.New(apperr.CodeInternal, "查询消息失败", err)
+	}
+
+	out := make([]session.MessageView, 0, len(list))
+	for _, m := range list {
+		content := m.Content
+		if m.Role == message.RoleAssistant {
+			// 存储层把 tool_calls 编码进 content，展示层只取文本
+			content = session.DecodeAssistantContent(m.Content).Content
+		}
+		out = append(out, session.MessageView{
+			ID:             m.ID.String(),
+			ConversationID: convID,
+			Role:           string(m.Role),
+			Content:        content,
+			ToolName:       m.ToolName,
+			CreatedAt:      m.CreatedAt,
+		})
+	}
+	return out, nil
+}
+
+// DeleteConversation 软删除会话（消息随会话一起对用户不可见，保留审计留痕）。
+func (s *Store) DeleteConversation(ctx context.Context, convID, memberID string) error {
+	if _, err := s.LoadConversation(ctx, convID, memberID); err != nil {
+		return err
+	}
+	n, err := s.db.Conversation.Update().
+		Where(conversation.IDEQ(toUUID(convID))).
+		SetDeletedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return apperr.New(apperr.CodeInternal, "删除会话失败", err)
+	}
+	if n == 0 {
+		return apperr.New(apperr.CodeNotFound, "会话不存在", nil)
+	}
+	return nil
 }
 
 // LoadConversation 取会话（含 member 隔离校验 + 软删除过滤）。
@@ -43,9 +149,10 @@ func (s *Store) LoadConversation(ctx context.Context, convID, memberID string) (
 	}
 
 	out := session.Conversation{
-		ID:       c.ID.String(),
-		MemberID: memberID,
-		Title:    c.Title,
+		ID:        c.ID.String(),
+		MemberID:  memberID,
+		Title:     c.Title,
+		CreatedAt: c.CreatedAt,
 	}
 	if c.LastMessageAt != nil {
 		out.LastMessageAt = *c.LastMessageAt
@@ -87,7 +194,8 @@ func (s *Store) LoadMessages(ctx context.Context, convID, memberID string) ([]se
 
 // AppendMessages 追加消息（同一事务，避免半截历史）。
 func (s *Store) AppendMessages(ctx context.Context, convID, memberID string, msgs []session.Message) error {
-	if _, err := s.LoadConversation(ctx, convID, memberID); err != nil {
+	conv, err := s.LoadConversation(ctx, convID, memberID)
+	if err != nil {
 		return err
 	}
 	tx, err := s.db.Tx(ctx)
@@ -122,16 +230,39 @@ func (s *Store) AppendMessages(ctx context.Context, convID, memberID string, msg
 			return apperr.New(apperr.CodeInternal, "保存消息失败", err)
 		}
 	}
-	if err := tx.Conversation.UpdateOneID(toUUID(convID)).
-		SetLastMessageAt(time.Now()).
-		Exec(ctx); err != nil {
-		return apperr.New(apperr.CodeInternal, "更新会话时间失败", err)
+
+	// 标题为空时用首条用户消息截断作标题（豆包式）；同时刷新最后消息时间
+	upd := tx.Conversation.UpdateOneID(toUUID(convID)).SetLastMessageAt(time.Now())
+	if conv.Title == "" {
+		if title := firstUserTitle(msgs); title != "" {
+			upd.SetTitle(title)
+		}
+	}
+	if err := upd.Exec(ctx); err != nil {
+		return apperr.New(apperr.CodeInternal, "更新会话失败", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return apperr.New(apperr.CodeInternal, "提交消息事务失败", err)
 	}
 	committed = true
 	return nil
+}
+
+// firstUserTitle 取本轮首条非空用户消息，按 rune 截断 20 字，超出加省略号。
+func firstUserTitle(msgs []session.Message) string {
+	for _, m := range msgs {
+		if m.Role == gateway.RoleUser {
+			t := strings.TrimSpace(m.Content)
+			if t == "" {
+				continue
+			}
+			if len([]rune(t)) > 20 {
+				return string([]rune(t)[:20]) + "…"
+			}
+			return t
+		}
+	}
+	return ""
 }
 
 // Permissions 成员权限集合（权限双保险源头，ADR-005）。

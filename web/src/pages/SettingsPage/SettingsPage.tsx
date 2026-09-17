@@ -1,17 +1,44 @@
 /** 系统管理页（page-05-admin）：供应商配置/用量/权限矩阵入口（移动端精简版） */
+import { useNavigate } from 'react-router'
+
 import {
   MEMBER_ROLE_LABEL,
   PROVIDER_LABEL,
   type MemberRole,
   type ProviderName,
+  clearAuth,
+  getAuth,
 } from '@homeagent/shared'
 
 import styles from './SettingsPage.module.css'
 
 export function SettingsPage() {
+  const navigate = useNavigate()
+  const auth = getAuth()
+
   return (
     <div>
       <h1 className={styles.title}>系统管理</h1>
+
+      {auth && (
+        <div className={styles.section}>
+          当前登录
+          <div className={styles.list}>
+            <div className={styles.item}>
+              <span>角色：{MEMBER_ROLE_LABEL[auth.role]}</span>
+              <span
+                className={styles.configure}
+                onClick={() => {
+                  clearAuth()
+                  navigate('/login', { replace: true })
+                }}
+              >
+                退出登录
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={styles.section}>模型供应商</div>
       <div className={styles.list}>

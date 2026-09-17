@@ -11,6 +11,23 @@
   padding: 8px 0 16px;
 }
 
+.menuBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin-right: 8px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: #0a84ff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.menuBtn:hover {
+  background: #f2f3f7;
+}
+
 .title {
   font-weight: 700;
 }
@@ -66,6 +83,11 @@
   background: #fff;
   color: #000;
   border-bottom-left-radius: 4px;
+}
+
+.undone {
+  color: #8e8e93;
+  font-size: 13px;
 }
 
 .error {

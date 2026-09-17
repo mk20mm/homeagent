@@ -17,7 +17,10 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	_ "modernc.org/sqlite" // 纯 Go SQLite 驱动
 
+	"github.com/google/uuid"
+
 	"github.com/mk20mm/homeagent/internal/store/ent"
+	"github.com/mk20mm/homeagent/internal/store/ent/llmprovider"
 	"github.com/mk20mm/homeagent/internal/store/ent/member"
 )
 
@@ -75,24 +78,27 @@ func MustSeed(ctx context.Context, client *ent.Client) error {
 	}
 
 	// 三成员：家长/老人/小孩，权限模板对齐 ADR-005。
+	// auth_token 为开发期可预测值（dev-<名字>），--migrate 时打印给本地联调用；
+	// 生产应由管理端生成随机串并加密存储（技术债：auth_token 明文）。
 	members := []struct {
-		name string
-		role member.Role
-		tmpl member.PermissionTemplate
-		perms map[string]bool
+		name      string
+		role      member.Role
+		tmpl      member.PermissionTemplate
+		perms     map[string]bool
+		authToken string
 	}{
 		{"爸爸", member.RoleParent, member.PermissionTemplateAdmin, map[string]bool{
 			"expense.write": true, "expense.read": true,
 			"task.write": true, "task.read": true,
 			"meal.write": true, "system.admin": true,
-		}},
+		}, "dev-baba"},
 		{"奶奶", member.RoleElder, member.PermissionTemplateLimited, map[string]bool{
 			"expense.write": true, "expense.read": true,
 			"task.read": true, "meal.write": true,
-		}},
+		}, "dev-nainai"},
 		{"孩子", member.RoleChild, member.PermissionTemplateChild, map[string]bool{
 			"task.read": true, "meal.write": true,
-		}},
+		}, "dev-haizi"},
 	}
 	for _, m := range members {
 		if err := tx.Member.Create().
@@ -100,6 +106,7 @@ func MustSeed(ctx context.Context, client *ent.Client) error {
 			SetRole(m.role).
 			SetPermissionTemplate(m.tmpl).
 			SetPermissions(m.perms).
+			SetAuthToken(m.authToken).
 			SetFamily(fam).
 			Exec(ctx); err != nil {
 			seedErr = fmt.Errorf("seed member %s: %w", m.name, err)
@@ -125,6 +132,47 @@ func MustSeed(ctx context.Context, client *ent.Client) error {
 		}
 		if err := b.SetFamily(fam).Exec(ctx); err != nil {
 			seedErr = fmt.Errorf("seed category %s: %w", c.name, err)
+			return seedErr
+		}
+	}
+
+	// LLM 供应商与模型清单（P1 会话内切换用；api_key 留空，由环境变量注入）
+	providerIDs := map[string]string{}
+	for _, p := range []struct {
+		name    llmprovider.Name
+		baseURL string
+	}{
+		{llmprovider.NameDeepseek, "https://api.deepseek.com"},
+		{llmprovider.NameOpenai, ""},
+	} {
+		prov, err := tx.LLMProvider.Create().
+			SetName(p.name).
+			SetBaseURL(p.baseURL).
+			SetEnabled(true).
+			Save(ctx)
+		if err != nil {
+			seedErr = fmt.Errorf("seed provider %s: %w", p.name, err)
+			return seedErr
+		}
+		providerIDs[string(p.name)] = prov.ID.String()
+	}
+	for _, m := range []struct {
+		name, display, provider string
+		isDefault               bool
+	}{
+		{"deepseek-chat", "DeepSeek 对话", "deepseek", true},
+		{"gpt-4o", "GPT-4o", "openai", false},
+	} {
+		b := tx.LLMModel.Create().
+			SetModelName(m.name).
+			SetDisplayName(m.display).
+			SetEnabled(true).
+			SetProviderID(uuid.MustParse(providerIDs[m.provider]))
+		if m.isDefault {
+			b.SetIsDefault(true)
+		}
+		if err := b.Exec(ctx); err != nil {
+			seedErr = fmt.Errorf("seed model %s: %w", m.name, err)
 			return seedErr
 		}
 	}

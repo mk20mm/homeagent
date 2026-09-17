@@ -1,4 +1,4 @@
-// Package middleware 应用层中间件：recover / trace_id / cors。
+// Package middleware 应用层中间件：recover / trace_id / cors / jwtauth。
 package middleware
 
 import (
@@ -7,7 +7,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/mk20mm/homeagent/internal/apperr"
 )
+
+// MemberLookup 由 handler 层提供：memberID 存在且启用校验（JWT 中间件用）。
+type MemberLookup interface {
+	Exists(memberID string) bool
+}
 
 // TraceID 为每个请求生成 trace_id，供审计/日志关联（AI-STD-008 最小 Trace 字段）。
 func TraceID() gin.HandlerFunc {
@@ -60,4 +67,26 @@ func CORS() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// abortJSON 错误三段式响应（与 v1.abortWith 同语义，中间件自用）。
+func abortJSON(c *gin.Context, e *apperr.Error) {
+	status := 500
+	switch e.Code {
+	case apperr.CodeInvalidInput:
+		status = 400
+	case apperr.CodeUnauthorized:
+		status = 401
+	case apperr.CodePermission:
+		status = 403
+	case apperr.CodeNotFound:
+		status = 404
+	case apperr.CodeConflict:
+		status = 409
+	}
+	c.AbortWithStatusJSON(status, gin.H{
+		"code":     string(e.Code),
+		"message":  e.Msg,
+		"trace_id": c.GetString("trace_id"),
+	})
 }

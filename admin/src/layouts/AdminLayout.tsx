@@ -1,7 +1,9 @@
 import { ApiOutlined, AuditOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons'
 import { Layout, Menu } from 'antd'
-import { useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router'
+import { useSyncExternalStore, useState } from 'react'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
+
+import { clearAuth, getAuth, MEMBER_ROLE_LABEL, subscribeAuth } from '@homeagent/shared'
 
 const { Header, Sider, Content } = Layout
 
@@ -17,6 +19,10 @@ export function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
+
+  // 路由守卫：无登录态去登录页（订阅变化，令牌失效即时跳转）
+  const auth = useSyncExternalStore(subscribeAuth, getAuth, () => null)
+  if (!auth) return <Navigate to="/login" replace />
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -45,8 +51,29 @@ export function AdminLayout() {
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: '0 24px', background: '#fff', fontWeight: 600 }}>
-          家事协作中枢 · 管理端
+        <Header
+          style={{
+            padding: '0 24px',
+            background: '#fff',
+            fontWeight: 600,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>家事协作中枢 · 管理端</span>
+          <span style={{ fontWeight: 400, fontSize: 13, color: '#8e8e93' }}>
+            {MEMBER_ROLE_LABEL[auth.role]}{' '}
+            <a
+              style={{ marginLeft: 12 }}
+              onClick={() => {
+                clearAuth()
+                navigate('/login', { replace: true })
+              }}
+            >
+              退出登录
+            </a>
+          </span>
         </Header>
         <Content style={{ margin: 24, padding: 24, background: '#fff', borderRadius: 12 }}>
           <Outlet />

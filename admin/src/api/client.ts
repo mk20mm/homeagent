@@ -4,12 +4,37 @@
  */
 import createClient from 'openapi-fetch'
 
+import { clearAuth, getToken } from '@homeagent/shared'
+
 import type { components, paths } from './schema'
 
 /** 后端错误码枚举：唯一真相源是 openapi 契约（对齐 apperr.Code） */
 export type ApiErrorCode = components['schemas']['Error']['code']
 
-export const api = createClient<paths>({ baseUrl: '/api/v1' })
+export const api = createClient<paths>({
+  // 绝对 baseUrl：openapi-fetch 内部 new Request() 需要完整来源，
+  // 相对路径在浏览器靠 document 兜底，但 SSR/测试环境会抛 Failed to parse URL
+  baseUrl:
+    typeof window !== 'undefined' && window.location?.origin
+      ? `${window.location.origin}/api/v1`
+      : '/api/v1',
+  // 延迟解析 fetch：MSW 在 beforeAll 才 patch globalThis.fetch，
+  // 导入期捕获的引用会绕过拦截（测试里表现为请求被吞、接口 '' 静默失败）
+  fetch: (...args) => fetch(...args),
+})
+
+// 认证中间件：每个请求带 JWT；401（令牌失效）立即清空登录态
+api.use({
+  onRequest: ({ request }) => {
+    const token = getToken()
+    if (token) request.headers.set('Authorization', `Bearer ${token}`)
+    return request
+  },
+  onResponse: ({ response }) => {
+    if (response.status === 401) clearAuth()
+    return response
+  },
+})
 
 /**
  * 错误归一化：后端返回 {code, message, trace_id}（openapi Error）。

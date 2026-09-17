@@ -52,7 +52,8 @@ type ExpenseRepo interface {
 
 // Service 财务领域服务（工具通过它操作账单，不直接碰 ent.Client）。
 type Service interface {
-	RecordExpense(ctx context.Context, cmd RecordExpenseCmd, memberID string) (id string, category string, err error)
+	// RecordExpense 记账；duplicated=true 表示幂等命中（今天已记过同样的一笔，未重复入库）。
+	RecordExpense(ctx context.Context, cmd RecordExpenseCmd, memberID string) (id string, category string, duplicated bool, err error)
 	DeleteExpense(ctx context.Context, id string) error
 	QueryBudget(ctx context.Context, memberID string) (ExpenseSummary, error)
 }
@@ -65,13 +66,13 @@ type service struct {
 	repo ExpenseRepo
 }
 
-// RecordExpense 记账：校验→归类→幂等键→入库。幂等命中返回原账单。
-func (s *service) RecordExpense(ctx context.Context, cmd RecordExpenseCmd, memberID string) (string, string, error) {
+// RecordExpense 记账：校验→归类→幂等键→入库。幂等命中返回原账单，duplicated=true。
+func (s *service) RecordExpense(ctx context.Context, cmd RecordExpenseCmd, memberID string) (string, string, bool, error) {
 	if cmd.AmountCents <= 0 {
-		return "", "", apperr.New(apperr.CodeInvalidInput, "金额必须大于 0", nil)
+		return "", "", false, apperr.New(apperr.CodeInvalidInput, "金额必须大于 0", nil)
 	}
 	if cmd.Hint == "" {
-		return "", "", apperr.New(apperr.CodeInvalidInput, "缺少消费内容", nil)
+		return "", "", false, apperr.New(apperr.CodeInvalidInput, "缺少消费内容", nil)
 	}
 	if cmd.Category == "" {
 		cmd.Category = ClassifyCategory(cmd.Hint)
@@ -82,12 +83,12 @@ func (s *service) RecordExpense(ctx context.Context, cmd RecordExpenseCmd, membe
 	if err != nil {
 		var ae *apperr.Error
 		if errors.As(err, &ae) && ae.Code == apperr.CodeConflict {
-			// 幂等命中：返回已存在账单，对用户是成功
-			return id, cmd.Category, nil
+			// 幂等命中：返回已存在账单，未重复入库（调用方应据此提示用户）
+			return id, cmd.Category, true, nil
 		}
-		return "", "", err
+		return "", "", false, err
 	}
-	return id, cmd.Category, nil
+	return id, cmd.Category, false, nil
 }
 
 func (s *service) DeleteExpense(ctx context.Context, id string) error {

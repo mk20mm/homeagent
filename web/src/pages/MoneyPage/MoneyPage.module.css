@@ -58,3 +58,10 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+.empty {
+  text-align: center;
+  color: #8e8e93;
+  font-size: 13px;
+  padding: 32px 0;
+}

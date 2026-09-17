@@ -25,6 +25,7 @@ type Event struct {
 	Content string          `json:"content,omitempty"`
 	Tool    string          `json:"tool,omitempty"`
 	Card    json.RawMessage `json:"card,omitempty"`
+	UndoID  string          `json:"undo_id,omitempty"` // 撤销记录 id（tool_call 携带，前端撤销按钮回指）
 	Error   string          `json:"error,omitempty"`
 }
 
@@ -106,6 +107,9 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 	}
 
 	ctx = tool.WithTraceID(ctx, req.TraceID)
+	// 会话上下文注入：switch_model 等工具从 ctx 取当前会话 id
+	ctx = tool.WithConversationID(ctx, conv.ID)
+	ctx = tool.WithMemberID(ctx, req.MemberID)
 
 	// 待持久化的本轮消息（user + assistant + tool results）
 	persist := []session.Message{{Role: gateway.RoleUser, Content: req.Content}}
@@ -195,11 +199,11 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 				continue
 			}
 
-			card := res.Card
-			if len(card) == 0 {
-				card = []byte("{}")
-			}
-			emit(Event{Type: "tool_call", Tool: tc.Name, Card: card})
+		card := res.Card
+		if len(card) == 0 {
+			card = []byte("{}")
+		}
+		emit(Event{Type: "tool_call", Tool: tc.Name, Card: card, UndoID: res.UndoID})
 
 			m := session.Message{
 				Role:       gateway.RoleTool,

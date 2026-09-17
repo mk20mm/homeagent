@@ -41,12 +41,14 @@ func (Task) Fields() []ent.Field {
 		field.Time("due_at").Optional().Nillable().Comment("到点提醒"),
 		field.Time("completed_at").Optional().Nillable().Comment("打卡时间，撤销误打卡时回滚"),
 		field.Int("points").Default(1).Comment("积分（三期）"),
+		field.String("idempotency_key").Optional().Unique().Comment("派发幂等键"),
 	}
 }
 
 func (Task) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("assignee", Member.Type).Ref("tasks").Unique().Comment("指派人，可空=待认领"),
+		edge.From("assigner", Member.Type).Ref("assigned_tasks").Unique().Comment("派发人"),
 		edge.From("template", TaskTemplate.Type).Ref("tasks").Unique().Comment("来源模板，可空=自定义"),
 	}
 }
@@ -55,6 +57,7 @@ func (Task) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("status").Edges("assignee"),
 		index.Fields("status", "due_at"),
+		index.Fields("idempotency_key"),
 	}
 }
 

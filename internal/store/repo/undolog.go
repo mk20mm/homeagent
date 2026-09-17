@@ -15,8 +15,8 @@ import (
 // 编译期：实现 tool.UndoStore（Executor 调用 Save）。
 var _ tool.UndoStore = (*Store)(nil)
 
-// Save 写撤销记录，24h 有效（schema 默认值兜底）。
-func (s *Store) Save(ctx context.Context, r tool.UndoRecord) error {
+// Save 写撤销记录，24h 有效（schema 默认值兜底），返回撤销 id。
+func (s *Store) Save(ctx context.Context, r tool.UndoRecord) (string, error) {
 	data := map[string]any{}
 	// undo_data 可能是任意 JSON；非 object 兜底包一层
 	if err := json.Unmarshal(r.UndoData, &data); err != nil {
@@ -26,7 +26,7 @@ func (s *Store) Save(ctx context.Context, r tool.UndoRecord) error {
 	if r.ExpiresIn > 0 {
 		exp = exp.Add(time.Duration(r.ExpiresIn) * time.Second)
 	}
-	_, err := s.db.UndoLog.Create().
+	l, err := s.db.UndoLog.Create().
 		SetTraceID(r.TraceID).
 		SetToolName(r.ToolName).
 		SetUndoData(data).
@@ -34,9 +34,9 @@ func (s *Store) Save(ctx context.Context, r tool.UndoRecord) error {
 		SetExpiresAt(exp).
 		Save(ctx)
 	if err != nil {
-		return apperr.New(apperr.CodeInternal, "保存撤销记录失败", err)
+		return "", apperr.New(apperr.CodeInternal, "保存撤销记录失败", err)
 	}
-	return nil
+	return l.ID.String(), nil
 }
 
 // GetUndo 取撤销记录（含 member 隔离校验），适配 v1.UndoStore 接口。

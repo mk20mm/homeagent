@@ -28,11 +28,11 @@ func (r *Registry) Register(t Tool) error {
 	}
 	if spec.Risk != RiskLow {
 		if _, ok := t.(WriteTool); !ok {
-			return apperr.Newf(apperr.CodeInternal,
+			return apperr.New(apperr.CodeInternal,
 				fmt.Sprintf("写操作工具 %s 必须实现 Undo（ADR-004）", spec.Name), nil)
 		}
 		if spec.Idempotency == "" {
-			return apperr.Newf(apperr.CodeInternal,
+			return apperr.New(apperr.CodeInternal,
 				fmt.Sprintf("写操作工具 %s 必须声明幂等维度", spec.Name), nil)
 		}
 	}
@@ -40,7 +40,7 @@ func (r *Registry) Register(t Tool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.tools[spec.Name]; exists {
-		return apperr.Newf(apperr.CodeInternal,
+		return apperr.New(apperr.CodeInternal,
 			fmt.Sprintf("工具 %s 已注册", spec.Name), nil)
 	}
 	r.tools[spec.Name] = t
@@ -63,7 +63,8 @@ func (r *Registry) SpecsWithPermission(permitted map[string]bool) []Spec {
 	out := make([]Spec, 0, len(r.tools))
 	for _, t := range r.tools {
 		s := t.Spec()
-		if permitted[s.Permission] {
+		// Permission 为空 = 无需权限，直接放行
+		if s.Permission == "" || permitted[s.Permission] {
 			out = append(out, s)
 		}
 	}
@@ -95,7 +96,8 @@ type AuditEntry struct {
 }
 
 type UndoStore interface {
-	Save(ctx context.Context, key UndoRecord) error
+	// Save 写撤销记录，返回撤销 id（供前端撤销按钮回指）。
+	Save(ctx context.Context, key UndoRecord) (string, error)
 }
 
 type UndoRecord struct {
@@ -115,13 +117,14 @@ func NewExecutor(reg *Registry, audit AuditLogger, undo UndoStore) *Executor {
 func (e *Executor) Execute(ctx context.Context, name string, input json.RawMessage, memberID string, permitted map[string]bool) (Result, error) {
 	t, ok := e.registry.Get(name)
 	if !ok {
-		return Result{}, apperr.Newf(apperr.CodeNotFound, "工具不存在: "+name, nil)
+		return Result{}, apperr.New(apperr.CodeNotFound, "工具不存在: "+name, nil)
 	}
 
 	spec := t.Spec()
 
 	// 1. 权限校验（执行层兜底；提示词层已做源头过滤）
-	if permitted != nil && !permitted[spec.Permission] {
+	// Permission 为空 = 无需权限（如 suggest_dinner 全员可用）
+	if permitted != nil && spec.Permission != "" && !permitted[spec.Permission] {
 		// 越权尝试留痕（安全否决项：无授权写入被执行 → Critical）
 		if e.audit != nil {
 			_ = e.audit.Log(ctx, AuditEntry{
@@ -129,7 +132,7 @@ func (e *Executor) Execute(ctx context.Context, name string, input json.RawMessa
 				ToolName: name, Risk: spec.Risk, PermissionDenied: true,
 			})
 		}
-		return Result{}, apperr.Newf(apperr.CodePermission,
+		return Result{}, apperr.New(apperr.CodePermission,
 			"无权限调用此工具: "+name, nil)
 	}
 
@@ -149,10 +152,12 @@ func (e *Executor) Execute(ctx context.Context, name string, input json.RawMessa
 
 	// 4. 写 undo_log（写操作；失败不阻塞结果，仅记日志）
 	if len(res.UndoData) > 0 && e.undo != nil {
-		_ = e.undo.Save(ctx, UndoRecord{
+		if id, err := e.undo.Save(ctx, UndoRecord{
 			TraceID: traceIDFrom(ctx), MemberID: memberID,
 			ToolName: name, UndoData: res.UndoData, ExpiresIn: 86400,
-		})
+		}); err == nil {
+			res.UndoID = id
+		}
 	}
 
 	// 5. 写审计
@@ -171,11 +176,11 @@ func (e *Executor) Execute(ctx context.Context, name string, input json.RawMessa
 func (e *Executor) Undo(ctx context.Context, name string, undoData json.RawMessage, memberID string) error {
 	t, ok := e.registry.Get(name)
 	if !ok {
-		return apperr.Newf(apperr.CodeNotFound, "工具不存在: "+name, nil)
+		return apperr.New(apperr.CodeNotFound, "工具不存在: "+name, nil)
 	}
 	wt, ok := t.(WriteTool)
 	if !ok {
-		return apperr.Newf(apperr.CodeInternal, "工具 "+name+" 不支持撤销", nil)
+		return apperr.New(apperr.CodeInternal, "工具 "+name+" 不支持撤销", nil)
 	}
 	if err := wt.Undo(ctx, undoData); err != nil {
 		return err
@@ -197,6 +202,7 @@ type ctxKey string
 
 const traceIDKey ctxKey = "trace_id"
 const memberIDKey ctxKey = "member_id"
+const conversationIDKey ctxKey = "conversation_id"
 
 func traceIDFrom(ctx context.Context) string {
 	if v, ok := ctx.Value(traceIDKey).(string); ok {
@@ -229,4 +235,17 @@ func TraceIDFrom(ctx context.Context) string {
 // WithMemberID 把成员 ID 塞进 ctx（Executor 执行工具前注入，供领域工具取用）。
 func WithMemberID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, memberIDKey, id)
+}
+
+// ConversationIDFrom 工具从 ctx 取当前会话 id（runtime 注入）。
+func ConversationIDFrom(ctx context.Context) string {
+	if v, ok := ctx.Value(conversationIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// WithConversationID 把会话 id 塞进 ctx（runtime 在会话创建后注入）。
+func WithConversationID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, conversationIDKey, id)
 }

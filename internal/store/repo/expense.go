@@ -10,7 +10,9 @@ import (
 	sqlite "modernc.org/sqlite"
 
 	"github.com/mk20mm/homeagent/internal/apperr"
+	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	domexp "github.com/mk20mm/homeagent/internal/domain/expense"
+	"github.com/mk20mm/homeagent/internal/store/ent"
 	"github.com/mk20mm/homeagent/internal/store/ent/category"
 	"github.com/mk20mm/homeagent/internal/store/ent/expense"
 	"github.com/mk20mm/homeagent/internal/store/ent/family"
@@ -130,6 +132,64 @@ func (s *Store) Summary(ctx context.Context, memberID string, month time.Time) (
 		ByCategory:  byCat,
 		BudgetCents: budget,
 	}, nil
+}
+
+// ListExpenses 记账流水（member 隔离 + 软删除过滤，occurred_at 倒序，游标分页）。
+func (s *Store) ListExpenses(ctx context.Context, memberID string, q v1.ExpenseQuery) ([]v1.ExpenseItem, string, error) {
+	if q.PageSize <= 0 || q.PageSize > 100 {
+		q.PageSize = 20
+	}
+	query := s.db.Expense.Query().
+		Where(
+			expense.HasMemberWith(member.IDEQ(toUUID(memberID))),
+			expense.DeletedAtIsNil(),
+		)
+	if q.Category != "" {
+		query = query.Where(expense.HasCategoryWith(category.NameEQ(q.Category)))
+	}
+	if q.StartDate != nil {
+		query = query.Where(expense.OccurredAtGTE(*q.StartDate))
+	}
+	if q.EndDate != nil {
+		// end_date 含端点：查到次日 0 点
+		query = query.Where(expense.OccurredAtLT(q.EndDate.AddDate(0, 0, 1)))
+	}
+	if q.Cursor != "" {
+		if t, err := time.Parse(time.RFC3339, q.Cursor); err == nil {
+			query = query.Where(expense.OccurredAtLT(t))
+		}
+	}
+	list, err := query.
+		Order(ent.Desc(expense.FieldOccurredAt)).
+		WithCategory().
+		Limit(q.PageSize + 1).
+		All(ctx)
+	if err != nil {
+		return nil, "", apperr.New(apperr.CodeInternal, "查询记账流水失败", err)
+	}
+
+	nextCursor := ""
+	if len(list) > q.PageSize {
+		nextCursor = list[q.PageSize-1].OccurredAt.Format(time.RFC3339)
+		list = list[:q.PageSize]
+	}
+
+	out := make([]v1.ExpenseItem, 0, len(list))
+	for _, e := range list {
+		cat := "其他"
+		if e.Edges.Category != nil {
+			cat = e.Edges.Category.Name
+		}
+		out = append(out, v1.ExpenseItem{
+			ID:          e.ID.String(),
+			MemberID:    memberID,
+			Category:    cat,
+			AmountCents: e.AmountCents,
+			Hint:        e.Hint,
+			OccurredAt:  e.OccurredAt.Format(time.RFC3339),
+		})
+	}
+	return out, nextCursor, nil
 }
 
 // isUniqueViolation 判定 SQLite 唯一约束冲突（幂等命中）。

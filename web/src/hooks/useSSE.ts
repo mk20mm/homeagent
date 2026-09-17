@@ -4,11 +4,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { ChatStatus } from '@homeagent/shared'
+import { clearAuth, getToken, type ChatStatus } from '@homeagent/shared'
 
 export type SSEEvent =
   | { type: 'token'; content: string }
-  | { type: 'tool_call'; tool: string; card: unknown }
+  | { type: 'tool_call'; tool: string; card: unknown; undo_id?: string }
+  | { type: 'error'; error: string }
   | { type: 'done' }
 
 interface UseSSEOptions {
@@ -30,13 +31,21 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
       const ctrl = new AbortController()
       abortRef.current = ctrl
 
+      const token = getToken()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
         signal: ctrl.signal,
       })
         .then(async (res) => {
+          if (res.status === 401) {
+            clearAuth()
+            throw new Error('登录已过期，请重新登录')
+          }
           if (!res.ok || !res.body) throw new Error(`SSE 连接失败: ${res.status}`)
           const reader = res.body.getReader()
           const decoder = new TextDecoder()
@@ -53,6 +62,11 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
                 try {
                   const payload = JSON.parse(line.slice(5).trim()) as SSEEvent
                   if (payload.type === 'tool_call') setStatus('tool_running')
+                  else if (payload.type === 'error') {
+                    setStatus('error')
+                    cbRef.current.onError?.(new Error(payload.error))
+                    continue
+                  }
                   cbRef.current.onEvent(payload)
                   if (payload.type === 'done') setStatus('idle')
                 } catch {
