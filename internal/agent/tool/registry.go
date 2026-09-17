@@ -63,6 +63,9 @@ func (r *Registry) SpecsWithPermission(permitted map[string]bool) []Spec {
 	out := make([]Spec, 0, len(r.tools))
 	for _, t := range r.tools {
 		s := t.Spec()
+		if s.Hidden {
+			continue // 内部工具：撤销派发用，不暴露给 LLM/前端
+		}
 		// Permission 为空 = 无需权限，直接放行
 		if s.Permission == "" || permitted[s.Permission] {
 			out = append(out, s)

@@ -36,6 +36,8 @@ func Register(
 	convSvc session.Service,
 	expLister ExpenseLister,
 	expSummarizer ExpenseSummarizer,
+	expRecorder ExpenseRecorder,
+	expUndoWriter ExpenseUndoWriter,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
 	rg.GET("/health", health)
@@ -54,6 +56,8 @@ func Register(
 	jwtGroup.DELETE("/conversations/:conversationId", DeleteConversation(convSvc))
 	jwtGroup.GET("/expenses", ListExpenses(expLister))
 	jwtGroup.GET("/expenses/summary", ExpenseSummary(expSummarizer))
+	jwtGroup.POST("/expenses", CreateExpense(expRecorder, expUndoWriter, pl))
+	jwtGroup.PATCH("/expenses/:expenseId", UpdateExpense(expRecorder, expUndoWriter, pl))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")

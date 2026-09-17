@@ -44,16 +44,57 @@ type ExpenseSummary struct {
 
 // ExpenseRepo 仓储接口：领域层定义，store 层实现（依赖单向，AGENTS.md §7）。
 // Create 幂等冲突时返回已存在账单 id 与 CodeConflict。
+// Update 返回旧值快照（撤销时恢复），行不存在返回 CodeNotFound。
 type ExpenseRepo interface {
 	Create(ctx context.Context, memberID string, cmd RecordExpenseCmd, idempotencyKey string) (expenseID string, err error)
+	Update(ctx context.Context, memberID string, expenseID string, cmd UpdateExpenseCmd) (prev ExpenseRecord, err error)
 	Delete(ctx context.Context, expenseID string) error
 	Summary(ctx context.Context, memberID string, month time.Time) (ExpenseSummary, error)
+}
+
+// UpdateExpenseCmd 部分更新：nil 表示不改该字段。
+type UpdateExpenseCmd struct {
+	AmountCents *int64
+	Hint        *string
+	Category    *string
+}
+
+// ExpenseRecord 账单快照（撤销恢复用）。
+type ExpenseRecord struct {
+	AmountCents int64
+	Hint        string
+	Category    string
+}
+
+// HasChanges 至少一个字段被设置。
+func (cmd UpdateExpenseCmd) HasChanges() bool {
+	return cmd.AmountCents != nil || cmd.Hint != nil || cmd.Category != nil
+}
+
+// ApplyTo 把更新应用到旧值，返回新值（分类空则规则归类）。
+func (cmd UpdateExpenseCmd) ApplyTo(prev ExpenseRecord) ExpenseRecord {
+	next := prev
+	if cmd.AmountCents != nil {
+		next.AmountCents = *cmd.AmountCents
+	}
+	if cmd.Hint != nil {
+		next.Hint = *cmd.Hint
+	}
+	if cmd.Category != nil {
+		next.Category = *cmd.Category
+	}
+	if next.Category == "" {
+		next.Category = ClassifyCategory(next.Hint)
+	}
+	return next
 }
 
 // Service 财务领域服务（工具通过它操作账单，不直接碰 ent.Client）。
 type Service interface {
 	// RecordExpense 记账；duplicated=true 表示幂等命中（今天已记过同样的一笔，未重复入库）。
 	RecordExpense(ctx context.Context, cmd RecordExpenseCmd, memberID string) (id string, category string, duplicated bool, err error)
+	// UpdateExpense 修正账单（金额/类目/备注）；返回新值与旧值快照（撤销恢复用）。
+	UpdateExpense(ctx context.Context, id string, memberID string, cmd UpdateExpenseCmd) (next ExpenseRecord, prev ExpenseRecord, err error)
 	DeleteExpense(ctx context.Context, id string) error
 	QueryBudget(ctx context.Context, memberID string) (ExpenseSummary, error)
 }
@@ -96,6 +137,28 @@ func (s *service) DeleteExpense(ctx context.Context, id string) error {
 		return apperr.New(apperr.CodeInvalidInput, "账单 id 不能为空", nil)
 	}
 	return s.repo.Delete(ctx, id)
+}
+
+// UpdateExpense 修正账单：校验→应用变更→入库。返回 (新值, 旧值, 错误)。
+// 旧值供调用方写撤销记录（撤销时恢复原值，而非删除）。
+func (s *service) UpdateExpense(ctx context.Context, id string, memberID string, cmd UpdateExpenseCmd) (ExpenseRecord, ExpenseRecord, error) {
+	if id == "" {
+		return ExpenseRecord{}, ExpenseRecord{}, apperr.New(apperr.CodeInvalidInput, "账单 id 不能为空", nil)
+	}
+	if !cmd.HasChanges() {
+		return ExpenseRecord{}, ExpenseRecord{}, apperr.New(apperr.CodeInvalidInput, "没有需要修正的字段", nil)
+	}
+	if cmd.AmountCents != nil && *cmd.AmountCents <= 0 {
+		return ExpenseRecord{}, ExpenseRecord{}, apperr.New(apperr.CodeInvalidInput, "金额必须大于 0", nil)
+	}
+	if cmd.Hint != nil && *cmd.Hint == "" {
+		return ExpenseRecord{}, ExpenseRecord{}, apperr.New(apperr.CodeInvalidInput, "消费内容不能为空", nil)
+	}
+	prev, err := s.repo.Update(ctx, memberID, id, cmd)
+	if err != nil {
+		return ExpenseRecord{}, ExpenseRecord{}, err
+	}
+	return cmd.ApplyTo(prev), prev, nil
 }
 
 func (s *service) QueryBudget(ctx context.Context, memberID string) (ExpenseSummary, error) {

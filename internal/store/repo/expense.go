@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	sqlite "modernc.org/sqlite"
 
-	"github.com/mk20mm/homeagent/internal/apperr"
 	v1 "github.com/mk20mm/homeagent/internal/api/v1"
+	"github.com/mk20mm/homeagent/internal/apperr"
 	domexp "github.com/mk20mm/homeagent/internal/domain/expense"
 	"github.com/mk20mm/homeagent/internal/store/ent"
 	"github.com/mk20mm/homeagent/internal/store/ent/category"
@@ -69,6 +69,83 @@ func (s *Store) Create(ctx context.Context, memberID string, cmd domexp.RecordEx
 		return "", apperr.New(apperr.CodeInternal, "记账失败", err)
 	}
 	return saved.ID.String(), nil
+}
+
+// Get 取账单（member 隔离 + 软删除过滤），不存在返回 CodeNotFound。
+func (s *Store) Get(ctx context.Context, memberID string, expenseID string) (domexp.ExpenseRecord, error) {
+	e, err := s.db.Expense.Query().
+		Where(
+			expense.IDEQ(toUUID(expenseID)),
+			expense.HasMemberWith(member.IDEQ(toUUID(memberID))),
+			expense.DeletedAtIsNil(),
+		).
+		WithCategory().
+		Only(ctx)
+	if err != nil {
+		return domexp.ExpenseRecord{}, apperr.New(apperr.CodeNotFound, "账单不存在", err)
+	}
+	cat := "其他"
+	if e.Edges.Category != nil {
+		cat = e.Edges.Category.Name
+	}
+	return domexp.ExpenseRecord{
+		AmountCents: e.AmountCents,
+		Hint:        e.Hint,
+		Category:    cat,
+	}, nil
+}
+
+// Update 修正账单（member 隔离 + 软删除过滤），返回旧值快照供撤销恢复。
+// 行不存在或无权访问返回 CodeNotFound；幂等键同步更新，冲突返回 CodeConflict。
+func (s *Store) Update(ctx context.Context, memberID string, expenseID string, cmd domexp.UpdateExpenseCmd) (domexp.ExpenseRecord, error) {
+	prev, err := s.Get(ctx, memberID, expenseID)
+	if err != nil {
+		return domexp.ExpenseRecord{}, err
+	}
+	next := cmd.ApplyTo(prev)
+
+	m, err := s.db.Member.Query().
+		Where(member.IDEQ(toUUID(memberID))).
+		WithFamily().
+		Only(ctx)
+	if err != nil {
+		return domexp.ExpenseRecord{}, apperr.New(apperr.CodeNotFound, "成员不存在", err)
+	}
+
+	update := s.db.Expense.UpdateOneID(toUUID(expenseID)).
+		SetAmountCents(next.AmountCents).
+		SetHint(next.Hint)
+
+	// 分类关联：找不到目标分类则降级"其他"（清空关联）
+	clearCat := true
+	if next.Category != "" && m.Edges.Family != nil {
+		cat, err := s.db.Category.Query().Where(
+			category.HasFamilyWith(family.IDEQ(m.Edges.Family.ID)),
+			category.NameEQ(next.Category),
+		).Only(ctx)
+		if err == nil {
+			update.SetCategory(cat)
+			clearCat = false
+		}
+	}
+	if clearCat {
+		update.ClearCategory()
+	}
+
+	// 幂等键同步（金额/内容变了，键也跟着变）
+	key := domexp.IdempotencyKey(memberID, domexp.RecordExpenseCmd{
+		AmountCents: next.AmountCents,
+		Hint:        next.Hint,
+	})
+	update.SetIdempotencyKey(key)
+
+	if _, err := update.Save(ctx); err != nil {
+		if isUniqueViolation(err) {
+			return domexp.ExpenseRecord{}, apperr.New(apperr.CodeConflict, "修改后与今天另一笔重复", err)
+		}
+		return domexp.ExpenseRecord{}, apperr.New(apperr.CodeInternal, "修正账单失败", err)
+	}
+	return prev, nil
 }
 
 // Delete 软删除账单（撤销 = 回滚 deleted_at）。

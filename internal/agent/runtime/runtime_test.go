@@ -1,8 +1,11 @@
-﻿package runtime
+package runtime
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -20,10 +23,10 @@ import (
 
 // memExpenseRepo 内存仓储：实现 expense.ExpenseRepo，供真实领域 service 使用。
 type memExpenseRepo struct {
-	mu       sync.Mutex
-	byID     map[string]*memExpense
-	byKey    map[string]string // idempotencyKey -> id
-	deleted  map[string]bool
+	mu      sync.Mutex
+	byID    map[string]*memExpense
+	byKey   map[string]string // idempotencyKey -> id
+	deleted map[string]bool
 }
 
 type memExpense struct {
@@ -64,6 +67,31 @@ func (r *memExpenseRepo) Delete(_ context.Context, expenseID string) error {
 	defer r.mu.Unlock()
 	r.deleted[expenseID] = true
 	return nil
+}
+
+// Update 修正账单，返回旧值快照（对齐真实仓储：隔离 + 软删除过滤 + 键同步）。
+func (r *memExpenseRepo) Update(_ context.Context, memberID string, expenseID string, cmd expense.UpdateExpenseCmd) (expense.ExpenseRecord, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, ok := r.byID[expenseID]
+	if !ok || e.memberID != memberID || r.deleted[expenseID] {
+		return expense.ExpenseRecord{}, apperr.New(apperr.CodeNotFound, "账单不存在", nil)
+	}
+	prev := expense.ExpenseRecord{AmountCents: e.cents, Hint: e.hint, Category: e.category}
+	next := cmd.ApplyTo(prev)
+	delete(r.byKey, r.keyOf(memberID, e))
+	e.cents = next.AmountCents
+	e.hint = next.Hint
+	e.category = next.Category
+	r.byKey[r.keyOf(memberID, e)] = expenseID
+	return prev, nil
+}
+
+// keyOf 重建幂等键（与 Create 的 key 计算保持一致）。
+func (r *memExpenseRepo) keyOf(memberID string, e *memExpense) string {
+	day := e.occurredAt.Format("2006-01-02")
+	h := sha256.Sum256([]byte(memberID + "|" + strconv.FormatInt(e.cents, 10) + "|" + e.hint + "|" + day))
+	return hex.EncodeToString(h[:])
 }
 
 func (r *memExpenseRepo) Summary(_ context.Context, memberID string, month time.Time) (expense.ExpenseSummary, error) {
@@ -108,9 +136,9 @@ func (m *memAudit) Log(_ context.Context, e tool.AuditEntry) error {
 }
 
 type memSession struct {
-	mu     sync.Mutex
-	convs  map[string]*memConv
-	perms  map[string]map[string]bool
+	mu    sync.Mutex
+	convs map[string]*memConv
+	perms map[string]map[string]bool
 }
 
 type memConv struct {

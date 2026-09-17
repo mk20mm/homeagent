@@ -50,4 +50,5 @@ dev.pid
 e2e-results/
 e2e-out/
 e2e-report/
+e2e-shots/
 e2e-results.json

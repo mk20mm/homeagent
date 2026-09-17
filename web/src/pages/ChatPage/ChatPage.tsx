@@ -8,6 +8,7 @@ import { ERROR_MESSAGE, type ErrorCode } from '@homeagent/shared'
 
 import { api, ApiError, unwrap } from '../../api/client'
 import { ConversationSidebar } from '../../components/ConversationSidebar'
+import { ExpenseCard } from '../../components/ExpenseCard'
 import { ResultCard } from '../../components/ResultCard'
 import { useSSE, type SSEEvent } from '../../hooks/useSSE'
 import { useChatStore, type ChatMessage } from '../../stores/chat'
@@ -30,6 +31,7 @@ export function ChatPage() {
     beginStream,
     appendToken,
     appendCard,
+    updateCard,
     markUndone,
     setStatus,
     setModel,
@@ -161,21 +163,29 @@ export function ChatPage() {
             className={`${styles.bubble} ${m.role === 'user' ? styles.user : styles.ai}`}
           >
             {m.content}
-            {m.card && (
-              <ResultCard
-                title="执行结果"
-                undoable={Boolean(m.undoable) && !m.undone}
-                onUndo={() => void handleUndo(m.undoId)}
-              >
-                {m.undone ? (
-                  <span className={styles.undone}>已撤销</span>
-                ) : m.card.duplicated ? (
-                  <span className={styles.undone}>今天已记过这笔，未重复记账</span>
-                ) : (
-                  JSON.stringify(m.card)
-                )}
-              </ResultCard>
-            )}
+            {m.card &&
+              (m.card.type === 'expense' && !m.undone ? (
+                <ExpenseCard
+                  card={m.card as Extract<ChatMessage['card'], { type: 'expense' }>}
+                  undoable={Boolean(m.undoable) && !m.undone}
+                  onUndo={() => void handleUndo(m.undoId)}
+                  onUpdated={(next) => updateCard(m.id, next)}
+                />
+              ) : (
+                <ResultCard
+                  title="执行结果"
+                  undoable={Boolean(m.undoable) && !m.undone}
+                  onUndo={() => void handleUndo(m.undoId)}
+                >
+                  {m.undone ? (
+                    <span className={styles.undone}>已撤销</span>
+                  ) : m.card.duplicated ? (
+                    <span className={styles.undone}>今天已记过这笔，未重复记账</span>
+                  ) : (
+                    JSON.stringify(m.card)
+                  )}
+                </ResultCard>
+              ))}
           </div>
         ))}
         {status === 'streaming' && <div className={styles.ai}>正在思考…</div>}

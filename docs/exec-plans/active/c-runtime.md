@@ -4,7 +4,7 @@
 > 验收用例格式对齐 AI-STD-005：`{category, description, steps, passes}`，`passes` 随实现同步翻转。
 > 前置：A（后端生成链路）/ B（前端骨架）已完成并验收。
 
-**当前状态（2026-09-17）：P0 关键路径 9/9 ✅；P1 工具集 + JWT + 观测 handler ✅ 11/11；P2 前端双端联调 ✅ + 供应商/模型配置链路 ✅（api_key 加密入库 + 脱敏回显 + 数据库为单一真相源），余 evals 评测套件、会话历史与账单/任务 handler。**
+**当前状态（2026-09-18）：P0 关键路径 9/9 ✅；P1 工具集 + JWT + 观测 handler ✅ 11/11；P2 前端双端联调 ✅ + 供应商/模型配置链路 ✅ + 会话管理 ✅ + 记账页联动 ✅ + 快捷记账/修正闭环 ✅（UX 走查第 1 轮机会 1+4 已落地），余 evals 评测套件。**
 
 ## 优先级评估（依赖 × 价值）
 
@@ -468,6 +468,9 @@ repository 层 ──→ record_expense ──→ undo API       ✅
 | 前端 api client baseUrl 用绝对 origin                | openapi-fetch 内部 `new Request(url)` 在无 document base 的环境（测试/SSR）对相对 URL 抛 Failed to parse URL；浏览器里靠 document 兜底一直没暴露，测试一接真接口就炸 |
 | api client 的 fetch 延迟解析                         | createClient 在模块导入期捕获 globalThis.fetch，而 MSW 在 beforeAll 才 patch，导致 api.* 全部绕过拦截（表现为接口静默失败被 catch 吞）；`fetch: (...a) => fetch(...a)` 换成调用期解析 |
 | 流式消息 id 由 store 持有（streamId）               | useSSE 的 onEvent 闭包在 connect 时已固定，React 批处理会让回调拿到过期 id；beginStream 在 store 内分配 id，回调调无参 action，闭包不持有 id |
+| PATCH /expenses 的撤销用「恢复旧值」而非删除          | 修正账单的撤销语义是回滚到修改前状态；undo_data 存 expense_id + restore 快照，派发到隐藏工具 update_expense（不进提示词/工具清单，仅承载 Undo） |
+| update_expense 工具标记 Hidden 不暴露给 LLM          | 它只服务 REST PATCH 的撤销恢复；Spec.Hidden 让 SpecsWithPermission 跳过，GET /tools 与提示词都不出现它，避免 LLM 直调绕过参数校验 |
+| 底部弹层为 TabBar 留 76px 底 padding                 | 真机走查发现保存按钮被固定 TabBar 遮挡（pointer events 拦截）；fixed 输入栏/导航栏与 absolute 弹层共存时必须显式留白 |
 | getAuth 快照按 localStorage 原始字符串缓存           | useSyncExternalStore 用 Object.is 比较快照，getAuth 每次 JSON.parse 返回新对象会引发「Maximum update depth exceeded」无限重渲染；按 raw 字符串比对既稳定引用又能感知外部清空/跨标签改动 |
 | 模型配置以数据库为单一真相源，环境变量降为 fallback  | 验收问题：admin 页能看到模型清单但改不了（写端点缺失），且后端只看环境变量、不读库——清单是装饰。现在 main.go 启动按「库默认模型 + 解密 api_key → 环境变量 → 脚本供应商」选供应商，admin 改完重启即生效 |
 | api_key 用 AES-256-GCM 加密落库，接口只回脱敏值     | 供应商密钥是家庭最高敏字段：Encrypt 时随机 nonce（同明文每次不同密文，防比对）；handler 层永不接触明文（只有 store→main 装配网关时解密一次）；脱敏视图首尾各 4 位 |

@@ -48,6 +48,7 @@ interface ChatState {
   beginStream: (userContent: string) => void
   appendToken: (token: string) => void
   appendCard: (card: ChatMessage['card'], undoable: boolean, undoId?: string) => void
+  updateCard: (messageId: string, next: Partial<ChatMessage['card']>) => void
   markUndone: (undoId: string) => void
   setStatus: (s: ChatStatus) => void
   setModel: (id: string) => void
@@ -108,6 +109,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => ({
       messages: s.messages.map((m) =>
         m.undoId === undoId ? { ...m, undone: true, undoable: false } : m,
+      ),
+    })),
+
+  updateCard: (messageId, next) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === messageId && m.card ? { ...m, card: { ...m.card, ...next } } : m,
       ),
     })),
 

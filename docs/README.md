@@ -16,6 +16,9 @@ docs/
 ├── CONVENTIONS-frontend.md    # 前端代码规范（React+TS，移动端+管理端）
 ├── agent-调度器设计.md         # Agent 运行时详细设计（核心，保留）
 ├── tech-debt.md               # 技术债登记（发现即偿还）
+├── e2e-issues.md              # E2E 测试轮次记录与问题清单
+├── product/                   # 产品设计探索（UX 走查 + 机会分析）
+│   └── ux-exploration-01.md   #   第 1 轮：记账闭环与「对话—页面孤岛」
 ├── exec-plans/                # 执行计划（一等公民，带状态与决策日志）
 │   ├── README.md              #   状态约定与索引
 │   ├── active/                #   正在推进
@@ -59,6 +62,8 @@ docs/
 | **ui/roadmap-iterations.md**  | 一/二/三期迭代边界图（mermaid + PNG）                                                                             | AI-STD-001     |
 | **exec-plans/**               | 执行计划：任务状态 + **决策日志**（含被否方案）。智能体推进任务的唯一入口                                         | AI-STD-006     |
 | **tech-debt.md**              | 技术债登记：影响 + 偿还时机。发现坏模式立即登记，定期清偿                                                         | AI-STD-006     |
+| **e2e-issues.md**             | E2E 测试轮次记录：每轮通过率、暴露的真实 bug、已修/待修清单                                                       | AI-STD-006     |
+| **product/**                  | UX 设计探索：真实用户视角端到端走查 → 体验断点 → 产品机会（A/B/C 三方案）。**改产品前先读**                        | AI-STD-002     |
 
 ---
 

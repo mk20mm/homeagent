@@ -81,6 +81,19 @@ pnpm run format        # Prettier
 - **openapi-fetch 两个坑**：① baseUrl 必须是绝对 origin（`window.location.origin + '/api/v1'`），相对 URL 在无 document base 的环境（测试/SSR）会抛 `Failed to parse URL`；② client 在**模块导入期**捕获 `globalThis.fetch`，而 MSW 在 `beforeAll` 才 patch，捕获到的引用绕过拦截——用 `fetch: (...a) => fetch(...a)` 延迟到调用期解析。两者在浏览器里靠 document 兜底一直没暴露，接真接口写测试才炸。
 - **临时探针测试**（连开发库查证数据用）：① 文件名**必须**以 `_test.go` 结尾，否则 `go test` 把它当普通源文件，与目录里的 `package store` 冲突报 `found packages store and store_test`；② 库相对路径按**包目录**算——从 `internal/store/repo` 到项目内库是 `../../../data/homeagent.db`（repo→store→internal→根），少写一层会指到项目根之外，曾在 `sun\007\data\` 误建过副本库（清密钥清错库，表现为接口仍显示已配置）。稳妥起见用绝对路径。
 
+## 领域知识地图（遇到某类问题，去哪找正确知识）
+
+| 问题类型 | 去哪找 | 关键内容 |
+|---|---|---|
+| 体验断点 / 产品机会 | `docs/product/ux-exploration-*.md` | 真机走查结论 + 体验断点表 + A/B/C 方案；**改产品前先读**，避免重复发现 |
+| E2E 测试轮次与遗留问题 | `docs/e2e-issues.md` | 每轮通过率、暴露的真实 bug、已修/待修清单（T-e2e-* 编号） |
+| 「为什么这么选」 | `docs/ADR/` | 技术选型决策记录（含被否方案） |
+| 领域术语与实体不变量 | `docs/DOMAIN/家庭领域模型.md` | 限界上下文、统一语言、跨模块联动不变量 |
+| 前端规范（气泡/卡片/撤销交互） | `docs/CONVENTIONS-frontend.md` + `docs/ui/design-system.md` | 设计令牌、对话状态机、撤销交互约定 |
+| 技术债 | `docs/tech-debt.md` | T1–T16 登记与偿还时机 |
+
+**走查方法**（复用）：`web/e2e/ux-walkthrough.spec.ts` 是可回归的端到端走查脚本——登录→记账→撤销→侧边栏→各 Tab→异常制造（空输入/错误令牌/重复提交/超长文本/刷新），截图落 `web/e2e-shots/`（已 gitignore），截图用 `docling_describe_image` 做 VLM 分析。
+
 ## 工作方式（Harness）
 
 - 人定方向、定约束、验结果；执行交给智能体。

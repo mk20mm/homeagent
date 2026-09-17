@@ -12,10 +12,10 @@ import (
 
 // RecordExpenseInput 记账参数（inputSchema 由 Spec 返回给 LLM）。
 type RecordExpenseInput struct {
-	Amount      float64 `json:"amount"`             // 金额（分转元由前端/工具做）
-	Hint        string  `json:"hint"`               // 原始表述提示，如 "买菜"
-	Category    string  `json:"category,omitempty"` // 可选；空则由 LLM/规则归类
-	OccurredAt  string  `json:"occurred_at,omitempty"`
+	Amount     float64 `json:"amount"`             // 金额（分转元由前端/工具做）
+	Hint       string  `json:"hint"`               // 原始表述提示，如 "买菜"
+	Category   string  `json:"category,omitempty"` // 可选；空则由 LLM/规则归类
+	OccurredAt string  `json:"occurred_at,omitempty"`
 }
 
 // RecordExpenseTool 是高风险写工具：实现 tool.WriteTool（编译期强制 Undo）。
@@ -90,6 +90,7 @@ func (t *RecordExpenseTool) Execute(ctx context.Context, input json.RawMessage) 
 	}
 	card, _ := json.Marshal(map[string]any{
 		"type":       "expense",
+		"expense_id": id,
 		"amount":     in.Amount,
 		"category":   category,
 		"hint":       in.Hint,

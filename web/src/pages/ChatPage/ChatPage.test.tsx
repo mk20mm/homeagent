@@ -1,10 +1,20 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { MemoryRouter } from 'react-router'
 
 import { useChatStore } from '../../stores/chat'
 import { server } from '../../test/server'
 import { ChatPage } from './ChatPage'
+
+/** MemoryRouter 包裹：ExpenseCard 内部用 useNavigate 跳转账本页 */
+function renderPage() {
+  render(
+    <MemoryRouter>
+      <ChatPage />
+    </MemoryRouter>,
+  )
+}
 
 /** 构造一段 SSE 流（token → tool_call → done） */
 function sseResponse(events: object[]): Response {
@@ -22,7 +32,14 @@ function sseResponse(events: object[]): Response {
   })
 }
 
-const CARD = { type: 'expense', amount: 120, category: '食材', hint: '买菜', time: '10:26' }
+const CARD = {
+  type: 'expense',
+  expense_id: 'exp-1',
+  amount: 120,
+  category: '食材',
+  hint: '买菜',
+  time: '10:26',
+}
 
 describe('ChatPage 对话联调', () => {
   beforeEach(() => {
@@ -56,7 +73,7 @@ describe('ChatPage 对话联调', () => {
       ),
     )
 
-    render(<ChatPage />)
+    renderPage()
     fireEvent.change(screen.getByPlaceholderText('输入消息…'), {
       target: { value: '今天买菜花了120' },
     })
@@ -88,7 +105,7 @@ describe('ChatPage 对话联调', () => {
       }),
     )
 
-    render(<ChatPage />)
+    renderPage()
     fireEvent.change(screen.getByPlaceholderText('输入消息…'), {
       target: { value: '报饭' },
     })
@@ -111,7 +128,7 @@ describe('ChatPage 对话联调', () => {
       ),
     )
 
-    render(<ChatPage />)
+    renderPage()
     fireEvent.change(screen.getByPlaceholderText('输入消息…'), { target: { value: 'hi' } })
     fireEvent.click(screen.getByRole('button', { name: '发送' }))
 

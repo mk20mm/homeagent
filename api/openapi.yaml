@@ -369,6 +369,31 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /expenses/{expenseId}:
+    patch:
+      tags: [expense]
+      summary: 修正一笔账单（金额/类目/备注，可撤销）
+      operationId: updateExpense
+      parameters:
+        - $ref: '#/components/parameters/ExpenseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseUpdate'
+      responses:
+        '200':
+          description: 已修正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /expenses/summary:
     get:
       tags: [expense]
@@ -687,6 +712,13 @@ components:
       schema:
         type: string
         format: uuid
+    ExpenseId:
+      in: path
+      name: expenseId
+      required: true
+      schema:
+        type: string
+        format: uuid
     UndoId:
       in: path
       name: undoId
@@ -964,6 +996,22 @@ components:
         occurred_at:
           type: string
           format: date-time
+
+    ExpenseUpdate:
+      type: object
+      description: 修正账单（部分更新，至少传一个字段）
+      minProperties: 1
+      properties:
+        amount_cents:
+          type: integer
+          minimum: 1
+          description: 修正后的金额（分）
+        hint:
+          type: string
+          description: 修正后的内容
+        category:
+          type: string
+          description: 修正后的分类
 
     TaskStatus:
       type: string

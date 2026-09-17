@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"time"
 
-	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	"github.com/mk20mm/homeagent/internal/agent/tool"
+	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	"github.com/mk20mm/homeagent/internal/apperr"
-	"github.com/mk20mm/homeagent/internal/store/ent/undolog"
 	"github.com/mk20mm/homeagent/internal/store/ent/member"
+	"github.com/mk20mm/homeagent/internal/store/ent/undolog"
 )
 
 // 编译期：实现 tool.UndoStore（Executor 调用 Save）。
@@ -68,6 +68,25 @@ func (s *Store) MarkUsed(ctx context.Context, id string) error {
 		return apperr.New(apperr.CodeInternal, "标记撤销记录失败", err)
 	}
 	return nil
+}
+
+// SaveUndo 写撤销记录（v1.ExpenseUndoWriter 接口；undo_log 24h 有效）。
+func (s *Store) SaveUndo(ctx context.Context, memberID string, toolName string, undoData json.RawMessage) (string, error) {
+	data := map[string]any{}
+	if err := json.Unmarshal(undoData, &data); err != nil {
+		data = map[string]any{"raw": string(undoData)}
+	}
+	l, err := s.db.UndoLog.Create().
+		SetTraceID(tool.TraceIDFrom(ctx)).
+		SetToolName(toolName).
+		SetUndoData(data).
+		SetMemberID(toUUID(memberID)).
+		SetExpiresAt(time.Now().Add(24 * time.Hour)).
+		Save(ctx)
+	if err != nil {
+		return "", apperr.New(apperr.CodeInternal, "保存撤销记录失败", err)
+	}
+	return l.ID.String(), nil
 }
 
 // SweepExpired 清理过期记录（cron 调用，P1 接入）。

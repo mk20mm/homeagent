@@ -23,9 +23,9 @@ import (
 	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	"github.com/mk20mm/homeagent/internal/auth"
 	"github.com/mk20mm/homeagent/internal/domain/expense"
-	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
 	"github.com/mk20mm/homeagent/internal/domain/meal"
 	"github.com/mk20mm/homeagent/internal/domain/model"
+	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
 	"github.com/mk20mm/homeagent/internal/domain/task"
 	"github.com/mk20mm/homeagent/internal/infra/config"
 	"github.com/mk20mm/homeagent/internal/store"
@@ -82,6 +82,7 @@ func main() {
 	for _, t := range []tool.Tool{
 		expense.NewRecordExpenseTool(expenseSvc),
 		expense.NewQueryBudgetTool(expenseSvc),
+		expense.NewUpdateExpenseTool(expenseSvc),
 		task.NewAssignTaskTool(taskSvc),
 		task.NewCompleteTaskTool(taskSvc),
 		task.NewListMyTasksTool(taskSvc),
@@ -119,7 +120,7 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {

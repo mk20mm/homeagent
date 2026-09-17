@@ -19,7 +19,7 @@
   border: none;
   border-radius: 10px;
   background: #fff;
-  color: #0a84ff;
+  color: #4e9bf0;
   font-size: 16px;
   cursor: pointer;
 }
@@ -46,7 +46,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-bottom: 16px;
+  /* 底部留白：给固定输入栏让位，避免卡片操作按钮被遮挡 */
+  padding-bottom: 88px;
 }
 
 .empty {
@@ -73,8 +74,8 @@
 
 .user {
   align-self: flex-end;
-  background: #0a84ff;
-  color: #fff;
+  background: #d8ecff;
+  color: #14507f;
   border-bottom-right-radius: 4px;
 }
 
@@ -125,7 +126,7 @@
 .send {
   border: none;
   border-radius: 12px;
-  background: #0a84ff;
+  background: #4e9bf0;
   color: #fff;
   padding: 0 20px;
   font-size: 15px;
