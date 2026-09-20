@@ -1,8 +1,9 @@
 /**
  * 对话主页：AI 交互入口，底部输入框 + 模型切换（page-01-chat）。
  * 消息先乐观渲染，工具结果以服务器回执为准（CONVENTIONS-frontend §4）。
+ * 输入框上方常驻快捷 chips（0 输入路径，T-A05），按成员权限过滤。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ERROR_MESSAGE, type ErrorCode } from '@homeagent/shared'
 
@@ -15,6 +16,13 @@ import { useChatStore, type ChatMessage } from '../../stores/chat'
 import { tokens } from '../../styles/tokens'
 
 import styles from './ChatPage.module.css'
+import {
+  filterChips,
+  QUICK_CHIPS,
+  type QuickChip,
+  WELCOME_EXAMPLES,
+  type ToolSpec,
+} from './quickChips'
 
 interface ModelOption {
   id: string
@@ -43,6 +51,14 @@ export function ChatPage() {
   const [error, setError] = useState<string>()
   const [models, setModels] = useState<ModelOption[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [tools, setTools] = useState<ToolSpec[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const chips = useMemo(() => filterChips(QUICK_CHIPS, tools), [tools])
+  const examples = useMemo(
+    () => filterChips(WELCOME_EXAMPLES, tools),
+    [tools],
+  )
 
   const { connect } = useSSE({
     url: '/api/v1/chat',
@@ -76,6 +92,18 @@ export function ChatPage() {
     })()
   }, [setModel])
 
+  // 成员工具清单：chips 与空态示例的权限过滤源（ADR-005 双保险的前端侧）
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = unwrap(await api.GET('/tools'))
+        setTools(data.tools)
+      } catch {
+        // 清单加载失败不阻塞对话，只是不显示 chips
+      }
+    })()
+  }, [])
+
   // 会话列表：进入时加载并选中最近会话（没有则停在欢迎页，首条消息时自动新建）
   useEffect(() => {
     void (async () => {
@@ -99,8 +127,8 @@ export function ChatPage() {
     }
   }
 
-  const handleSend = async () => {
-    const content = input.trim()
+  const handleSend = async (contentArg?: string) => {
+    const content = (contentArg ?? input).trim()
     if (!content || status !== 'idle') return
 
     setError(undefined)
@@ -117,6 +145,16 @@ export function ChatPage() {
       model_id: currentModelId,
       conversation_id: useChatStore.getState().currentConversationId,
     })
+  }
+
+  // chip 点击：draft 只填入输入框并聚焦（参数待补全），其余直接发送
+  const handleChip = (chip: QuickChip) => {
+    if (chip.draft) {
+      setInput(chip.text)
+      inputRef.current?.focus()
+      return
+    }
+    void handleSend(chip.text)
   }
 
   return (
@@ -154,7 +192,19 @@ export function ChatPage() {
         {messages.length === 0 && (
           <div className={styles.empty}>
             <p>说点什么，我来跑腿：</p>
-            <p className={styles.hint}>「今天买菜花了 120」「今晚不回家吃」「提醒媳妇洗碗」</p>
+            <div className={styles.examples}>
+              {examples.map((ex) => (
+                <button
+                  key={ex.label}
+                  type="button"
+                  className={styles.example}
+                  onClick={() => void handleSend(ex.text)}
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
+            <p className={styles.hint}>也可以点下面的快捷按钮</p>
           </div>
         )}
         {messages.map((m: ChatMessage) => (
@@ -194,23 +244,40 @@ export function ChatPage() {
       </div>
 
       <footer className={styles.inputBar}>
-        <input
-          className={styles.input}
-          value={input}
-          placeholder="输入消息…"
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void handleSend()
-          }}
-        />
-        <button
-          type="button"
-          className={styles.send}
-          onClick={() => void handleSend()}
-          disabled={status !== 'idle'}
-        >
-          发送
-        </button>
+        {chips.length > 0 && (
+          <div className={styles.chips} role="group" aria-label="快捷操作">
+            {chips.map((chip) => (
+              <button
+                key={`${chip.label}-${chip.text}`}
+                type="button"
+                className={styles.chip}
+                onClick={() => handleChip(chip)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className={styles.row}>
+          <input
+            ref={inputRef}
+            className={styles.input}
+            value={input}
+            placeholder="输入消息…"
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleSend()
+            }}
+          />
+          <button
+            type="button"
+            className={styles.send}
+            onClick={() => void handleSend()}
+            disabled={status !== 'idle'}
+          >
+            发送
+          </button>
+        </div>
       </footer>
     </div>
   )

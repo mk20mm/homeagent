@@ -46,8 +46,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* 底部留白：给固定输入栏让位，避免卡片操作按钮被遮挡 */
-  padding-bottom: 88px;
+  /* 底部留白：给固定输入栏 + 快捷 chips 行让位，避免卡片操作按钮被遮挡 */
+  padding-bottom: 140px;
 }
 
 .empty {
@@ -58,8 +58,29 @@
   text-align: center;
 }
 
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.example {
+  border: 1px solid #d8ecff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #f4f9ff;
+  color: #14507f;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.example:hover {
+  background: #e8f3ff;
+}
+
 .hint {
-  margin-top: 8px;
+  margin-top: 12px;
   font-size: 13px;
   color: #b0b0b5;
 }
@@ -108,9 +129,44 @@
   max-width: 480px;
   margin: 0 auto;
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 8px 16px;
   background: #f2f3f7;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  /* �藏滚动条但保留滑动（移动端） */
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex-shrink: 0;
+  border: 1px solid #d8ecff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: #fff;
+  color: #14507f;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: #e8f3ff;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
 }
 
 .input {

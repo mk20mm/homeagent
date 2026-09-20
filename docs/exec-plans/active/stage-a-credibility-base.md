@@ -143,7 +143,8 @@
     "欢迎页示例可点击并直接发送（一次点击 = 一次教学）",
     "chips 内容按成员权限过滤（无权限的动作不出现）"
   ],
-  "passes": false
+  "passes": true,
+  "note": "已完成（2026-09-20）：新增 quickChips.ts（候选全集 + filterChips 权限过滤 + 时段加权排序）；ChatPage 接 GET /tools，输入框上方常驻 chips 行（横向滚动、隐藏滚动条），点击直接发送；需补全参数的 chip（记一笔/提醒谁洗碗）只填入输入框并聚焦，不空发；空态示例改为可点按钮，一次点击直接发送。孩子账号实测只见到 4 个 chips（无记一笔/提醒谁洗碗），与权限矩阵一致。e2e quick-chips.spec.ts 3/3 绿；回归 chat/conversations/undo-center 9/9 绿。"
 }
 ```
 
@@ -310,6 +311,13 @@ T-A11 evals 套件（承接 c-runtime P2）    ← 阶段 B 出口前必须全�
 - **交付**：`MoneyPage` 重写为分组流水页——游标分页（page_size 20 + `next_cursor`，「加载更多」按钮）、`groupByDay` 按日分组（今天/昨天/更早 M-D 标签 + 每日小计）、范围 chips（全部/本周/本月）与分类 chips（全部分类 + 6 类），筛选时汇总卡从「本月支出」切「当前筛选合计 · 共 N 笔」，筛选无结果时空态文案。e2e `money-history.spec.ts` 3/3 绿。
 - **修了一个 latent bug**：分组键原来取 `iso.slice(0, 10)`，在 `Z`（UTC）与 `+08:00`（本地）时间戳混用时会把「本地已是明天」的条目分错组。改为 `localDateKey()`：用 `new Date(iso)` 的本地年/月/日算键，与 `today()` 本地 0 点口径一致（T-A01 修的同一类时区问题）。
 - **测试策略**：多轮 e2e 在爸爸账号累积了 420 条流水（几乎全是「今天」），新造的「昨天」条目被压到 20 页之后，页面断言不可靠。页面层只断稳定项（今天分组、小计、筛选即时生效、加载更多可用），「昨天」分组的正确性由接口层 `start_date/end_date` 查询兜底验证。
+
+### T-A05 完成记录（2026-09-20）
+
+- **交付**：`web/src/pages/ChatPage/quickChips.ts`（候选全集 + `filterChips` 按成员工具清单过滤 + 时段加权排序）；ChatPage 输入框上方常驻 chips 行（横向滚动），点击直接发送，空态示例改可点按钮。
+- **draft 与 send 的区分**：不需要补参数的 chip（今晚不回家吃、洗碗打卡、本月预算…）点击直接发送；需要补参数的（记一笔缺金额、提醒谁洗碗缺人名）只填入输入框并聚焦，不空发——空发会让 LLM 追问一轮，违反「0 输入」承诺。
+- **修了一个 latent bug**：`tool.Spec` 结构体没有 json tag，Gin 输出 `Name`/`Permission` 首字母大写，而 OpenAPI 契约与生成的 TS 类型是小写 `name`/`permission`——admin DebugPage 与本次 ChatPage 都会拿到 undefined。加 json tag 对齐契约（`Hidden` 用 `json:"-"` 不暴露），curl 验证 key 已变小写。
+- **e2e 策略**：权限过滤用真实账号验证（孩子登录看不到记一笔/提醒谁洗碗）；断言用 `filter({ visible: true })` 避开侧边栏隐藏的历史会话标题（累积数据导致同名标题与气泡共存，触发 strict mode violation）。
 
 ## 验收标准
 

@@ -28,15 +28,16 @@ var MaxTurns = map[RiskLevel]int{
 }
 
 // Spec 是工具的声明信息，供 LLM 选择与权限过滤使用。
+// json tag 与 api/openapi.yaml 的 ToolSpec 一一对应（契约先行，勿手改生成文件）。
 type Spec struct {
-	Name        string          // snake_case，动词开头，如 record_expense
-	Description string          // 何时该用/何时不该用
-	InputSchema json.RawMessage // JSON Schema 参数定义（LLM 生成参数后用它校验）
-	Risk        RiskLevel
-	Permission  string // 所需权限键，与权限矩阵联动（如 "expense.write"）
-	Module      string // 所属业务模块：chore/expense/meal/system...
-	Idempotency string // 幂等维度说明（写工具必填，如 "user+amount+hint+day"）
-	Hidden      bool   // 内部工具：不进提示词/GET /tools，仅用于撤销派发（如 update_expense）
+	Name        string          `json:"name"`        // snake_case，动词开头，如 record_expense
+	Description string          `json:"description"` // 何时该用/何时不该用
+	InputSchema json.RawMessage `json:"input_schema"` // JSON Schema 参数定义（LLM 生成参数后用它校验）
+	Risk        RiskLevel       `json:"risk"`
+	Permission  string          `json:"permission"` // 所需权限键，与权限矩阵联动（如 "expense.write"）
+	Module      string          `json:"module"`     // 所属业务模块：chore/expense/meal/system...
+	Idempotency string          `json:"idempotency"` // 幂等维度说明（写工具必填，如 "user+amount+hint+day"）
+	Hidden      bool            `json:"-"`          // 内部工具：不进提示词/GET /tools，仅用于撤销派发（如 update_expense）
 }
 
 // Result 是工具执行返回，会被转成结果卡片回显给用户。
