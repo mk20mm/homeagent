@@ -1,5 +1,7 @@
 # 前端代码规范（React + TypeScript）
 
+> 对齐 **AI-STD-006（仓库 Harness）**。
+
 > 适配两端：**移动端**（Vite+React+PWA，家人日常）与 **Web 管理端**（Ant Design，家长管理）。共用同一套 API client 与类型。
 
 ---

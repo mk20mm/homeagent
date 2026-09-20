@@ -1,10 +1,12 @@
 # C 阶段执行计划：运行时联通
 
+> **状态：✅ 已归档（2026-09-18）** —— P0/P1/P2 可交付部分完成。剩余项已迁移：evals 套件 → [active/stage-a-credibility-base.md](../active/stage-a-credibility-base.md) 的 T-A11；账单/任务 handler → T-A01 与 [active/stage-b-module-depth.md](../active/stage-b-module-depth.md)。后续推进看 [exec-plans/README.md](../README.md) 的 V1 任务总览。
+
 > 目标：跑通「对话→执行→撤销」核心闭环（AI-PRD §8.10 一期 MVP 边界）。
 > 验收用例格式对齐 AI-STD-005：`{category, description, steps, passes}`，`passes` 随实现同步翻转。
 > 前置：A（后端生成链路）/ B（前端骨架）已完成并验收。
 
-**当前状态（2026-09-18）：P0 关键路径 9/9 ✅；P1 工具集 + JWT + 观测 handler ✅ 11/11；P2 前端双端联调 ✅ + 供应商/模型配置链路 ✅ + 会话管理 ✅ + 记账页联动 ✅ + 快捷记账/修正闭环 ✅（UX 走查第 1 轮机会 1+4 已落地），余 evals 评测套件。**
+**当前状态（2026-09-18 更新）：P2 剩余项（evals、账单/任务 handler）已迁移至 V1 任务计划 stage-a / stage-b，本计划可交付部分全部完成；**P0 关键路径 9/9 ✅；P1 工具集 + JWT + 观测 handler ✅ 11/11；P2 前端双端联调 ✅ + 供应商/模型配置链路 ✅ + 会话管理 ✅ + 记账页联动 ✅ + 快捷记账/修正闭环 ✅（UX 走查第 1 轮机会 1+4 已落地），余 evals 评测套件。**
 
 ## 优先级评估（依赖 × 价值）
 
@@ -330,7 +332,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "越权/注入/无界循环用例（safety）",
     "make eval 跑通且输出可量化指标"
   ],
-  "passes": false
+  "passes": false,
+  "note": "已迁移：见 stage-a-credibility-base.md 的 T-A11（evals 套件），指标口径与四模块金标准扩充见 AI-PRD §6 与 §10.14"
 }
 ```
 
@@ -344,7 +347,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "A3 高危操作无 undo → Critical",
     "Prompt Injection 触发越权 → Critical"
   ],
-  "passes": false
+  "passes": false,
+  "note": "已迁移：安全否决项评测并入 stage-a-credibility-base.md 的 T-A11，名单以 AI-PRD §6.2 为准"
 }
 ```
 
@@ -382,7 +386,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
   "category": "functional",
   "description": "会话历史接口：GET /conversations 与 /conversations/{id}/messages",
   "steps": ["会话列表按最后消息时间倒序", "消息按时间正序返回，含角色与卡片数据", "跨成员不可见"],
-  "passes": false
+  "passes": true,
+  "note": "已于 2026-09-17 落地（listConversations/createConversation/listMessages/deleteConversation + 侧边栏）；原计划该标志忘翻，2026-09-18 校正"
 }
 ```
 
@@ -395,7 +400,8 @@ P1 内部按工具风险排序：高风险（记账）先行，因为它的撤�
     "任务列表按状态过滤",
     "POST /tasks/{id}/complete 打卡生效"
   ],
-  "passes": false
+  "passes": false,
+  "note": "已迁移并拆分：handler 部分见 stage-a-credibility-base.md 的 T-A01；模块深耕（记账信息架构/家务合同）见 stage-b-module-depth.md"
 }
 ```
 
@@ -449,33 +455,33 @@ repository 层 ──→ record_expense ──→ undo API       ✅
 
 ## 决策日志
 
-| 决策                                               | 理由                                                                                           |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| fake provider 优先于真实供应商接入                 | 解耦：链路验证不依赖外部 Key 可用性与网络（A/B 阶段同类决策延续）                              |
-| record_expense 作为首个真实工具                    | 风险最高（A3），撤销/幂等/审计约束最强，尽早暴露架构缺陷                                       |
-| 幂等键用 (member+amount+hint+day) 而非金额精度匹配 | AI-PRD §3 明确：金额计算与归类由代码控制，不由 LLM 算钱                                        |
-| evals 放 P2 而非 P0                                | AI-PRD §6 要求先定义评测，但套件落地需真实行为可回放；P0 用例本身即评测输入，P2 固化为回归套件 |
-| JWT 放 P1 而非 P0                                  | P0 用 fake provider 本地联调，认证先行会拖慢关键路径；但权限双保险的执行层校验在 P0 就要内建   |
-| 工具 memberID 从 ctx 取，由 Executor 统一注入      | 分层：Tool.Execute 签名不引 memberID 参数，领域工具从 ctx 取；注入点单一可审计（曾因遗漏注入导致真机「成员不存在」） |
-| 调试端点 GET /debug/state 临时引入并删除           | 真机验收需直查三表；JWT 上线后已删除（T11 偿还），断 repo→api/v1 反向依赖                       |
-| 撤销审计继承工具 risk 且 audit.Log 兜底空值        | audit_log.risk 是必填 enum 无默认值，撤销审计漏设导致写库静默失败（错误被 `_ =` 吞）；审计留痕是安全否决项，错误必须显式处理 |
-| JWT 签发用 name + auth_token（预共享密钥）         | 单家庭自用场景：无 OAuth 依赖，登录零配置；失败信息统一「用户名或令牌错误」防枚举；subtle 常量时间比对防时序攻击 |
-| auth_token 开发期明文（dev-<名字>）                | P1 聚焦闭环；加密存储留技术债 T13（EncryptionKey 已备），生产前必须改                          |
-| 无权限工具 Permission=\"\" 统一放行                | suggest_dinner/list_models/switch_model 全员可用；源头过滤与执行校验对空 Permission 一致放行，避免「全员可用却在清单里看不见」的错配 |
-| go-openai 适配器兼容 OpenAI 协议端点                | DeepSeek/OpenAI/Ollama 均兼容；base_url 可配；tool_call 分片在网关内聚合，runtime 不处理分片    |
-| TaskRepo/MealRepo 方法名避开 Create/Delete/Summary | Store 是聚合根，不能同时实现两个同名不同签名的接口方法；仓储接口按领域语义命名（Assign/Remove/DailySummary） |
-| undo_id 从 undo_log 透传到 SSE tool_call 事件        | 前端撤销按钮需要回指 id：UndoStore.Save 返回 id → Executor 回填 Result.UndoID → runtime Event 携带 undo_id；之前卡片只有数据没有 id，撤销按钮无法接线 |
-| 前端 api client baseUrl 用绝对 origin                | openapi-fetch 内部 `new Request(url)` 在无 document base 的环境（测试/SSR）对相对 URL 抛 Failed to parse URL；浏览器里靠 document 兜底一直没暴露，测试一接真接口就炸 |
-| api client 的 fetch 延迟解析                         | createClient 在模块导入期捕获 globalThis.fetch，而 MSW 在 beforeAll 才 patch，导致 api.* 全部绕过拦截（表现为接口静默失败被 catch 吞）；`fetch: (...a) => fetch(...a)` 换成调用期解析 |
-| 流式消息 id 由 store 持有（streamId）               | useSSE 的 onEvent 闭包在 connect 时已固定，React 批处理会让回调拿到过期 id；beginStream 在 store 内分配 id，回调调无参 action，闭包不持有 id |
-| PATCH /expenses 的撤销用「恢复旧值」而非删除          | 修正账单的撤销语义是回滚到修改前状态；undo_data 存 expense_id + restore 快照，派发到隐藏工具 update_expense（不进提示词/工具清单，仅承载 Undo） |
-| update_expense 工具标记 Hidden 不暴露给 LLM          | 它只服务 REST PATCH 的撤销恢复；Spec.Hidden 让 SpecsWithPermission 跳过，GET /tools 与提示词都不出现它，避免 LLM 直调绕过参数校验 |
-| 底部弹层为 TabBar 留 76px 底 padding                 | 真机走查发现保存按钮被固定 TabBar 遮挡（pointer events 拦截）；fixed 输入栏/导航栏与 absolute 弹层共存时必须显式留白 |
-| getAuth 快照按 localStorage 原始字符串缓存           | useSyncExternalStore 用 Object.is 比较快照，getAuth 每次 JSON.parse 返回新对象会引发「Maximum update depth exceeded」无限重渲染；按 raw 字符串比对既稳定引用又能感知外部清空/跨标签改动 |
-| 模型配置以数据库为单一真相源，环境变量降为 fallback  | 验收问题：admin 页能看到模型清单但改不了（写端点缺失），且后端只看环境变量、不读库——清单是装饰。现在 main.go 启动按「库默认模型 + 解密 api_key → 环境变量 → 脚本供应商」选供应商，admin 改完重启即生效 |
-| api_key 用 AES-256-GCM 加密落库，接口只回脱敏值     | 供应商密钥是家庭最高敏字段：Encrypt 时随机 nonce（同明文每次不同密文，防比对）；handler 层永不接触明文（只有 store→main 装配网关时解密一次）；脱敏视图首尾各 4 位 |
-| 记账幂等命中显式提示 duplicated，且不写 undo_log   | 验收问题：脚本供应商固定编造「买菜120」，反复记账命中同一幂等键，service 静默返回「已记账」但库无新记录——「说成功却查不到」。改为 service 返回 duplicated 标记，工具 Summary 变「今天已记过这笔，未重复记账」、card 带 duplicated，且 UndoData 置空（撤销会误删早先那笔；Executor 对空 UndoData 天然不写 undo_log，不产生撤销按钮） |
-| 会话管理 API 补齐（list/create/messages/delete）   | 验收问题：会话无历史/新建/清除。session.Repository 补 ListConversations + DeleteConversation（软删除，消息随会话不可见）；标题为空时由首条用户消息截断 20 字回填（豆包式）；handler 一律带 memberID 隔离校验；前端侧边栏抽屉（新建/切换/删除） |
+| 决策                                                | 理由                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| fake provider 优先于真实供应商接入                  | 解耦：链路验证不依赖外部 Key 可用性与网络（A/B 阶段同类决策延续）                                                                                                                                                                                                                                                                   |
+| record_expense 作为首个真实工具                     | 风险最高（A3），撤销/幂等/审计约束最强，尽早暴露架构缺陷                                                                                                                                                                                                                                                                            |
+| 幂等键用 (member+amount+hint+day) 而非金额精度匹配  | AI-PRD §3 明确：金额计算与归类由代码控制，不由 LLM 算钱                                                                                                                                                                                                                                                                             |
+| evals 放 P2 而非 P0                                 | AI-PRD §6 要求先定义评测，但套件落地需真实行为可回放；P0 用例本身即评测输入，P2 固化为回归套件                                                                                                                                                                                                                                      |
+| JWT 放 P1 而非 P0                                   | P0 用 fake provider 本地联调，认证先行会拖慢关键路径；但权限双保险的执行层校验在 P0 就要内建                                                                                                                                                                                                                                        |
+| 工具 memberID 从 ctx 取，由 Executor 统一注入       | 分层：Tool.Execute 签名不引 memberID 参数，领域工具从 ctx 取；注入点单一可审计（曾因遗漏注入导致真机「成员不存在」）                                                                                                                                                                                                                |
+| 调试端点 GET /debug/state 临时引入并删除            | 真机验收需直查三表；JWT 上线后已删除（T11 偿还），断 repo→api/v1 反向依赖                                                                                                                                                                                                                                                           |
+| 撤销审计继承工具 risk 且 audit.Log 兜底空值         | audit_log.risk 是必填 enum 无默认值，撤销审计漏设导致写库静默失败（错误被 `_ =` 吞）；审计留痕是安全否决项，错误必须显式处理                                                                                                                                                                                                        |
+| JWT 签发用 name + auth_token（预共享密钥）          | 单家庭自用场景：无 OAuth 依赖，登录零配置；失败信息统一「用户名或令牌错误」防枚举；subtle 常量时间比对防时序攻击                                                                                                                                                                                                                    |
+| auth_token 开发期明文（dev-<名字>）                 | P1 聚焦闭环；加密存储留技术债 T13（EncryptionKey 已备），生产前必须改                                                                                                                                                                                                                                                               |
+| 无权限工具 Permission=\"\" 统一放行                 | suggest_dinner/list_models/switch_model 全员可用；源头过滤与执行校验对空 Permission 一致放行，避免「全员可用却在清单里看不见」的错配                                                                                                                                                                                                |
+| go-openai 适配器兼容 OpenAI 协议端点                | DeepSeek/OpenAI/Ollama 均兼容；base_url 可配；tool_call 分片在网关内聚合，runtime 不处理分片                                                                                                                                                                                                                                        |
+| TaskRepo/MealRepo 方法名避开 Create/Delete/Summary  | Store 是聚合根，不能同时实现两个同名不同签名的接口方法；仓储接口按领域语义命名（Assign/Remove/DailySummary）                                                                                                                                                                                                                        |
+| undo_id 从 undo_log 透传到 SSE tool_call 事件       | 前端撤销按钮需要回指 id：UndoStore.Save 返回 id → Executor 回填 Result.UndoID → runtime Event 携带 undo_id；之前卡片只有数据没有 id，撤销按钮无法接线                                                                                                                                                                               |
+| 前端 api client baseUrl 用绝对 origin               | openapi-fetch 内部 `new Request(url)` 在无 document base 的环境（测试/SSR）对相对 URL 抛 Failed to parse URL；浏览器里靠 document 兜底一直没暴露，测试一接真接口就炸                                                                                                                                                                |
+| api client 的 fetch 延迟解析                        | createClient 在模块导入期捕获 globalThis.fetch，而 MSW 在 beforeAll 才 patch，导致 api.* 全部绕过拦截（表现为接口静默失败被 catch 吞）；`fetch: (...a) => fetch(...a)` 换成调用期解析                                                                                                                                               |
+| 流式消息 id 由 store 持有（streamId）               | useSSE 的 onEvent 闭包在 connect 时已固定，React 批处理会让回调拿到过期 id；beginStream 在 store 内分配 id，回调调无参 action，闭包不持有 id                                                                                                                                                                                        |
+| PATCH /expenses 的撤销用「恢复旧值」而非删除        | 修正账单的撤销语义是回滚到修改前状态；undo_data 存 expense_id + restore 快照，派发到隐藏工具 update_expense（不进提示词/工具清单，仅承载 Undo）                                                                                                                                                                                     |
+| update_expense 工具标记 Hidden 不暴露给 LLM         | 它只服务 REST PATCH 的撤销恢复；Spec.Hidden 让 SpecsWithPermission 跳过，GET /tools 与提示词都不出现它，避免 LLM 直调绕过参数校验                                                                                                                                                                                                   |
+| 底部弹层为 TabBar 留 76px 底 padding                | 真机走查发现保存按钮被固定 TabBar 遮挡（pointer events 拦截）；fixed 输入栏/导航栏与 absolute 弹层共存时必须显式留白                                                                                                                                                                                                                |
+| getAuth 快照按 localStorage 原始字符串缓存          | useSyncExternalStore 用 Object.is 比较快照，getAuth 每次 JSON.parse 返回新对象会引发「Maximum update depth exceeded」无限重渲染；按 raw 字符串比对既稳定引用又能感知外部清空/跨标签改动                                                                                                                                             |
+| 模型配置以数据库为单一真相源，环境变量降为 fallback | 验收问题：admin 页能看到模型清单但改不了（写端点缺失），且后端只看环境变量、不读库——清单是装饰。现在 main.go 启动按「库默认模型 + 解密 api_key → 环境变量 → 脚本供应商」选供应商，admin 改完重启即生效                                                                                                                              |
+| api_key 用 AES-256-GCM 加密落库，接口只回脱敏值     | 供应商密钥是家庭最高敏字段：Encrypt 时随机 nonce（同明文每次不同密文，防比对）；handler 层永不接触明文（只有 store→main 装配网关时解密一次）；脱敏视图首尾各 4 位                                                                                                                                                                   |
+| 记账幂等命中显式提示 duplicated，且不写 undo_log    | 验收问题：脚本供应商固定编造「买菜120」，反复记账命中同一幂等键，service 静默返回「已记账」但库无新记录——「说成功却查不到」。改为 service 返回 duplicated 标记，工具 Summary 变「今天已记过这笔，未重复记账」、card 带 duplicated，且 UndoData 置空（撤销会误删早先那笔；Executor 对空 UndoData 天然不写 undo_log，不产生撤销按钮） |
+| 会话管理 API 补齐（list/create/messages/delete）    | 验收问题：会话无历史/新建/清除。session.Repository 补 ListConversations + DeleteConversation（软删除，消息随会话不可见）；标题为空时由首条用户消息截断 20 字回填（豆包式）；handler 一律带 memberID 隔离校验；前端侧边栏抽屉（新建/切换/删除）                                                                                      |
 
 ## 验收标准
 

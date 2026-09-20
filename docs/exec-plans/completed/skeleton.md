@@ -1,5 +1,9 @@
 # 骨架搭建执行计划（家事 Agent）
 
+> 对齐 **AI-STD-006（仓库 Harness）**。
+
+> **状态：✅ 已归档（2026-09-18）** —— 阶段 A（后端生成链路）与阶段 B（前端工作区）交付完成；阶段 C（运行时联通）由 [c-runtime.md](c-runtime.md) 细化并落地，本文件保留作为决策历史。
+
 > 已锁定决策：UUID 主键 / 金额 Int 分 / Task 命名 / Category 表+预算字段；
 > pnpm(npm i -g pnpm) / OpenAPI V1 完整端点 / Fake provider 跑通 / 先打通生成链路。
 > 开始日期 2025-08 下旬（空仓库）；A/B 阶段已验收，进行 C 阶段。

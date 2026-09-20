@@ -1,6 +1,10 @@
 # UI 页面设计
 
+> 对齐 **AI-STD-003（智能体架构标准）**。
+
 一期（MVP）全部交互页面，统一**苹果简约风**（大留白、圆角卡片、毛玻璃、蓝紫点缀），390×844 iPhone 尺寸。
+
+> ⚠️ **本页清单 = 当前实现（C 阶段设计稿），不是 V1 信息架构**。V1 按 [../AI-PRD.md](../AI-PRD.md) §10.4 调整为：新增 **Today / 日程 / 通知中心 / 撤销中心**，**报饭并入 Today**（从 tab 降级）；下面的 PNG 将在**阶段 B 前端重构**时按新 IA 重画（见 [../exec-plans/active/stage-b-module-depth.md](../exec-plans/active/stage-b-module-depth.md)）。改前端前先对照 §10.4，别照本页清单实现。
 
 ## 页面清单
 

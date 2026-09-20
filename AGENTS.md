@@ -8,7 +8,7 @@
 单家庭自用的 AI 协作中枢：家人说一句话，Agent 调用后端工具把家务/用餐/账单/日程办到位。
 Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管理端）+ OpenAPI 契约驱动双端类型。
 
-**当前阶段**：A/B 骨架已完成；C 阶段 **P0 关键路径 ✅ 9/9**、**P1 工具集+JWT+观测 ✅ 11/11**（9 工具 + JWT 认证 + 权限双保险 + 幂等 + go-openai 适配器 + GET /models·/audit·/usage）、**P2 前端双端联调 ✅**（JWT 登录守卫 + ChatPage 真实 SSE + undo_id 撤销闭环 + admin Debug/仪表盘/审计），进入 P2 剩余项（evals 评测套件、会话历史接口、账单/任务 handler）。
+**当前阶段**：A/B 骨架已完成；C 阶段 **P0 关键路径 ✅ 9/9**、**P1 工具集+JWT+观测 ✅ 11/11**（9 工具 + JWT 认证 + 权限双保险 + 幂等 + go-openai 适配器 + GET /models·/audit·/usage）、**P2 前端双端联调 ✅**（JWT 登录守卫 + ChatPage 真实 SSE + undo_id 撤销闭环 + admin Debug/仪表盘/审计），进入 P2 剩余项（evals 评测套件、账单/任务 handler）。**产品设计研究已升为 V1 需求**：三条主脉（输入/可见/跑腿）+ 四模块同权（`docs/product/product-design-research-01.md` / `product-inspiration-01.md`）→ **需求真相源 `docs/AI-PRD.md` §10**（59 条 FR）→ **待执行计划** `docs/exec-plans/active/stage-a-credibility-base.md`（可信度与底座）与 `stage-b-module-depth.md`（四模块深耕）；**模块全景扩展**：四模块之外的增量模块论证见 `docs/product/product-design-research-02.md`（七层全景 + 采购囤货/家庭档案/健康关怀 + C17–C20 登记）；**接手开发先读 exec-plans/README.md 的 V1 任务总览**。
 进度与决策日志见 `docs/exec-plans/active/`，技术债见 `docs/tech-debt.md`。
 
 ## 不可违反的不变量（改任何代码前先读）
@@ -64,6 +64,7 @@ pnpm run lint          # ESLint + Stylelint
 pnpm -r run test       # Vitest + MSW
 pnpm -r run build      # 双端构建
 pnpm run format        # Prettier
+pnpm run docs:check    # 文档自检：链接 / FR 覆盖 / 图表成对 / 计划 JSON / 标注 / 格式
 ```
 
 ## 本机环境注意（踩过的坑）
@@ -74,6 +75,7 @@ pnpm run format        # Prettier
 - **oapi-codegen 的 output 路径相对 CWD**（不是配置文件目录）→ `make gen-api` 会 `cd internal/openapi`。
 - **TypeScript 锁 5.9.3**：7.x 与 openapi-typescript 7.13 的 `ts.factory` API 不兼容。
 - **ent v0.14.6**：索引不支持 `.Comment()`；边 FK 列要用 `index.Fields("x").Edges("edge")` 组合。**enum 字段必填无默认值时，不设值会让 Save() 静默失败**（审计曾因此漏记撤销事件——`_ = err` 吞错是帮凶，审计/日志类调用必须显式处理错误）。
+- **渲染 mermaid 图表（mmdc）**：本机 puppeteer 的 chrome-headless-shell 未下载，直接跑 `mmdc` 报 `Could not find chrome-headless-shell`；须 `PUPPETEER_EXECUTABLE_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"`。且 markdown 输入会输出 `<name>-1.png`（不是 `-o` 指定的名字），渲染后要改名覆盖，否则 PNG 与源码脱节（`docs/ui/` 约定成对存放）。
 - **curl 验收用 body 文件**：PowerShell 传 JSON 给 `curl.exe -d` 转义易错（单引号内 `\"` 行为不稳）；`Set-Content -Encoding UTF8` 带 BOM 会导致 JSON 解析 400。正确姿势：`[IO.File]::WriteAllText($f, $json, (New-Object Text.UTF8Encoding $false))` 后 `-d "@$f"`。
 - **启服务前先清残留进程**：`Get-Process go,homeagent | Stop-Process -Force`，否则旧二进制占 8080，新请求路由到旧服务（表现为 /chat 404、/tools 返回旧空清单）。推荐 `go build -o homeagent.exe` 后启二进制，避免 `go run` 编译期占端口。
 - 本机活动代理是 airtcp（127.0.0.1:5780）；配置里若残留 7897（Clash Verge）是死端口。
@@ -83,14 +85,18 @@ pnpm run format        # Prettier
 
 ## 领域知识地图（遇到某类问题，去哪找正确知识）
 
-| 问题类型 | 去哪找 | 关键内容 |
-|---|---|---|
-| 体验断点 / 产品机会 | `docs/product/ux-exploration-*.md` | 真机走查结论 + 体验断点表 + A/B/C 方案；**改产品前先读**，避免重复发现 |
-| E2E 测试轮次与遗留问题 | `docs/e2e-issues.md` | 每轮通过率、暴露的真实 bug、已修/待修清单（T-e2e-* 编号） |
-| 「为什么这么选」 | `docs/ADR/` | 技术选型决策记录（含被否方案） |
-| 领域术语与实体不变量 | `docs/DOMAIN/家庭领域模型.md` | 限界上下文、统一语言、跨模块联动不变量 |
-| 前端规范（气泡/卡片/撤销交互） | `docs/CONVENTIONS-frontend.md` + `docs/ui/design-system.md` | 设计令牌、对话状态机、撤销交互约定 |
-| 技术债 | `docs/tech-debt.md` | T1–T16 登记与偿还时机 |
+| 问题类型                            | 去哪找                                                      | 关键内容                                                                                                                                                           |
+| ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| V1 功能需求 / 模块深度 / 验收       | `docs/AI-PRD.md` §10                                        | 四模块深耕需求（FR-CHORE/MEAL/BILL/CAL/HUB/AI）+ 角色能力矩阵 + 信息架构 + 出口标准；**接活前先读**                                                                |
+| 体验断点 / 产品机会                 | `docs/product/ux-exploration-*.md`                          | 真机走查结论 + 体验断点表 + A/B/C 方案；**改产品前先读**，避免重复发现                                                                                             |
+| 产品理念 / 设计原则 / IA / 交互系统 | `docs/product/product-design-research-01.md`                | 三条主脉（输入/可见/跑腿）+ 原则 8 条 + 用户旅程 + 信息架构 + AI 能力边界 + 演进路线 + **四模块深耕矩阵**（家庭事务中枢，非记账应用）；**定方向先读**，越界项标 ⚠️ |
+| 市面能力 / 模块深耕标尺 / 能力候选  | `docs/product/product-inspiration-*.md`                     | 市面软件能力调研（Cozi/AnyList/Tody/OurHome/钱迹/TimeTree 等）+ L0–L4 深度分级 + 每模块 V1 最低线；**定模块范围先读**                                              |
+| 功能模块全景 / 四模块之外的增量模块 | `docs/product/product-design-research-02.md`                | 七层全景（运营/协作/供给/记忆/健康/外部/AI）+ 采购囤货/家庭档案/健康关怀论证 + 取舍边界（不做社交/电商/金融/位置）+ C17–C20 登记；**定模块边界先读**               |
+| E2E 测试轮次与遗留问题              | `docs/e2e-issues.md`                                        | 每轮通过率、暴露的真实 bug、已修/待修清单（T-e2e-* 编号）                                                                                                          |
+| 「为什么这么选」                    | `docs/ADR/`                                                 | 技术选型决策记录（含被否方案）                                                                                                                                     |
+| 领域术语与实体不变量                | `docs/DOMAIN/家庭领域模型.md`                               | 限界上下文、统一语言、跨模块联动不变量                                                                                                                             |
+| 前端规范（气泡/卡片/撤销交互）      | `docs/CONVENTIONS-frontend.md` + `docs/ui/design-system.md` | 设计令牌、对话状态机、撤销交互约定                                                                                                                                 |
+| 技术债                              | `docs/tech-debt.md`                                         | T1–T16 登记与偿还时机                                                                                                                                              |
 
 **走查方法**（复用）：`web/e2e/ux-walkthrough.spec.ts` 是可回归的端到端走查脚本——登录→记账→撤销→侧边栏→各 Tab→异常制造（空输入/错误令牌/重复提交/超长文本/刷新），截图落 `web/e2e-shots/`（已 gitignore），截图用 `docling_describe_image` 做 VLM 分析。
 
@@ -99,4 +105,5 @@ pnpm run format        # Prettier
 - 人定方向、定约束、验结果；执行交给智能体。
 - 卡住时不要"更努力"，问：**缺什么能力/文档/约束，才能让智能体可靠地做出来？** 答案写进本文件或 docs/。
 - 每次改动同步更新：计划状态（exec-plans）、新增不变量（本文 + CONVENTIONS）、技术债（tech-debt）。
+- 改完文档跑 `pnpm run docs:check`（**硬性项为 0 error**）：它会拦住「链接断」「FR 无任务承接」「mermaid 改了 PNG 没重渲染」「验收用例 JSON 缺 passes」这类编译器看不见的漂移。
 - 发现坏模式立即偿还，技术债是高息贷款。

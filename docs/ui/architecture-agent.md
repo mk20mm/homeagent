@@ -1,5 +1,7 @@
 # Agent 调度器内部架构
 
+> 对齐 **AI-STD-003（智能体架构标准）**。
+
 ```mermaid
 flowchart TB
     Start([用户消息]) --> Sess[会话管理<br/>取历史/模型/身份]

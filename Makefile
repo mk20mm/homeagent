@@ -1,4 +1,4 @@
-.PHONY: all build test lint generate gen-ent gen-api gen-web migrate run tidy vet lint-web typecheck-web test-web
+.PHONY: all build test lint generate gen-ent gen-api gen-web migrate run tidy vet lint-web typecheck-web test-web docs-check
 
 GO ?= go
 
@@ -62,6 +62,10 @@ test-agent:
 ## 评测套件（AI-STD-005）
 eval:
 	$(GO) test ./evals/... -count=1
+
+## 文档一致性与合规自检（链接 / FR 覆盖 / 图表成对 / 计划 JSON / AI-STD 标注 / prettier）
+docs-check:
+	node scripts/docs-check.mjs
 
 ## 静态检查
 vet:

@@ -1,5 +1,7 @@
 # Agent 调度器设计
 
+> 对齐 **AI-STD-003（智能体架构标准）/ AI-STD-004（工具工程）**。
+
 核心模式：**工具调用循环（ReAct loop）**——LLM 输出若含 tool_call，执行工具并把结果回传，LLM 继续生成，直到无调用为止。这是行业标准模式（OpenAI Function Calling / Vercel AI SDK multi-step 均为此模式）。
 
 ## 核心架构

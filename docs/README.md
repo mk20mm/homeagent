@@ -10,15 +10,18 @@
 ```
 docs/
 ├── README.md                  # 本文件：文档地图与阅读顺序
-├── AI-PRD.md                  # 产品需求契约（对齐 AI-STD-002）
+├── AI-PRD.md                  # 需求契约：六份契约 + §10 V1 功能需求（四模块深耕）
 ├── ARCHITECTURE.md            # 架构设计（对齐 AI-STD-003）
 ├── CONVENTIONS-backend.md     # 后端代码规范（Go）
 ├── CONVENTIONS-frontend.md    # 前端代码规范（React+TS，移动端+管理端）
 ├── agent-调度器设计.md         # Agent 运行时详细设计（核心，保留）
 ├── tech-debt.md               # 技术债登记（发现即偿还）
 ├── e2e-issues.md              # E2E 测试轮次记录与问题清单
-├── product/                   # 产品设计探索（UX 走查 + 机会分析）
-│   └── ux-exploration-01.md   #   第 1 轮：记账闭环与「对话—页面孤岛」
+├── product/                   # 产品设计研究（理念层 + 灵感层 + 扩展层 + UX 走查层）
+│   ├── product-design-research-01.md  #   理念层：产品设计研究与演进方案（15 章 + 附录 A/B）
+│   ├── product-design-research-02.md  #   扩展层：功能模块全景（七层）+ 四模块之外的增量模块论证（C17–C20）
+│   ├── product-inspiration-01.md      #   灵感层：市面能力调研 + 四模块深耕标尺与能力候选
+│   └── ux-exploration-01.md   #   第 1 轮（走查层）：记账闭环与「对话—页面孤岛」
 ├── exec-plans/                # 执行计划（一等公民，带状态与决策日志）
 │   ├── README.md              #   状态约定与索引
 │   ├── active/                #   正在推进
@@ -37,7 +40,7 @@ docs/
     ├── architecture-system.md #   系统分层架构图  (.png)
     ├── architecture-agent.md  #   Agent 调度器内部架构图 (.png)
     ├── sequence-dialog.md     #   对话执行时序图 (.png)
-    └── roadmap-iterations.md  #   迭代边界图 V1/V2/V3 (.png)
+    └── roadmap-iterations.md  #   迭代边界图 V1 → 阶段 A–D (.png)
 ```
 
 根目录另有 **`AGENTS.md`**——约 100 行的地图与不可变不变量，会被注入智能体上下文。本文档与它的分工：`AGENTS.md` 是「入口地图」，本文件是「文档内部详图」。
@@ -46,24 +49,24 @@ docs/
 
 ## 每个文件的作用
 
-| 文件                          | 作用                                                                                                              | 对齐标准       |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------- |
-| **AI-PRD.md**                 | 六份可验收契约：业务定义、能力契约、确定性边界、自治级别 A0–A4、Eval 契约、明确不做；含全部模块 V1/V2/V3 迭代边界 | AI-STD-002     |
-| **ARCHITECTURE.md**           | 七层架构、组件清单与存在理由、数据流、信任边界、工具清单、状态设计、观测与评测埋点                                | AI-STD-003     |
-| **CONVENTIONS-backend.md**    | Go 目录结构、分层依赖、工具层接口约束（WriteTool 编译期强制撤销）、错误三段式、测试与评测命令                     | AI-STD-006     |
-| **CONVENTIONS-frontend.md**   | 移动端+管理端 monorepo 结构、组件/状态/样式规范、对话状态机、撤销交互、设计令牌                                   | AI-STD-006     |
-| **agent-调度器设计.md**       | Agent 核心实现设计：六组件、工具注册表、危险分级控制、撤销机制、Go 实现要点                                       | AI-STD-003/004 |
-| **ADR/**                      | 「为什么这么选」：Go、自建调度器、SQLite、全量可撤销、权限双保险                                                  | AI-STD-003/006 |
-| **DOMAIN/家庭领域模型.md**    | 限界上下文、统一语言、核心实体、跨模块联动不变量、Eval 真实任务样本                                               | AI-STD-002/005 |
-| **ui/design-system.md**       | 苹果简约风 UI 规范：色彩、字体、圆角间距、关键视觉元素、一期页面清单                                              | —              |
-| **ui/architecture-system.md** | 系统七层分层架构图（mermaid + PNG）                                                                               | AI-STD-003     |
-| **ui/architecture-agent.md**  | Agent 调度器内部流程图（mermaid + PNG）                                                                           | AI-STD-003     |
-| **ui/sequence-dialog.md**     | 「买菜 120」对话执行时序图（mermaid + PNG）                                                                       | AI-STD-003     |
-| **ui/roadmap-iterations.md**  | 一/二/三期迭代边界图（mermaid + PNG）                                                                             | AI-STD-001     |
-| **exec-plans/**               | 执行计划：任务状态 + **决策日志**（含被否方案）。智能体推进任务的唯一入口                                         | AI-STD-006     |
-| **tech-debt.md**              | 技术债登记：影响 + 偿还时机。发现坏模式立即登记，定期清偿                                                         | AI-STD-006     |
-| **e2e-issues.md**             | E2E 测试轮次记录：每轮通过率、暴露的真实 bug、已修/待修清单                                                       | AI-STD-006     |
-| **product/**                  | UX 设计探索：真实用户视角端到端走查 → 体验断点 → 产品机会（A/B/C 三方案）。**改产品前先读**                        | AI-STD-002     |
+| 文件                          | 作用                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 对齐标准       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| **AI-PRD.md**                 | 六份可验收契约：业务定义、能力契约、确定性边界、自治级别 A0–A4、Eval 契约、明确不做；含全部模块 V1/V2/V3 迭代边界；**§10 = V1 功能需求（四模块深耕 PRD，唯一需求真相源）**                                                                                                                                                                                                                                                                                                                                                | AI-STD-002     |
+| **ARCHITECTURE.md**           | 七层架构、组件清单与存在理由、数据流、信任边界、工具清单、状态设计、观测与评测埋点                                                                                                                                                                                                                                                                                                                                                                                                                                        | AI-STD-003     |
+| **CONVENTIONS-backend.md**    | Go 目录结构、分层依赖、工具层接口约束（WriteTool 编译期强制撤销）、错误三段式、测试与评测命令                                                                                                                                                                                                                                                                                                                                                                                                                             | AI-STD-006     |
+| **CONVENTIONS-frontend.md**   | 移动端+管理端 monorepo 结构、组件/状态/样式规范、对话状态机、撤销交互、设计令牌                                                                                                                                                                                                                                                                                                                                                                                                                                           | AI-STD-006     |
+| **agent-调度器设计.md**       | Agent 核心实现设计：六组件、工具注册表、危险分级控制、撤销机制、Go 实现要点                                                                                                                                                                                                                                                                                                                                                                                                                                               | AI-STD-003/004 |
+| **ADR/**                      | 「为什么这么选」：Go、自建调度器、SQLite、全量可撤销、权限双保险                                                                                                                                                                                                                                                                                                                                                                                                                                                          | AI-STD-003/006 |
+| **DOMAIN/家庭领域模型.md**    | 限界上下文、统一语言、核心实体、跨模块联动不变量、Eval 真实任务样本                                                                                                                                                                                                                                                                                                                                                                                                                                                       | AI-STD-002/005 |
+| **ui/design-system.md**       | 苹果简约风 UI 规范：色彩、字体、圆角间距、关键视觉元素、一期页面清单                                                                                                                                                                                                                                                                                                                                                                                                                                                      | —              |
+| **ui/architecture-system.md** | 系统七层分层架构图（mermaid + PNG）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | AI-STD-003     |
+| **ui/architecture-agent.md**  | Agent 调度器内部流程图（mermaid + PNG）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | AI-STD-003     |
+| **ui/sequence-dialog.md**     | 「买菜 120」对话执行时序图（mermaid + PNG）                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | AI-STD-003     |
+| **ui/roadmap-iterations.md**  | 迭代边界图：V1 四模块深耕 → 阶段 A–D 出口判定（mermaid + PNG）                                                                                                                                                                                                                                                                                                                                                                                                                                                            | AI-STD-001     |
+| **exec-plans/**               | 执行计划：任务状态 + **决策日志**（含被否方案）。智能体推进任务的唯一入口；**V1 总览（阶段 A–D）在 `exec-plans/README.md`**                                                                                                                                                                                                                                                                                                                                                                                               | AI-STD-006     |
+| **tech-debt.md**              | 技术债登记：影响 + 偿还时机。发现坏模式立即登记，定期清偿                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | AI-STD-006     |
+| **e2e-issues.md**             | E2E 测试轮次记录：每轮通过率、暴露的真实 bug、已修/待修清单                                                                                                                                                                                                                                                                                                                                                                                                                                                               | AI-STD-006     |
+| **product/**                  | 产品设计研究入口，分四层：**定方向先读** `product-design-research-01.md`（理念层：设计原则 8 条 / 用户旅程 / 信息架构 / 交互系统 / AI 能力边界 / 演进路线）；**定模块深度读** `product-inspiration-01.md`（灵感层：市面产品能力调研 + 四模块深耕标尺 + 能力候选）；**定模块边界读** `product-design-research-02.md`（扩展层：功能模块全景七层 + 四模块之外的增量模块论证，含采购囤货/家庭档案/健康关怀与 C17–C20 登记）；**改产品前再读** `ux-exploration-01.md`（走查层：端到端走查 → 体验断点 → 产品机会 A/B/C 三方案） | AI-STD-002     |
 
 ---
 
@@ -86,8 +89,12 @@ docs/
 ### 📋 产品 / 需求评审（Phase 02 / G2）
 
 1. `AI-PRD.md` 全文（重点 §1、§4 自治、§6 Eval 契约、§7 不做）
-2. `DOMAIN/家庭领域模型.md` —— 术语对齐与真实任务样本
-3. `ui/roadmap-iterations.md` —— 迭代边界
+2. `product/product-design-research-01.md` —— 设计层（产品理念、设计原则、信息架构、交互系统、AI 能力、演进路线）
+3. `product/product-inspiration-01.md` —— 灵感层（市面能力调研、四模块深耕标尺 L0–L4、能力候选）
+4. `product/product-design-research-02.md` —— 扩展层（功能模块全景七层、四模块之外的增量模块论证、C17–C20 登记）
+5. `product/ux-exploration-01.md` —— 走查层（体验断点与产品机会）
+6. `DOMAIN/家庭领域模型.md` —— 术语对齐与真实任务样本
+7. `ui/roadmap-iterations.md` —— 迭代边界
 
 ### 🔒 安全评审（Phase 11 / G7）
 
@@ -112,6 +119,7 @@ docs/
 - **ADR**：一条决策一篇，固定结构（状态/背景/决策/后果/备选）
 - **标准对齐**：每份文档开头标注所对齐的 AI-STD 条款
 - **变更**：模块边界改动同步改 `AI-PRD.md §8` 与 `ui/roadmap-iterations.md`；架构改动先写/改 ADR
+- **自检**：改完文档跑 `pnpm run docs:check`（等价 `make docs-check`）——检查相对链接、FR 编号在 AI-PRD 与 exec-plans 间双向一致、`ui/` 的 mermaid 与 PNG 成对且不早于源码、计划验收用例 JSON 完整（含 `passes`）、开头 AI-STD 标注、prettier 格式；存在硬性不一致时退出码为 1
 
 ## 与根 README 的关系
 

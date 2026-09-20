@@ -3,24 +3,30 @@
 > 技术债是高息贷款：发现坏模式立即偿还，而不是让它传播数天或数周。
 > 对齐 AI-STD-006。偿还时在此标记 ✅ 并保留记录（决策历史比代码更难重建）。
 
-| #   | 债务                                                                       | 影响                                             | 偿还时机                      | 状态 |
-| --- | -------------------------------------------------------------------------- | ------------------------------------------------ | ----------------------------- | ---- |
-| T1  | ~~`internal/api/v1` 全是 noop 桩~~ → 已撤桩，chat/tools/undo 真实实现        | ~~前端两端只能跑骨架~~ → 双端可联调真实 SSE        | C 阶段                        | ✅   |
-| T2  | CORS 白名单硬编码 5173/3001                                                | 换端口/加域名需改代码                            | C 阶段迁入 `infra/config`     | ⏳   |
-| T3  | admin 产物 1MB（AntD 全量打包，无 code-split）                             | 首屏加载慢                                       | admin 功能稳定后按路由懒加载  | ⏳   |
-| T4  | admin 权限矩阵页只读占位（无成员写端点）                                   | 无法在管理端改权限                               | C 阶段成员服务上线后          | ⏳   |
-| T5  | ~~JWT 认证未实现~~ → /auth/token + JWTAuth 中间件上线                       | ~~任意调用者可伪造身份~~ → 令牌校验 + 成员停用拦截 | P1                           | ✅   |
-| T6  | ~~无 repository 抽象~~ → repo.Store 聚合 + 领域层依赖 ExpenseRepo 接口     | ~~领域层与存储耦合~~ → 依赖单向已断言             | C 阶段随 expense.Service 落地 | ✅   |
-| T7  | MSW handlers 只有 `/health` 骨架                                           | 关键交互（撤销/危险确认/模型切换）尚无 mock 用例 | C 阶段 handler 真实化后补     | ⏳   |
-| T8  | 无 CI（lint/test/typecheck 只能本地手动跑）                                | 坏模式可能在会话间漂移                           | 二期（先保证本地命令稳定）    | ⏳   |
-| T9  | `docs/功能边界与迭代规划.md` 是跳转桩，内容已并入 AI-PRD §8                | 索引冗余                                         | 随下次文档整理清理            | ⏳   |
-| T10 | `llm_usage.cost` 是 float（元），违反「金额一律 int64 分」                  | 成本统计精度损失，与账单领域不一致               | P2 接 GET /usage 时一并改     | ⏳   |
-| T11 | ~~调试端点 `GET /debug/state` 及 repo→api/v1 反向依赖~~ → 已删除            | ~~分层违规；暴露表结构~~                          | P1                           | ✅   |
-| T12 | `data/homeagent.db` 未 gitignore + 调试残留进程占 8080                     | 库文件误提交；端口冲突导致验收假失败              | 立即（已补 .gitignore）       | ✅   |
-| T13 | ~~`member.auth_token` 开发期明文（dev-<名字>）~~ → 供应商 api_key 已改 AES-GCM 加密；成员登录令牌仍明文（开发期） | ~~密钥泄漏~~ → 落库密文 + 脱敏回显；成员令牌留开发期便利 | api_key 已还；member auth_token 上生产前改随机串 | 🔶 |
-| T14 | 认证错误信息不区分场景（统一 401「用户名或令牌错误」）                      | 排错困难（但防枚举是有意为之）                   | 二期：审计日志区分原因即可    | ⏳   |
-| T15 | 前端 ErrorCode 枚举与后端曾不一致（`permission` vs `permission_denied`）  | 错误映射静默失效                                 | P1 已修正（enums.ts 对齐 apperr） | ✅   |
-| T16 | ~~数据库 provider/model 表与运行时配置脱节~~ → main.go 启动改读库默认模型+解密密钥 | ~~admin 页模型清单是装饰，改了不生效~~ → 数据库成单一真相源，环境变量降为 fallback | 验收问题1 | ✅ |
+| #   | 债务                                                                                                                                        | 影响                                                                                 | 偿还时机                                                 | 状态 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------- | ---- |
+| T1  | ~~`internal/api/v1` 全是 noop 桩~~ → 已撤桩，chat/tools/undo 真实实现                                                                       | ~~前端两端只能跑骨架~~ → 双端可联调真实 SSE                                          | C 阶段                                                   | ✅   |
+| T2  | CORS 白名单硬编码 5173/3001                                                                                                                 | 换端口/加域名需改代码                                                                | C 阶段迁入 `infra/config`                                | ⏳   |
+| T3  | admin 产物 1MB（AntD 全量打包，无 code-split）                                                                                              | 首屏加载慢                                                                           | admin 功能稳定后按路由懒加载                             | ⏳   |
+| T4  | admin 权限矩阵页只读占位（无成员写端点）                                                                                                    | 无法在管理端改权限                                                                   | C 阶段成员服务上线后                                     | ⏳   |
+| T5  | ~~JWT 认证未实现~~ → /auth/token + JWTAuth 中间件上线                                                                                       | ~~任意调用者可伪造身份~~ → 令牌校验 + 成员停用拦截                                   | P1                                                       | ✅   |
+| T6  | ~~无 repository 抽象~~ → repo.Store 聚合 + 领域层依赖 ExpenseRepo 接口                                                                      | ~~领域层与存储耦合~~ → 依赖单向已断言                                                | C 阶段随 expense.Service 落地                            | ✅   |
+| T7  | MSW handlers 只有 `/health` 骨架                                                                                                            | 关键交互（撤销/危险确认/模型切换）尚无 mock 用例                                     | C 阶段 handler 真实化后补                                | ⏳   |
+| T8  | 无 CI（lint/test/typecheck 只能本地手动跑）                                                                                                 | 坏模式可能在会话间漂移                                                               | 二期（先保证本地命令稳定）                               | ⏳   |
+| T9  | `docs/功能边界与迭代规划.md` 是跳转桩，内容已并入 AI-PRD §8                                                                                 | 索引冗余                                                                             | 随下次文档整理清理                                       | ⏳   |
+| T10 | `llm_usage.cost` 是 float（元），违反「金额一律 int64 分」                                                                                  | 成本统计精度损失，与账单领域不一致                                                   | P2 接 GET /usage 时一并改                                | ⏳   |
+| T11 | ~~调试端点 `GET /debug/state` 及 repo→api/v1 反向依赖~~ → 已删除                                                                            | ~~分层违规；暴露表结构~~                                                             | P1                                                       | ✅   |
+| T12 | `data/homeagent.db` 未 gitignore + 调试残留进程占 8080                                                                                      | 库文件误提交；端口冲突导致验收假失败                                                 | 立即（已补 .gitignore）                                  | ✅   |
+| T13 | ~~`member.auth_token` 开发期明文（dev-<名字>）~~ → 供应商 api_key 已改 AES-GCM 加密；成员登录令牌仍明文（开发期）                           | ~~密钥泄漏~~ → 落库密文 + 脱敏回显；成员令牌留开发期便利                             | api_key 已还；member auth_token 上生产前改随机串         | 🔶   |
+| T14 | 认证错误信息不区分场景（统一 401「用户名或令牌错误」）                                                                                      | 排错困难（但防枚举是有意为之）                                                       | 二期：审计日志区分原因即可                               | ⏳   |
+| T15 | 前端 ErrorCode 枚举与后端曾不一致（`permission` vs `permission_denied`）                                                                    | 错误映射静默失效                                                                     | P1 已修正（enums.ts 对齐 apperr）                        | ✅   |
+| T16 | ~~数据库 provider/model 表与运行时配置脱节~~ → main.go 启动改读库默认模型+解密密钥                                                          | ~~admin 页模型清单是装饰，改了不生效~~ → 数据库成单一真相源，环境变量降为 fallback   | 验收问题1                                                | ✅   |
+| T17 | ~~家务/报饭页面仍是骨架假数据~~ → `/tasks`、`/meals` handler + 真实页面（打卡/撤销/缺口催办闭环）                                           | ~~打卡点了无反应、报饭刷新即丢~~ → 说的和看的是一份数据                              | 产品重构 Phase 1                                         | ✅   |
+| T18 | 无通知/调度底座（README 承诺主动服务；`robfig/cron` 不在 `go.mod`，`internal/` 仅有注释）                                                   | 提醒/催办/预警/周报全部不可做，「动嘴、系统跑腿」的跑腿侧零实现                      | Phase 2（需新增 ADR：主动服务与打扰预算）                | ⏳   |
+| T19 | 账本固定 `page_size: 50` 且不暴露筛选/加载更多（接口已支持 `cursor` + `category` + 日期）                                                   | 超过 50 条的历史记录无入口可达（走查断点 4）                                         | 产品重构 Phase 1                                         | ⏳   |
+| T20 | `/settings` 无导航入口且页内全是死链（配置→/权限→/查看→ 无 onClick）                                                                        | 家人端唯一可用功能是退出登录，属最差「半可用」形态                                   | 产品重构 Phase 1                                         | ⏳   |
+| T21 | 行尾矛盾：`.prettierrc` 声明 `endOfLine: lf`，但全仓文件（含 docs）都是 CRLF；`scripts/docs-check.mjs` 暂时以 `--end-of-line crlf` 覆盖规避 | 直接跑 `prettier --write .` 会把全仓翻成 LF，产生与内容无关的巨量 diff，掩盖真实改动 | 全仓统一行尾时一次性偿还（同时删掉 docs-check 里的覆盖） | ⏳   |
+| T22 | ~~HTTP handler 的 403 拒绝路径不写 audit_log~~ → permissionOf 拒绝时记审计（permission_denied=true）                                        | ~~越权调用无审计留痕~~ → 与工具层 registry 同语义，curl 可验                         | 阶段 A 收尾                                              | ✅   |
 
 ## 偿还记录
 
@@ -31,3 +37,5 @@
 - **2026-09-16 · T15**：`packages/shared/enums.ts` 的 ErrorCode 对齐后端 apperr.Code（补 `unauthorized`，`permission`→`permission_denied`）；openapi Error.code 枚举同步并重新生成双端类型。
 - **2026-09-17 · T16**：模型配置链路打通。`internal/infra/crypto`（AES-256-GCM，随机 nonce，同明文不同密文；6 单测）+ `ProviderRepo`（加密入库/解密读取/脱敏视图）+ admin 写端点（GET/PUT providers、PUT models，parent 权限双保险）+ `main.go` 启动选供应商改读库默认模型（环境变量降为 fallback）。真机验证：配密钥后库里是密文、接口回脱敏值、孩子角色 403。
 - **2026-09-17 · T13（部分偿还）**：供应商 api_key 落库加密 + 接口只回脱敏值（`crypto.Mask` 首尾各 4 位）。成员登录令牌仍为开发期明文 `dev-<名字>`，上生产前改随机串。
+- **2026-09-18 · T17**：`internal/api/v1/{tasks,meals}.go` 落地（GET/POST /tasks、POST /tasks/:taskId/complete、GET/POST /meals），`web` 报饭页与家务页接真实接口：打卡两步状态机 + 行内撤销（Uncomplete 回退）、报饭三分区 + 缺口显式 + 催办复制文案、空态引导。e2e `tasks-meals.spec.ts` 3/3 绿。顺手修两 latent bug：`Executor.Undo` 未注入 memberID（报饭撤销 500）；日期时区不一致（`time.Parse` 得 UTC 0 点 vs 入库本地 0 点 → 显式日期报饭插重复、撤销删不掉、日期边界偏 8h）。登记 T22：handler 层 403 不记审计。
+- **2026-09-20 · T22**：`permissionOf` 拒绝路径补审计（`tool.AuditEntry{PermissionDenied: true}`，与工具层 `registry` 同语义；写入失败不阻断拒绝本身）。`Register` 透传 `tool.AuditLogger`，7 个鉴权点（expense×2 / task×3 / meal×2）全覆盖。curl 验证：孩子越权 POST /tasks → 403 + 同 trace_id 的 `permission_denied=true` 审计条目。T-A02 安全用例翻绿。

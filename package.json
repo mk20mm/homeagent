@@ -9,6 +9,7 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "gen-api": "pnpm -r run gen-api",
+    "docs:check": "node scripts/docs-check.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "stylelint": "stylelint \"web/src/**/*.css\" \"admin/src/**/*.css\""
