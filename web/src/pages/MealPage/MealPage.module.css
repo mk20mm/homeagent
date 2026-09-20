@@ -44,6 +44,10 @@
   font-weight: 600;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+}
+
 .btnOn {
   background: #34c759;
   color: #fff;
@@ -58,6 +62,21 @@
 .btnOffActive {
   background: #ff9500;
   color: #fff;
+}
+
+.hint {
+  font-size: 12px;
+  color: #ff9500;
+  margin-top: 8px;
+}
+
+.error {
+  font-size: 13px;
+  color: #ff3b30;
+  background: #ff3b3010;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
 }
 
 .list {
@@ -93,4 +112,14 @@
   background: #ff950015;
   padding: 4px 12px;
   border-radius: 8px;
+}
+
+.nudgeBtn {
+  border: 1px solid #ff9500;
+  background: #fff;
+  color: #ff9500;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
