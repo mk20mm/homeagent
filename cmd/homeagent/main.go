@@ -32,6 +32,29 @@ import (
 	"github.com/mk20mm/homeagent/internal/store/repo"
 )
 
+// undoSummaryProvider 给撤销中心提供「对象摘要」：按工具类型查不同的领域对象。
+// 查不到时 handler 会降级成工具标签，这里只管尽力查。
+type undoSummaryProvider struct {
+	repo  *repo.Store
+	tasks task.Service
+}
+
+func (p undoSummaryProvider) ExpenseBrief(ctx context.Context, memberID, expenseID string) (int64, string, error) {
+	e, err := p.repo.Get(ctx, memberID, expenseID)
+	if err != nil {
+		return 0, "", err
+	}
+	return e.AmountCents, e.Category, nil
+}
+
+func (p undoSummaryProvider) TaskTitle(ctx context.Context, taskID string) (string, error) {
+	t, err := p.tasks.GetTask(ctx, taskID)
+	if err != nil {
+		return "", err
+	}
+	return t.Title, nil
+}
+
 func main() {
 	migrate := flag.Bool("migrate", false, "建表并写入种子数据后退出")
 	flag.Parse()
@@ -96,7 +119,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	slog.Info("tools registered", "count", 9)
+	slog.Info("tools registered", "count", len(registry.List()))
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
@@ -120,7 +143,7 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, taskSvc, mealSvc, storeRepo, undoSummaryProvider{repo: storeRepo, tasks: taskSvc}, storeRepo)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {

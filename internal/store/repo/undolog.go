@@ -8,6 +8,7 @@ import (
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	"github.com/mk20mm/homeagent/internal/apperr"
+	"github.com/mk20mm/homeagent/internal/store/ent"
 	"github.com/mk20mm/homeagent/internal/store/ent/member"
 	"github.com/mk20mm/homeagent/internal/store/ent/undolog"
 )
@@ -68,6 +69,37 @@ func (s *Store) MarkUsed(ctx context.Context, id string) error {
 		return apperr.New(apperr.CodeInternal, "标记撤销记录失败", err)
 	}
 	return nil
+}
+
+// ListActive 我的可撤销项：未使用且未过期的（24h 窗口由 expires_at 兜底），新的在前。
+// 已使用/已过期的记录不返回（前端只看可操作的）。
+func (s *Store) ListActive(ctx context.Context, memberID string) ([]v1.UndoRecord, error) {
+	list, err := s.db.UndoLog.Query().
+		Where(
+			undolog.HasMemberWith(member.IDEQ(toUUID(memberID))),
+			undolog.StatusEQ(undolog.StatusActive),
+			undolog.ExpiresAtGTE(time.Now()),
+		).
+		Order(ent.Desc(undolog.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, apperr.New(apperr.CodeInternal, "查询撤销记录失败", err)
+	}
+	out := make([]v1.UndoRecord, 0, len(list))
+	for _, l := range list {
+		rec := v1.UndoRecord{
+			ID:        l.ID.String(),
+			ToolName:  l.ToolName,
+			Status:    string(l.Status),
+			ExpiresAt: l.ExpiresAt,
+			CreatedAt: l.CreatedAt,
+		}
+		if b, err := json.Marshal(l.UndoData); err == nil {
+			rec.UndoData = b
+		}
+		out = append(out, rec)
+	}
+	return out, nil
 }
 
 // SaveUndo 写撤销记录（v1.ExpenseUndoWriter 接口；undo_log 24h 有效）。

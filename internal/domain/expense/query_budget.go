@@ -57,20 +57,20 @@ func (t *QueryBudgetTool) Execute(ctx context.Context, input json.RawMessage) (t
 	// 边界处分→元（领域层不见 float，AGENTS.md 不变量 2）
 	card, _ := json.Marshal(map[string]any{
 		"type":        "budget",
-		"budget":      centsToYuan(summary.BudgetCents),
-		"spent":       centsToYuan(summary.TotalCents),
-		"remaining":   centsToYuan(summary.BudgetCents - summary.TotalCents),
+		"budget":      CentsToYuan(summary.BudgetCents),
+		"spent":       CentsToYuan(summary.TotalCents),
+		"remaining":   CentsToYuan(summary.BudgetCents - summary.TotalCents),
 		"by_category": centsMapToYuan(summary.ByCategory),
 		"has_budget":  summary.BudgetCents > 0,
 	})
 
-	summary_text := "本月已花 ¥" + centsToYuan(summary.TotalCents)
+	summary_text := "本月已花 ¥" + CentsToYuan(summary.TotalCents)
 	if summary.BudgetCents > 0 {
 		remain := summary.BudgetCents - summary.TotalCents
 		if remain >= 0 {
-			summary_text += "，预算剩余 ¥" + centsToYuan(remain)
+			summary_text += "，预算剩余 ¥" + CentsToYuan(remain)
 		} else {
-			summary_text += "，已超预算 ¥" + centsToYuan(-remain)
+			summary_text += "，已超预算 ¥" + CentsToYuan(-remain)
 		}
 	}
 
@@ -80,8 +80,9 @@ func (t *QueryBudgetTool) Execute(ctx context.Context, input json.RawMessage) (t
 	}, nil
 }
 
-// centsToYuan 分→元展示字符串（边界处转换，只用于展示；领域层仍用 int64 分）。
-func centsToYuan(cents int64) string {
+// CentsToYuan 分→元展示字符串（边界处转换，只用于展示；领域层仍用 int64 分）。
+// 跨 handler 共用：撤销摘要与预算卡片走同一份分→元格式化。
+func CentsToYuan(cents int64) string {
 	neg := cents < 0
 	if neg {
 		cents = -cents
@@ -102,7 +103,7 @@ func centsToYuan(cents int64) string {
 func centsMapToYuan(m map[string]int64) map[string]string {
 	out := make(map[string]string, len(m))
 	for k, v := range m {
-		out[k] = centsToYuan(v)
+		out[k] = CentsToYuan(v)
 	}
 	return out
 }

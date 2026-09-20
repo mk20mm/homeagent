@@ -1,10 +1,18 @@
 package v1
 
 import (
+	"context"
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/mk20mm/homeagent/internal/apperr"
 )
+
+// UndoWriter 撤销记录写入（repo 实现，handler 直调写 undo_log）。
+type UndoWriter interface {
+	SaveUndo(ctx context.Context, memberID string, toolName string, undoData json.RawMessage) (undoID string, err error)
+}
 
 // memberIDFrom 从 gin 上下文取认证中间件注入的成员 id。
 func memberIDFrom(c *gin.Context) (string, bool) {

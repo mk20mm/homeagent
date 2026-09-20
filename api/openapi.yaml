@@ -494,7 +494,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Task'
+                $ref: '#/components/schemas/TaskResult'
 
   /tasks/{taskId}/complete:
     post:
@@ -509,7 +509,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Task'
+                $ref: '#/components/schemas/TaskResult'
         '409':
           $ref: '#/components/responses/Conflict'
 
@@ -530,29 +530,44 @@ paths:
           description: 报饭汇总
           content:
             application/json:
-              schema:
-                type: object
-                required: [date, at_home_count, not_at_home_count, members]
-                properties:
-                  date:
-                    type: string
-                    format: date
-                  at_home_count:
-                    type: integer
-                  not_at_home_count:
-                    type: integer
-                  members:
-                    type: array
-                    items:
-                      type: object
-                      required: [member_id, name, at_home]
-                      properties:
-                        member_id:
-                          type: string
-                        name:
-                          type: string
-                        at_home:
-                          type: boolean
+                schema:
+                  type: object
+                  required: [date, at_home_count, not_at_home_count, members, unreported_count, unreported]
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                    at_home_count:
+                      type: integer
+                    not_at_home_count:
+                      type: integer
+                    members:
+                      type: array
+                      description: 已申报成员（在家/不在家）
+                      items:
+                        type: object
+                        required: [member_id, name, at_home]
+                        properties:
+                          member_id:
+                            type: string
+                          name:
+                            type: string
+                          at_home:
+                            type: boolean
+                    unreported_count:
+                      type: integer
+                      description: 未申报人数
+                    unreported:
+                      type: array
+                      description: 未申报成员名单（缺口显式，P6）
+                      items:
+                        type: object
+                        required: [member_id, name]
+                        properties:
+                          member_id:
+                            type: string
+                          name:
+                            type: string
     post:
       tags: [meal]
       summary: 报饭（report_meal 的 HTTP 出口，人+日期幂等）
@@ -580,6 +595,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MealReport'
+
+  /undo:
+    get:
+      tags: [undo]
+      summary: 我的可撤销操作（24h 内有效，最新的在前）
+      operationId: listUndo
+      description: |
+        列出当前成员 24h 窗口内**未使用且未过期**的撤销项。
+        已撤销/已过期的记录不返回；成员隔离（只看自己的）。
+      responses:
+        '200':
+          description: 可撤销项列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UndoItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /undo/{undoId}:
     post:
@@ -1059,6 +1098,44 @@ components:
         due_at:
           type: string
           format: date-time
+
+    TaskResult:
+      allOf:
+        - $ref: '#/components/schemas/Task'
+        - type: object
+          required: [undoable]
+          properties:
+            undoable:
+              type: boolean
+              description: 是否可撤销（幂等命中时为 false）
+            undo_id:
+              type: string
+              description: 撤销 id（POST /undo/{id} 用）
+            duplicated:
+              type: boolean
+              description: 是否幂等命中（重复派发）
+
+    UndoItem:
+      type: object
+      required: [undo_id, tool_name, summary, created_at, expires_at]
+      properties:
+        undo_id:
+          type: string
+          format: uuid
+          description: 撤销 id（POST /undo/{id} 用）
+        tool_name:
+          type: string
+          description: 工具名，如 record_expense / assign_task
+        summary:
+          type: string
+          description: 人类可读摘要，如「记账 ¥12.00 · 食材」
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: 过期时间（前端据此显示剩余窗口）
 
     MealReport:
       type: object

@@ -63,6 +63,15 @@ export function SettingsPage() {
       <div className={styles.section}>数据</div>
       <div className={styles.list}>
         <div className={styles.item}>
+          <span>可撤销的操作</span>
+          <span
+            className={styles.configure}
+            onClick={() => navigate('/undo')}
+          >
+            查看 →
+          </span>
+        </div>
+        <div className={styles.item}>
           <span>操作审计</span>
           <span className={styles.configure}>查看 →</span>
         </div>

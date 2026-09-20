@@ -30,4 +30,5 @@
 .configure {
   font-size: 13px;
   color: #0a84ff;
+  cursor: pointer;
 }

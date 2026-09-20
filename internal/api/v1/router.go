@@ -37,7 +37,12 @@ func Register(
 	expLister ExpenseLister,
 	expSummarizer ExpenseSummarizer,
 	expRecorder ExpenseRecorder,
-	expUndoWriter ExpenseUndoWriter,
+	expUndoWriter UndoWriter,
+	taskSvc TaskService,
+	mealSvc MealService,
+	memberNamer MemberNamer,
+	undoSummarizer UndoSummaryProvider,
+	audit tool.AuditLogger,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
 	rg.GET("/health", health)
@@ -47,6 +52,7 @@ func Register(
 	jwtGroup.GET("/tools", listTools(executor, pl))
 	jwtGroup.POST("/chat", Chat(rt))
 	jwtGroup.POST("/undo/:id", Undo(executor, undoStore))
+	jwtGroup.GET("/undo", ListUndo(undoStore, undoSummarizer))
 	jwtGroup.GET("/models", ListModels(modelLister))
 	jwtGroup.GET("/audit", ListAudit(auditLister))
 	jwtGroup.GET("/usage", ListUsage(usageLister))
@@ -56,8 +62,17 @@ func Register(
 	jwtGroup.DELETE("/conversations/:conversationId", DeleteConversation(convSvc))
 	jwtGroup.GET("/expenses", ListExpenses(expLister))
 	jwtGroup.GET("/expenses/summary", ExpenseSummary(expSummarizer))
-	jwtGroup.POST("/expenses", CreateExpense(expRecorder, expUndoWriter, pl))
-	jwtGroup.PATCH("/expenses/:expenseId", UpdateExpense(expRecorder, expUndoWriter, pl))
+	jwtGroup.POST("/expenses", CreateExpense(expRecorder, expUndoWriter, pl, audit))
+	jwtGroup.PATCH("/expenses/:expenseId", UpdateExpense(expRecorder, expUndoWriter, pl, audit))
+
+	// 家务（T-A01：契约已定义的 /tasks 出口，与工具同一领域服务）
+	jwtGroup.GET("/tasks", ListTasks(taskSvc, pl, audit))
+	jwtGroup.POST("/tasks", CreateTask(taskSvc, memberNamer, expUndoWriter, pl, audit))
+	jwtGroup.POST("/tasks/:taskId/complete", CompleteTask(taskSvc, expUndoWriter, pl, audit))
+
+	// 报饭（T-A01：契约已定义的 /meals 出口）
+	jwtGroup.GET("/meals", ListMeals(mealSvc, pl, audit))
+	jwtGroup.POST("/meals", ReportMeal(mealSvc, expUndoWriter, pl, audit))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")

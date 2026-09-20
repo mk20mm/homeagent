@@ -17,7 +17,7 @@ func TestCentsToYuan(t *testing.T) {
 		{-12000, "-120.00"},
 	}
 	for _, tc := range cases {
-		if got := centsToYuan(tc.cents); got != tc.want {
+		if got := CentsToYuan(tc.cents); got != tc.want {
 			t.Errorf("centsToYuan(%d) = %q, want %q", tc.cents, got, tc.want)
 		}
 	}

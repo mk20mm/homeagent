@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage'
 import { MealPage } from './pages/MealPage'
 import { MoneyPage } from './pages/MoneyPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { UndoPage } from './pages/UndoPage'
 
 const router = createBrowserRouter([
   {
@@ -65,6 +66,17 @@ const router = createBrowserRouter([
       <RequireAuth>
         <AppLayout>
           <SettingsPage />
+          <TabBar />
+        </AppLayout>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/undo',
+    element: (
+      <RequireAuth>
+        <AppLayout>
+          <UndoPage />
           <TabBar />
         </AppLayout>
       </RequireAuth>

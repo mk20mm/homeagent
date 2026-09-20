@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/apperr"
 	"github.com/mk20mm/homeagent/internal/domain/expense"
 )
@@ -47,18 +48,24 @@ type ExpenseRecorder interface {
 	UpdateExpense(ctx context.Context, id string, memberID string, cmd expense.UpdateExpenseCmd) (next expense.ExpenseRecord, prev expense.ExpenseRecord, err error)
 }
 
-// ExpenseUndoWriter 撤销记录写入（repo 实现，handler 直调写 undo_log）。
-type ExpenseUndoWriter interface {
-	SaveUndo(ctx context.Context, memberID string, toolName string, undoData json.RawMessage) (undoID string, err error)
-}
-
 // permissionOf 查成员权限矩阵（ADR-005 运行时再校验）。
-func permissionOf(c *gin.Context, pl PermissionLookup, memberID string, perm string) bool {
+// 拒绝时写审计（permission_denied=true，与工具层 registry 同语义）——
+// handler 层的越权尝试同样必须留痕（T17）。审计写入失败不影响拒绝本身。
+func permissionOf(c *gin.Context, pl PermissionLookup, audit tool.AuditLogger, memberID, toolName string, risk tool.RiskLevel, perm string) bool {
 	perms, err := pl.Permissions(c.Request.Context(), memberID)
-	if err != nil {
+	if err != nil || !perms[perm] {
+		if audit != nil {
+			_ = audit.Log(c.Request.Context(), tool.AuditEntry{
+				TraceID:          c.GetString("trace_id"),
+				MemberID:         memberID,
+				ToolName:         toolName,
+				Risk:             risk,
+				PermissionDenied: true,
+			})
+		}
 		return false
 	}
-	return perms[perm]
+	return true
 }
 
 // ListExpenses GET /expenses —— 记账流水（按成员隔离，occurred_at 倒序）。
@@ -115,14 +122,14 @@ func ExpenseSummary(svc ExpenseSummarizer) gin.HandlerFunc {
 }
 
 // CreateExpense POST /expenses —— 手动记一笔（FAB 快捷记账），同样幂等可撤销。
-func CreateExpense(svc ExpenseRecorder, undoWriter ExpenseUndoWriter, pl PermissionLookup) gin.HandlerFunc {
+func CreateExpense(svc ExpenseRecorder, undoWriter UndoWriter, pl PermissionLookup, audit tool.AuditLogger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		memberID, ok := memberIDFrom(c)
 		if !ok {
 			abortWith(c, apperr.New(apperr.CodePermission, "缺少成员身份", nil))
 			return
 		}
-		if !permissionOf(c, pl, memberID, "expense.write") {
+		if !permissionOf(c, pl, audit, memberID, "record_expense", tool.RiskHigh, "expense.write") {
 			abortWith(c, apperr.New(apperr.CodePermission, "无记账权限", nil))
 			return
 		}
@@ -195,14 +202,14 @@ func CreateExpense(svc ExpenseRecorder, undoWriter ExpenseUndoWriter, pl Permiss
 }
 
 // UpdateExpense PATCH /expenses/:expenseId —— 修正账单（金额/类目/备注），旧值进 undo_log 可恢复。
-func UpdateExpense(svc ExpenseRecorder, undoWriter ExpenseUndoWriter, pl PermissionLookup) gin.HandlerFunc {
+func UpdateExpense(svc ExpenseRecorder, undoWriter UndoWriter, pl PermissionLookup, audit tool.AuditLogger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		memberID, ok := memberIDFrom(c)
 		if !ok {
 			abortWith(c, apperr.New(apperr.CodePermission, "缺少成员身份", nil))
 			return
 		}
-		if !permissionOf(c, pl, memberID, "expense.write") {
+		if !permissionOf(c, pl, audit, memberID, "update_expense", tool.RiskHigh, "expense.write") {
 			abortWith(c, apperr.New(apperr.CodePermission, "无记账权限", nil))
 			return
 		}
@@ -262,13 +269,17 @@ func UpdateExpense(svc ExpenseRecorder, undoWriter ExpenseUndoWriter, pl Permiss
 	}
 }
 
-// parseDate 解析 YYYY-MM-DD 查询参数。
+// parseDate 解析 YYYY-MM-DD 查询参数为本地 0 点。
+// time.Parse 得到 UTC 0 点，与领域 today()（本地 0 点）相差一个时区，
+// 会让按日期的查询扑空（报饭撤销/汇总、账单日期过滤都受影响）。
 func parseDate(s string) *time.Time {
 	if s == "" {
 		return nil
 	}
-	if t, err := time.Parse("2006-01-02", s); err == nil {
-		return &t
+	d, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil
 	}
-	return nil
+	t := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.Local)
+	return &t
 }
