@@ -35,7 +35,7 @@ func abortWith(c *gin.Context, e *apperr.Error) {
 	switch e.Code {
 	case apperr.CodeInvalidInput:
 		status = 400
-	case apperr.CodeUnauthorized:
+	case apperr.CodeInvalidCredentials, apperr.CodeUnauthorized:
 		status = 401
 	case apperr.CodePermission:
 		status = 403

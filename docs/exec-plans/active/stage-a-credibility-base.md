@@ -177,8 +177,8 @@
     "错误码取 apperr.Code 枚举，前端经 ERROR_MESSAGE 映射，不新增裸字符串",
     "登录页给出令牌获取路径说明（家庭管理员在系统管理中生成）"
   ],
-  "passes": false,
-  "note": "统一错误码曾是有意为之（防枚举，T14）；此处只区分「凭据错误 vs 会话过期」，不区分用户名与令牌。需改契约：`Error.code` 枚举扩充 `invalid_credentials`/`token_expired`（研究报告附录 A 的 C10），前端 `packages/shared/enums.ts` 同步"
+  "passes": true,
+  "note": "已完成（2026-09-20）：契约 Error.code 枚举扩充 invalid_credentials（登录凭据错误，保持防枚举——成员不存在与令牌错误同码同文案），JWT 中间件的令牌失效保持 unauthorized（=会话过期）。make generate 双端同步（api.gen.go + 双端 schema.d.ts + packages/shared/enums.ts）。登录页首次输错提示「用户名或令牌错误，请联系家庭管理员」；已登录态被 401 踢出时，client 写 sessionStorage 标记，登录页读后提示「登录已过期，请重新登录」；页脚加令牌获取说明。e2e auth.spec.ts 5/5 绿（含 T-e2e-1 回归用例 + 会话过期用例），回归 chat/quick-chips/money-history 9/9 绿。"
 }
 ```
 

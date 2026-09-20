@@ -7,12 +7,13 @@ import "fmt"
 type Code string
 
 const (
-	CodeInvalidInput Code = "invalid_input"
-	CodeUnauthorized Code = "unauthorized"
-	CodePermission   Code = "permission_denied"
-	CodeNotFound     Code = "not_found"
-	CodeConflict     Code = "conflict"
-	CodeInternal     Code = "internal"
+	CodeInvalidInput     Code = "invalid_input"
+	CodeInvalidCredentials Code = "invalid_credentials" // 登录凭据错误（防枚举：成员不存在与令牌错误同码）
+	CodeUnauthorized     Code = "unauthorized" // 已登录态令牌失效/过期
+	CodePermission       Code = "permission_denied"
+	CodeNotFound         Code = "not_found"
+	CodeConflict         Code = "conflict"
+	CodeInternal         Code = "internal"
 )
 
 type Error struct {

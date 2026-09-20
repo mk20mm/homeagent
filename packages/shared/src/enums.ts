@@ -36,6 +36,7 @@ export type ChatStatus = 'idle' | 'streaming' | 'tool_running' | 'error'
 /** 错误码，对齐后端 apperr.Code / openapi Error.code */
 export type ErrorCode =
   | 'invalid_input'
+  | 'invalid_credentials'
   | 'unauthorized'
   | 'permission_denied'
   | 'not_found'
@@ -44,6 +45,7 @@ export type ErrorCode =
 
 export const ERROR_MESSAGE: Record<ErrorCode, string> = {
   invalid_input: '输入有误，请检查后重试',
+  invalid_credentials: '用户名或令牌错误，请联系家庭管理员',
   unauthorized: '登录已过期，请重新登录',
   permission_denied: '没有权限执行此操作',
   not_found: '找不到对应内容',

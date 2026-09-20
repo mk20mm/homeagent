@@ -35,11 +35,11 @@ func CreateToken(lookup MemberAuthLookup, signer *auth.Signer) gin.HandlerFunc {
 		m, err := lookup.FindByName(c.Request.Context(), req.Name)
 		if err != nil {
 			// 统一错误信息防枚举；原因入日志
-			abortWith(c, apperr.New(apperr.CodeUnauthorized, "用户名或令牌错误", err))
+			abortWith(c, apperr.New(apperr.CodeInvalidCredentials, "用户名或令牌错误", err))
 			return
 		}
 		if subtle.ConstantTimeCompare([]byte(m.Token), []byte(req.AuthToken)) != 1 {
-			abortWith(c, apperr.New(apperr.CodeUnauthorized, "用户名或令牌错误", nil))
+			abortWith(c, apperr.New(apperr.CodeInvalidCredentials, "用户名或令牌错误", nil))
 			return
 		}
 

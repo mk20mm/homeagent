@@ -31,7 +31,15 @@ api.use({
     return request
   },
   onResponse: ({ response }) => {
-    if (response.status === 401) clearAuth()
+    if (response.status === 401) {
+      // 标记「会话过期」供登录页展示贴切文案（区别于首次输入的凭据错误，T-A07）
+      try {
+        sessionStorage.setItem('homeagent.session_expired', '1')
+      } catch {
+        // sessionStorage 不可用（隐私模式）不阻塞清登录态
+      }
+      clearAuth()
+    }
     return response
   },
 })

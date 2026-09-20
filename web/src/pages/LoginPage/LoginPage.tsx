@@ -5,7 +5,13 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
-import { ERROR_MESSAGE, type ErrorCode, getAuth, saveAuth, type MemberRole } from '@homeagent/shared'
+import {
+  ERROR_MESSAGE,
+  type ErrorCode,
+  getAuth,
+  saveAuth,
+  type MemberRole,
+} from '@homeagent/shared'
 
 import { api, ApiError, unwrap } from '../../api/client'
 import { tokens } from '../../styles/tokens'
@@ -21,6 +27,18 @@ export function LoginPage() {
 
   // 已登录直接进主页
   if (getAuth()) return <Navigate to="/" replace />
+
+  // 会话被后端踢出（401）：提示「登录已过期」，不是首次凭据错误（T-A07）
+  if (!error) {
+    try {
+      if (sessionStorage.getItem('homeagent.session_expired')) {
+        sessionStorage.removeItem('homeagent.session_expired')
+        setError(ERROR_MESSAGE.unauthorized)
+      }
+    } catch {
+      // sessionStorage 不可用时静默
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,6 +96,10 @@ export function LoginPage() {
         <button type="submit" className={styles.submit} disabled={loading}>
           {loading ? '登录中…' : '登录'}
         </button>
+
+        <p className={styles.tokenHint}>
+          令牌由家庭管理员在「系统管理」中生成，每成员一个，问管理员要即可。
+        </p>
       </form>
     </div>
   )

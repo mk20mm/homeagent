@@ -37,7 +37,7 @@ paths:
       tags: [auth]
       security: []
       summary: 换取 JWT 访问令牌
-      description: "成员名 + auth_token 换 JWT，后续请求带 Authorization: Bearer <token>"
+      description: '成员名 + auth_token 换 JWT，后续请求带 Authorization: Bearer <token>'
       operationId: createToken
       requestBody:
         required: true
@@ -530,44 +530,45 @@ paths:
           description: 报饭汇总
           content:
             application/json:
-                schema:
-                  type: object
-                  required: [date, at_home_count, not_at_home_count, members, unreported_count, unreported]
-                  properties:
-                    date:
-                      type: string
-                      format: date
-                    at_home_count:
-                      type: integer
-                    not_at_home_count:
-                      type: integer
-                    members:
-                      type: array
-                      description: 已申报成员（在家/不在家）
-                      items:
-                        type: object
-                        required: [member_id, name, at_home]
-                        properties:
-                          member_id:
-                            type: string
-                          name:
-                            type: string
-                          at_home:
-                            type: boolean
-                    unreported_count:
-                      type: integer
-                      description: 未申报人数
-                    unreported:
-                      type: array
-                      description: 未申报成员名单（缺口显式，P6）
-                      items:
-                        type: object
-                        required: [member_id, name]
-                        properties:
-                          member_id:
-                            type: string
-                          name:
-                            type: string
+              schema:
+                type: object
+                required:
+                  [date, at_home_count, not_at_home_count, members, unreported_count, unreported]
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  at_home_count:
+                    type: integer
+                  not_at_home_count:
+                    type: integer
+                  members:
+                    type: array
+                    description: 已申报成员（在家/不在家）
+                    items:
+                      type: object
+                      required: [member_id, name, at_home]
+                      properties:
+                        member_id:
+                          type: string
+                        name:
+                          type: string
+                        at_home:
+                          type: boolean
+                  unreported_count:
+                    type: integer
+                    description: 未申报人数
+                  unreported:
+                    type: array
+                    description: 未申报成员名单（缺口显式，P6）
+                    items:
+                      type: object
+                      required: [member_id, name]
+                      properties:
+                        member_id:
+                          type: string
+                        name:
+                          type: string
     post:
       tags: [meal]
       summary: 报饭（report_meal 的 HTTP 出口，人+日期幂等）
@@ -826,7 +827,7 @@ components:
       properties:
         token:
           type: string
-          description: "JWT，请求头放 Authorization: Bearer <token>"
+          description: 'JWT，请求头放 Authorization: Bearer <token>'
         member_id:
           type: string
           format: uuid
@@ -853,8 +854,17 @@ components:
       properties:
         code:
           type: string
-          enum: [invalid_input, unauthorized, permission_denied, not_found, conflict, internal]
-          description: 程序判断用（apperr.Code）
+          enum:
+            [
+              invalid_input,
+              invalid_credentials,
+              unauthorized,
+              permission_denied,
+              not_found,
+              conflict,
+              internal,
+            ]
+          description: 程序判断用（apperr.Code）。invalid_credentials=登录凭据错误（防枚举：成员不存在与令牌错误同码）；unauthorized=已登录态令牌失效/过期
         message:
           type: string
           description: 面向用户的中文信息（不泄漏堆栈/SQL）
