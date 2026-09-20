@@ -111,6 +111,7 @@ func (s *Store) ListMyTasks(ctx context.Context, memberID string) ([]domtask.Tas
 			task.StatusNEQ(task.StatusDone),
 			task.DeletedAtIsNil(),
 		).
+		WithAssignee().
 		Order(ent.Asc(task.FieldDueAt), ent.Desc(task.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -118,20 +119,46 @@ func (s *Store) ListMyTasks(ctx context.Context, memberID string) ([]domtask.Tas
 	}
 	out := make([]domtask.Task, 0, len(list))
 	for _, t := range list {
-		tk := domtask.Task{
-			ID:     t.ID.String(),
-			Title:  t.Title,
-			Risk:   string(t.Risk),
-			Status: domtask.TaskStatus(t.Status),
-			Points: t.Points,
-		}
-		if t.DueAt != nil {
-			d := *t.DueAt
-			tk.DueAt = &d
-		}
-		out = append(out, tk)
+		out = append(out, mapTask(t))
 	}
 	return out, nil
+}
+
+// GetTask 单任务查询（软删除过滤；家庭可见读）。
+func (s *Store) GetTask(ctx context.Context, taskID string) (domtask.Task, error) {
+	t, err := s.db.Task.Query().
+		Where(task.IDEQ(toUUID(taskID)), task.DeletedAtIsNil()).
+		WithAssignee().
+		Only(ctx)
+	if err != nil {
+		return domtask.Task{}, apperr.New(apperr.CodeNotFound, "任务不存在", err)
+	}
+	return mapTask(t), nil
+}
+
+// mapTask ent 行 → 领域视图（assignee 边须已加载）。
+func mapTask(t *ent.Task) domtask.Task {
+	tk := domtask.Task{
+		ID:          t.ID.String(),
+		Title:       t.Title,
+		Description: t.Description,
+		Risk:        string(t.Risk),
+		Status:      domtask.TaskStatus(t.Status),
+		Points:      t.Points,
+	}
+	if t.Edges.Assignee != nil {
+		tk.AssigneeID = t.Edges.Assignee.ID.String()
+		tk.AssigneeName = t.Edges.Assignee.Name
+	}
+	if t.DueAt != nil {
+		d := *t.DueAt
+		tk.DueAt = &d
+	}
+	if t.CompletedAt != nil {
+		c := *t.CompletedAt
+		tk.CompletedAt = &c
+	}
+	return tk
 }
 
 // Remove 软删除任务（撤销派发）。

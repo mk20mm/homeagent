@@ -70,7 +70,7 @@ func (t *AssignTaskTool) Execute(ctx context.Context, input json.RawMessage) (to
 		}
 	}
 
-	id, err := t.svc.AssignTask(ctx, memberID, cmd)
+	id, duplicated, err := t.svc.AssignTask(ctx, memberID, cmd)
 	if err != nil {
 		return tool.Result{}, err
 	}
@@ -79,18 +79,28 @@ func (t *AssignTaskTool) Execute(ctx context.Context, input json.RawMessage) (to
 	if assignee == "" {
 		assignee = "待认领"
 	}
-	undo, _ := json.Marshal(map[string]any{"task_id": id})
+	// 幂等命中时本次没有新写入，不生成撤销记录（撤销会误删早先那个任务）
+	var undo json.RawMessage
+	if !duplicated {
+		undo, _ = json.Marshal(map[string]any{"task_id": id})
+	}
+	summary := "已派发「" + in.Title + "」给 " + assignee
+	if duplicated {
+		summary = "今天已派过「" + in.Title + "」，未重复派发"
+	}
 	card, _ := json.Marshal(map[string]any{
-		"type":     "task",
-		"title":    in.Title,
-		"assignee": assignee,
-		"risk":     RiskLabel(cmd.Risk),
+		"type":       "task",
+		"task_id":    id,
+		"title":      in.Title,
+		"assignee":   assignee,
+		"risk":       RiskLabel(cmd.Risk),
 		"due_at":   FormatDueAt(nil),
-		"status":   string(StatusPending),
+		"status":     string(StatusPending),
+		"duplicated": duplicated,
 	})
 
 	return tool.Result{
-		Summary:  "已派发「" + in.Title + "」给 " + assignee,
+		Summary:  summary,
 		Card:     card,
 		UndoData: undo,
 	}, nil

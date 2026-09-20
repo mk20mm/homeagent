@@ -55,24 +55,33 @@ func (t *SuggestDinnerTool) Execute(ctx context.Context, input json.RawMessage) 
 		return tool.Result{}, err
 	}
 
+	atHome := make([]string, 0, len(summary.AtHome))
+	for _, m := range summary.AtHome {
+		atHome = append(atHome, m.Name)
+	}
+	notAtHome := make([]string, 0, len(summary.NotAtHome))
+	for _, m := range summary.NotAtHome {
+		notAtHome = append(notAtHome, m.Name)
+	}
+
 	menu := suggestDinnerMenus[rand.Intn(len(suggestDinnerMenus))]
 
 	summaryText := ""
-	if len(summary.AtHome) == 0 {
+	if len(atHome) == 0 {
 		summaryText = "今晚还没人报饭。"
 	} else {
-		summaryText = fmt.Sprintf("今晚 %s 在家吃（%d 人）。", strings.Join(summary.AtHome, "、"), len(summary.AtHome))
+		summaryText = fmt.Sprintf("今晚 %s 在家吃（%d 人）。", strings.Join(atHome, "、"), len(atHome))
 	}
-	if len(summary.NotAtHome) > 0 {
-		summaryText += strings.Join(summary.NotAtHome, "、") + " 不回来吃。"
+	if len(notAtHome) > 0 {
+		summaryText += strings.Join(notAtHome, "、") + " 不回来吃。"
 	}
 	summaryText += " 建议做「" + menu + "」。"
 
 	card, _ := json.Marshal(map[string]any{
 		"type":    "dinner",
 		"menu":    menu,
-		"at_home": summary.AtHome,
-		"count":   len(summary.AtHome),
+		"at_home": atHome,
+		"count":   len(atHome),
 	})
 
 	return tool.Result{Summary: summaryText, Card: card}, nil

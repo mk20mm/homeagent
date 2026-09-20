@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/mk20mm/homeagent/internal/domain/task"
 	"github.com/mk20mm/homeagent/internal/store/ent"
@@ -179,5 +180,48 @@ func TestTaskRemoveSoftDeletes(t *testing.T) {
 	list, _ := s.ListMyTasks(ctx, assigner)
 	if len(list) != 0 {
 		t.Fatalf("撤销后不应出现在待办里，got %v", list)
+	}
+	// GetTask 也不返回
+	if _, err := s.GetTask(ctx, id); err == nil {
+		t.Fatal("软删除后 GetTask 应返回 NotFound")
+	}
+}
+
+func TestGetTaskMapsFieldsAndMemberName(t *testing.T) {
+	c, famID := newTestClient(t)
+	defer func() { _ = c.Close() }()
+
+	s := New(c)
+	assigner, executor := newTestExecutor(t, c, famID)
+	ctx := context.Background()
+
+	due := time.Now().Add(24 * time.Hour)
+	cmd := task.AssignTaskCmd{Title: "洗碗", AssigneeName: "执行人", Risk: "high", DueAt: due}
+	id, err := s.Assign(ctx, assigner, cmd, task.IdempotencyKey(assigner, cmd))
+	if err != nil {
+		t.Fatalf("派发: %v", err)
+	}
+
+	tk, err := s.GetTask(ctx, id)
+	if err != nil {
+		t.Fatalf("查询: %v", err)
+	}
+	if tk.Title != "洗碗" || tk.Risk != "high" || tk.Status != "pending" {
+		t.Fatalf("字段映射错误: %+v", tk)
+	}
+	if tk.AssigneeID != executor || tk.AssigneeName != "执行人" {
+		t.Fatalf("指派人映射错误: id=%q name=%q", tk.AssigneeID, tk.AssigneeName)
+	}
+	if tk.DueAt == nil {
+		t.Fatal("缺少截止时间")
+	}
+
+	// assignee_id → 名字（HTTP 边界用，保证与工具同一幂等键）
+	name, err := s.MemberName(ctx, executor)
+	if err != nil {
+		t.Fatalf("MemberName: %v", err)
+	}
+	if name != "执行人" {
+		t.Fatalf("MemberName 应为「执行人」，got %q", name)
 	}
 }

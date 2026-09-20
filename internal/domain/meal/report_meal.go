@@ -3,7 +3,6 @@ package meal
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/apperr"
@@ -57,13 +56,19 @@ func (t *ReportMealTool) Execute(ctx context.Context, input json.RawMessage) (to
 
 	cmd := ReportCmd{AtHome: in.AtHome, Note: in.Note}
 	if in.Date != "" {
-		if d, err := time.Parse("2006-01-02", in.Date); err == nil {
+		if d, err := ParseDate(in.Date); err == nil {
 			cmd.Date = d
 		}
 	}
 
-	if err := t.svc.Report(ctx, memberID, cmd); err != nil {
+	if _, err := t.svc.Report(ctx, memberID, cmd); err != nil {
 		return tool.Result{}, err
+	}
+
+	// 服务端归一化日期（空 → 今日），撤销数据必须用真实日期，否则撤销会扑空
+	day := cmd.Date
+	if day.IsZero() {
+		day = today()
 	}
 
 	dateLabel := "今晚"
@@ -74,7 +79,7 @@ func (t *ReportMealTool) Execute(ctx context.Context, input json.RawMessage) (to
 	if !in.AtHome {
 		choice = "不回家吃"
 	}
-	undo, _ := json.Marshal(map[string]any{"date": cmd.Date.Format("2006-01-02")})
+	undo, _ := json.Marshal(map[string]any{"date": day.Format("2006-01-02")})
 	card, _ := json.Marshal(map[string]any{
 		"type":    "meal",
 		"at_home": in.AtHome,
@@ -97,7 +102,7 @@ func (t *ReportMealTool) Undo(ctx context.Context, undoData json.RawMessage) err
 	if err := json.Unmarshal(undoData, &d); err != nil {
 		return apperr.New(apperr.CodeInvalidInput, "撤销数据解析失败", err)
 	}
-	date, err := time.Parse("2006-01-02", d.Date)
+	date, err := ParseDate(d.Date)
 	if err != nil {
 		return apperr.New(apperr.CodeInvalidInput, "日期格式错误", err)
 	}

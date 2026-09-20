@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/mk20mm/homeagent/internal/agent/tool"
@@ -36,7 +37,7 @@ func (t *CompleteTaskTool) Spec() tool.Spec {
   }
 }`),
 		Risk:        tool.RiskMedium,
-		Permission:  "task.write",
+		Permission:  "task.read", // 打卡自己名下的任务：全员可（PRD §10.2）；归属由 repo 强制
 		Module:      "task",
 		Idempotency: "task once",
 	}
@@ -61,12 +62,7 @@ func (t *CompleteTaskTool) Execute(ctx context.Context, input json.RawMessage) (
 		if err != nil {
 			return tool.Result{}, err
 		}
-		for _, tk := range tasks {
-			if tk.Title == in.Title {
-				taskID = tk.ID
-				break
-			}
-		}
+		taskID = matchTask(in.Title, tasks)
 		if taskID == "" {
 			return tool.Result{}, apperr.New(apperr.CodeNotFound, "没找到任务「"+in.Title+"」", nil)
 		}
@@ -78,9 +74,10 @@ func (t *CompleteTaskTool) Execute(ctx context.Context, input json.RawMessage) (
 
 	undo, _ := json.Marshal(map[string]any{"task_id": taskID})
 	card, _ := json.Marshal(map[string]any{
-		"type":   "task_done",
-		"title":  in.Title,
-		"points": "+1",
+		"type":    "task_done",
+		"task_id": taskID,
+		"title":   in.Title,
+		"points":  "+1",
 	})
 
 	return tool.Result{
@@ -99,6 +96,28 @@ func (t *CompleteTaskTool) Undo(ctx context.Context, undoData json.RawMessage) e
 		return apperr.New(apperr.CodeInvalidInput, "撤销数据解析失败", err)
 	}
 	return t.svc.UncompleteTask(ctx, d.TaskID)
+}
+
+// matchTask 按标题在「我的任务」里找匹配：精确匹配 → 包含匹配。
+// 用户口语（「洗完了」vs 标题「洗碗」）命中不了时返回空串，由调用方报 NotFound
+// 追问，不在工具内隐式猜测——打卡是写操作，错匹配会记错人的任务。
+func matchTask(want string, tasks []Task) string {
+	want = strings.TrimSpace(want)
+	if want == "" {
+		return ""
+	}
+	for _, tk := range tasks {
+		if tk.Title == want {
+			return tk.ID
+		}
+	}
+	// 确定性包含匹配（「把碗洗了」vs「洗碗」这类部分重合）
+	for _, tk := range tasks {
+		if strings.Contains(tk.Title, want) || strings.Contains(want, tk.Title) {
+			return tk.ID
+		}
+	}
+	return ""
 }
 
 func parseTime(s string) (time.Time, error) {

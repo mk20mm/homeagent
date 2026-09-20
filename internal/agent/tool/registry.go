@@ -55,6 +55,17 @@ func (r *Registry) Get(name string) (Tool, bool) {
 	return t, ok
 }
 
+// List 已注册的全部工具（计数与遍历用，不暴露 map 内部）。
+func (r *Registry) List() []Tool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]Tool, 0, len(r.tools))
+	for _, t := range r.tools {
+		out = append(out, t)
+	}
+	return out
+}
+
 // SpecsWithPermission 返回当前用户权限内的工具声明，供提示词构建注入（ADR-005 源头过滤）。
 // permitted 是该用户已开启的权限键集合。
 func (r *Registry) SpecsWithPermission(permitted map[string]bool) []Spec {
@@ -185,6 +196,8 @@ func (e *Executor) Undo(ctx context.Context, name string, undoData json.RawMessa
 	if !ok {
 		return apperr.New(apperr.CodeInternal, "工具 "+name+" 不支持撤销", nil)
 	}
+	// 注入成员身份（与 Execute 一致）：撤销路径同样要走成员隔离
+	ctx = WithMemberID(ctx, memberID)
 	if err := wt.Undo(ctx, undoData); err != nil {
 		return err
 	}

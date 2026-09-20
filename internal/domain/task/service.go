@@ -28,25 +28,25 @@ const (
 
 // Task 任务视图（工具与 handler 消费）。
 type Task struct {
-	ID          string
-	Title       string
-	Description string
-	Risk        string
-	Status      TaskStatus
-	AssigneeID  string
+	ID           string
+	Title        string
+	Description  string
+	Risk         string
+	Status       TaskStatus
+	AssigneeID   string
 	AssigneeName string
-	DueAt       *time.Time
-	CompletedAt *time.Time
-	Points      int
+	DueAt        *time.Time
+	CompletedAt  *time.Time
+	Points       int
 }
 
 // AssignTaskCmd 派发命令。
 type AssignTaskCmd struct {
-	Title       string
-	Description string
-	AssigneeName string // 空 = 待认领
-	Risk        string // low/medium/high，空 = medium
-	DueAt       time.Time // 零值 = 无截止
+	Title        string
+	Description  string
+	AssigneeName string    // 空 = 待认领
+	Risk         string    // low/medium/high，空 = medium
+	DueAt        time.Time // 零值 = 无截止
 }
 
 // TaskRepo 仓储接口（store 层实现，依赖单向）。
@@ -56,15 +56,17 @@ type TaskRepo interface {
 	Complete(ctx context.Context, taskID, memberID string) error
 	Uncomplete(ctx context.Context, taskID string) error
 	ListMyTasks(ctx context.Context, memberID string) ([]Task, error)
+	GetTask(ctx context.Context, taskID string) (Task, error)
 	Remove(ctx context.Context, taskID string) error
 }
 
 // Service 家务领域服务。
 type Service interface {
-	AssignTask(ctx context.Context, assignerID string, cmd AssignTaskCmd) (id string, err error)
+	AssignTask(ctx context.Context, assignerID string, cmd AssignTaskCmd) (id string, duplicated bool, err error)
 	CompleteTask(ctx context.Context, taskID, memberID string) error
 	UncompleteTask(ctx context.Context, taskID string) error
 	ListMyTasks(ctx context.Context, memberID string) ([]Task, error)
+	GetTask(ctx context.Context, taskID string) (Task, error)
 	DeleteTask(ctx context.Context, id string) error
 }
 
@@ -76,10 +78,10 @@ type service struct {
 	repo TaskRepo
 }
 
-// AssignTask 派发：校验→幂等键→入库。
-func (s *service) AssignTask(ctx context.Context, assignerID string, cmd AssignTaskCmd) (string, error) {
+// AssignTask 派发：校验→幂等键→入库。幂等命中返回 duplicated=true（对用户是成功）。
+func (s *service) AssignTask(ctx context.Context, assignerID string, cmd AssignTaskCmd) (string, bool, error) {
 	if cmd.Title == "" {
-		return "", apperr.New(apperr.CodeInvalidInput, "任务标题不能为空", nil)
+		return "", false, apperr.New(apperr.CodeInvalidInput, "任务标题不能为空", nil)
 	}
 	if cmd.Risk == "" {
 		cmd.Risk = "medium"
@@ -89,11 +91,11 @@ func (s *service) AssignTask(ctx context.Context, assignerID string, cmd AssignT
 	if err != nil {
 		var ae *apperr.Error
 		if errors.As(err, &ae) && ae.Code == apperr.CodeConflict {
-			return id, nil // 幂等命中，对用户是成功
+			return id, true, nil // 幂等命中，对用户是成功
 		}
-		return "", err
+		return "", false, err
 	}
-	return id, nil
+	return id, false, nil
 }
 
 // CompleteTask 打卡：状态机迁移 + 幂等（已 done 返回冲突）。
@@ -106,6 +108,14 @@ func (s *service) CompleteTask(ctx context.Context, taskID, memberID string) err
 
 func (s *service) ListMyTasks(ctx context.Context, memberID string) ([]Task, error) {
 	return s.repo.ListMyTasks(ctx, memberID)
+}
+
+// GetTask 单任务查询（家庭可见读；写路径各自校验归属）。
+func (s *service) GetTask(ctx context.Context, taskID string) (Task, error) {
+	if taskID == "" {
+		return Task{}, apperr.New(apperr.CodeInvalidInput, "任务 id 不能为空", nil)
+	}
+	return s.repo.GetTask(ctx, taskID)
 }
 
 // UncompleteTask 撤销误打卡：回退 pending + 清完成时间。
