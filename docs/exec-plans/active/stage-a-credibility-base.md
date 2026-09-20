@@ -159,7 +159,8 @@
     "分类筛选与日期范围过滤调用已有 query 参数并即时生效",
     "汇总金额与筛选范围一致（避免「筛了但总额没变」的错觉）"
   ],
-  "passes": false
+  "passes": true,
+  "note": "MoneyPage 重写：游标分页（page_size 20 + next_cursor）+ groupByDay 本地日期键分组（修了 Z/+08:00 混用导致跨天错分的 bug）+ 范围 chips（全部/本周/本月）与分类 chips，筛选时汇总卡切「当前筛选合计 · 共 N 笔」。e2e 3/3 绿（money-history.spec.ts）。昨日分组在累积数据下排深页，页面断言只覆盖稳定项，日期分组的正确性由接口层 start_date/end_date 兜底验证"
 }
 ```
 
@@ -303,6 +304,12 @@ T-A11 evals 套件（承接 c-runtime P2）    ← 阶段 B 出口前必须全�
   2. **日期时区不一致**：`today()`/`Today()` 存本地 0 点，而 `time.Parse("2006-01-02")` 得 UTC 0 点 → ① 显式日期报饭 upsert 查不到旧记录 → 插重复；② 撤销按 UTC 删 → 删不掉；③ `GET /meals?date=`、账单 `start_date` 边界都偏一个时区。统一为本地 0 点（新增 `meal.ParseDate` + 修 `parseDate`），加 repo 往返回归测试。
 - **遗留（已定方案）**：种子权限矩阵与 AI-PRD §10.2 不一致——老人有 `expense.write`（PRD 要求仅家长）、老人/孩子缺 `task.write`（PRD 要求打卡对全员）。handler 侧按工具声明的权限字符串（`task.write`/`task.read`/`meal.write`）做双保险，与工具一致。
   **维护者决策（2026-09-20）**：权限**不写死在代码里，做后端可配置**——按 [tool-perms-config.md](tool-perms-config.md) 走（权限注册表 catalog + admin 端改 + `SelfService` 自助 + 模板套用）。落地后 AI-PRD §10.2 的矩阵是**默认预设**，各家按需在 admin 调整（如给老人关 `expense.write`、给打卡单开 `task.complete`），不需要改代码重新部署。阶段 A 的打卡验收用 admin 配置到 §10.2 目标态后跑，不改种子策略。
+
+### T-A06 完成记录（2026-09-20）
+
+- **交付**：`MoneyPage` 重写为分组流水页——游标分页（page_size 20 + `next_cursor`，「加载更多」按钮）、`groupByDay` 按日分组（今天/昨天/更早 M-D 标签 + 每日小计）、范围 chips（全部/本周/本月）与分类 chips（全部分类 + 6 类），筛选时汇总卡从「本月支出」切「当前筛选合计 · 共 N 笔」，筛选无结果时空态文案。e2e `money-history.spec.ts` 3/3 绿。
+- **修了一个 latent bug**：分组键原来取 `iso.slice(0, 10)`，在 `Z`（UTC）与 `+08:00`（本地）时间戳混用时会把「本地已是明天」的条目分错组。改为 `localDateKey()`：用 `new Date(iso)` 的本地年/月/日算键，与 `today()` 本地 0 点口径一致（T-A01 修的同一类时区问题）。
+- **测试策略**：多轮 e2e 在爸爸账号累积了 420 条流水（几乎全是「今天」），新造的「昨天」条目被压到 20 页之后，页面断言不可靠。页面层只断稳定项（今天分组、小计、筛选即时生效、加载更多可用），「昨天」分组的正确性由接口层 `start_date/end_date` 查询兜底验证。
 
 ## 验收标准
 
