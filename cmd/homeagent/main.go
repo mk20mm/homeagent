@@ -27,6 +27,7 @@ import (
 	"github.com/mk20mm/homeagent/internal/domain/model"
 	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
 	"github.com/mk20mm/homeagent/internal/domain/task"
+	"github.com/mk20mm/homeagent/internal/domain/undo"
 	"github.com/mk20mm/homeagent/internal/infra/config"
 	"github.com/mk20mm/homeagent/internal/store"
 	"github.com/mk20mm/homeagent/internal/store/repo"
@@ -96,12 +97,13 @@ func main() {
 	// 供应商仓储（带加密能力，api_key 落库加密）
 	provRepo := repo.NewProviderStore(storeRepo, cfg.EncryptionKey)
 
-	// 工具注册表：一期 9 工具（P1 补齐）
+	// 工具注册表：一期 10 工具（9 可见 + update_expense 隐藏 + undo_last 对话侧撤销）
 	registry := tool.NewRegistry()
 	expenseSvc := expense.NewService(storeRepo)
 	taskSvc := task.NewService(storeRepo)
 	mealSvc := meal.NewService(storeRepo)
 	modelSvc := model.NewService(storeRepo, provRepo)
+	undoLastTool := undo.NewUndoLastTool(&undoStoreAdapter{inner: storeRepo})
 	for _, t := range []tool.Tool{
 		expense.NewRecordExpenseTool(expenseSvc),
 		expense.NewQueryBudgetTool(expenseSvc),
@@ -113,6 +115,7 @@ func main() {
 		meal.NewSuggestDinnerTool(mealSvc),
 		model.NewListModelsTool(modelSvc),
 		model.NewSwitchModelTool(modelSvc),
+		undoLastTool,
 	} {
 		if err := registry.Register(t); err != nil {
 			slog.Error("register tool failed", "tool", t.Spec().Name, "err", err)
@@ -123,6 +126,8 @@ func main() {
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
+	// 打断循环依赖：executor 创建后注入给 undo_last
+	undoLastTool.SetExecutor(executor)
 
 	// 会话服务（member 隔离 + 历史持久化）
 	sessions := session.NewService(storeRepo)

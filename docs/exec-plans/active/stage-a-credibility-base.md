@@ -211,8 +211,8 @@
     "无可撤销项时明确告知，不静默成功",
     "该工具受权限与窗口约束（24h、仅本人）"
   ],
-  "passes": false,
-  "note": "撤销是 ADR-004 的承诺，此前只在 UI 卡片侧闭环；工具侧补齐后，对话与页面两条路径对人一致"
+  "passes": true,
+  "note": "已完成（2026-09-20）：新增 undo_last 工具（internal/domain/undo），无参数、撤销最近一条 active 记录。走同一 Executor.Undo 链路（复用卡片撤销的权限/窗口/审计/成员隔离），撤销后 MarkUsed。UndoData 为空——撤销不再产生撤销记录（撤销的逆操作=重做，超出当前设计），Undo() 方法仅为满足 WriteTool 编译期约束并明确拒绝。无可撤销项返回「没有可撤销的操作」卡片，过期返回「已超过撤销窗口」，均不静默成功。循环依赖用 Setter 打断（executor 创建后注入）。store 不依赖 domain，适配器在 cmd 层。5 个单测覆盖撤销/空态/过期/失败传播/缺身份；e2e undo-chat.spec.ts 2/2 绿（真实 LLM 说「取消刚才那笔」撤销成功 + 空态明确告知）。"
 }
 ```
 
@@ -326,6 +326,15 @@ T-A11 evals 套件（承接 c-runtime P2）    ← 阶段 B 出口前必须全�
 - **死链清理**：供应商配置、权限矩阵、操作审计、用量统计四项纯文本「→」全部删除。这些是 admin 管理端的能力（独立部署），放在家人端既是死链又越权暴露存在性。家人端精简后反而符合「不做半成品」。
 - **退出登录加二次确认**：原来是 span 的 onClick 直接登出，误触代价高（要重新输令牌）。改 button + 确认/取消两态。
 - **e2e**：settings.spec.ts 3/3 绿；全量回归 28/28 绿（5 tab 布局未破坏任何既有用例）。
+
+### T-A09 完成记录（2026-09-20）
+
+- **交付**：`internal/domain/undo/undo_last.go`（无参工具，撤销最近一条 active 记录）+ `cmd/homeagent/undo_adapter.go`（v1.UndoStore → undo.Store 适配，保持 store 不依赖 domain）+ main.go 注册（工具数 10 可见 + 1 隐藏）。
+- **同一链路**：工具调 `Executor.Undo`，与卡片撤销按钮、撤销中心 POST /undo 完全共用权限校验/窗口/审计/成员隔离，只是入口从 UI 换成自然语言。
+- **不做「撤销的撤销」**：`Result.UndoData` 为空 → Executor 不写新 undo_log；`Undo()` 方法存在但明确拒绝（仅为满足 WriteTool 编译期约束，实际不可达）。
+- **循环依赖**：Executor 依赖 Registry，Registry 要注册 undo_last，undo_last 要 Executor → 用 `SetExecutor` 在 main 层打断。
+- **空态用奶奶账号验证**：新会话不等于空 undo（undo_log 按成员而非会话隔离，爸爸账号累积了 100+ 条），改用 undo 列表为空的奶奶账号。
+- **验证**：5 个单测（撤销最近/空态告知/过期窗口/失败传播/缺身份）；e2e undo-chat.spec.ts 2/2 绿——真实 LLM 说「取消刚才那笔」回复「已撤销最近一笔操作：记账」，空态回复「没有可撤销的操作」。
 
 ## 验收标准
 
