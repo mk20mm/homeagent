@@ -68,6 +68,8 @@ test.describe('账本页', () => {
     // 昨天分组由接口层兜底：查一笔昨天的，确认按日期分组的键正确
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
+    // 定在昨天 23:59：按日查询 occurred_at 倒序，累积数据下也要在首页可见
+    yesterday.setHours(23, 59, 0, 0)
     await record(
       page,
       token,

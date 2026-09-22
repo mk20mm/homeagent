@@ -63,7 +63,7 @@ func (s *Store) ListAudit(ctx context.Context, memberID string, q v1.AuditQuery)
 	}
 	if q.Cursor != "" {
 		if t, err := time.Parse(time.RFC3339, q.Cursor); err == nil {
-			query = query.Where(auditlog.CreatedAtLT(t))
+			query = query.Where(auditlog.CreatedAtLT(t.UTC()))
 		}
 	}
 	if q.PageSize <= 0 || q.PageSize > 100 {
@@ -112,7 +112,7 @@ func (s *Store) UsageSummary(ctx context.Context, days int) (v1.UsageSummary, er
 		AddDate(0, 0, -(days - 1))
 
 	rows, err := s.db.LLMUsage.Query().
-		Where(llmusage.CreatedAtGTE(start)).
+		Where(llmusage.CreatedAtGTE(start.UTC())).
 		All(ctx)
 	if err != nil {
 		return v1.UsageSummary{}, apperr.New(apperr.CodeInternal, "查询用量统计失败", err)

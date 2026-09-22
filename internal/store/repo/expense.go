@@ -225,15 +225,16 @@ func (s *Store) ListExpenses(ctx context.Context, memberID string, q v1.ExpenseQ
 		query = query.Where(expense.HasCategoryWith(category.NameEQ(q.Category)))
 	}
 	if q.StartDate != nil {
-		query = query.Where(expense.OccurredAtGTE(*q.StartDate))
+		// 与入库口径一致用 UTC 比较（见 store.utcTimes）
+		query = query.Where(expense.OccurredAtGTE(q.StartDate.UTC()))
 	}
 	if q.EndDate != nil {
 		// end_date 含端点：查到次日 0 点
-		query = query.Where(expense.OccurredAtLT(q.EndDate.AddDate(0, 0, 1)))
+		query = query.Where(expense.OccurredAtLT(q.EndDate.AddDate(0, 0, 1).UTC()))
 	}
 	if q.Cursor != "" {
 		if t, err := time.Parse(time.RFC3339, q.Cursor); err == nil {
-			query = query.Where(expense.OccurredAtLT(t))
+			query = query.Where(expense.OccurredAtLT(t.UTC()))
 		}
 	}
 	list, err := query.

@@ -16,7 +16,8 @@ var _ dommeal.MealRepo = (*Store)(nil)
 
 // Upsert 报饭：同日重复为更新（member+date 唯一索引兜底）。返回记录 id。
 func (s *Store) Upsert(ctx context.Context, memberID string, cmd dommeal.ReportCmd) (string, error) {
-	day := cmd.Date
+	// 与入库口径一致用 UTC 比较（见 store.UseUTCTimes）
+	day := cmd.Date.UTC()
 	// 先查当日记录：存在则更新（幂等），不存在则插入
 	exist, err := s.db.MealReport.Query().
 		Where(mealreport.HasMemberWith(member.IDEQ(toUUID(memberID))), mealreport.DateEQ(day)).
@@ -50,7 +51,7 @@ func (s *Store) Upsert(ctx context.Context, memberID string, cmd dommeal.ReportC
 // RemoveReport 删除当日报饭（撤销）。
 func (s *Store) RemoveReport(ctx context.Context, memberID string, date time.Time) error {
 	n, err := s.db.MealReport.Delete().
-		Where(mealreport.HasMemberWith(member.IDEQ(toUUID(memberID))), mealreport.DateEQ(date)).
+		Where(mealreport.HasMemberWith(member.IDEQ(toUUID(memberID))), mealreport.DateEQ(date.UTC())).
 		Exec(ctx)
 	if err != nil {
 		return apperr.New(apperr.CodeInternal, "撤销报饭失败", err)
@@ -64,7 +65,7 @@ func (s *Store) RemoveReport(ctx context.Context, memberID string, date time.Tim
 // DailySummary 当日用餐汇总：在家/不在家名单 + 未申报缺口（全体活跃成员差集）。
 func (s *Store) DailySummary(ctx context.Context, date time.Time) (dommeal.MealSummary, error) {
 	list, err := s.db.MealReport.Query().
-		Where(mealreport.DateEQ(date)).
+		Where(mealreport.DateEQ(date.UTC())).
 		WithMember().
 		All(ctx)
 	if err != nil {

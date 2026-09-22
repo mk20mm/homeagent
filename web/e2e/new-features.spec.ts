@@ -31,7 +31,9 @@ test.describe('记账快捷路径', () => {
     const hint = `快捷测试${Math.floor(Math.random() * 1000)}`
     await page.fill('input[placeholder="金额（元）"]', '6.66')
     await page.fill('input[placeholder="买了什么（如：买菜）"]', hint)
-    await page.click('button:has-text("食材")')
+    // 分类 chip 在底部面板里，与账本页的筛选 chip 同名——用面板标题限定作用域
+    const sheet = page.getByText('记一笔').locator('xpath=..')
+    await sheet.getByRole('button', { name: '食材' }).click()
     await page.click('button:has-text("保存")')
     await page.waitForTimeout(800)
     await page.screenshot({ path: `${SHOT}/nf-04-after-save.png` })
@@ -58,32 +60,34 @@ test.describe('记账快捷路径', () => {
     await page.click('button:has-text("保存")')
     await page.waitForTimeout(600)
 
-    // 回对话页，发消息触发记账（用不同金额避免幂等命中建不出新卡）
+    // 回对话页，发消息触发记账（用唯一 hint 避免与历史 e2e 数据撞幂等键）
     await page.click('a[href="/"]')
     await page.waitForTimeout(400)
     const amt = String(1 + Math.floor(Math.random() * 90))
-    await page.fill('input[placeholder="输入消息…"]', `买水果花了 ${amt} 元`)
+    const stamp = Date.now() % 100000
+    await page.fill('input[placeholder="输入消息…"]', `修正测试${stamp} 花了 ${amt} 元`)
     await page.click('button:has-text("发送")')
     await expect(page.locator('button:has-text("发送")')).toBeEnabled({ timeout: 60_000 })
     await page.waitForTimeout(400)
     await page.screenshot({ path: `${SHOT}/nf-05-card.png` })
 
-    // 点「修正」
+    // 点「修正」：取最后一张卡（最新消息，即刚记的这笔；历史会话的旧卡可能已撤销，PATCH 必失败）
     const editBtn = page.locator('button:has-text("修正")')
     if ((await editBtn.count()) > 0) {
-      await editBtn.first().click()
+      await editBtn.last().click()
       await page.waitForTimeout(300)
       await page.screenshot({ path: `${SHOT}/nf-06-editing.png` })
 
-      // 改金额并保存
+      // 改金额并保存（随机金额，避免改完后与今天另一笔撞幂等键）
+      const newAmt = (100 + Math.floor(Math.random() * 900) / 10).toFixed(2)
       const input = page.locator(`input[inputMode="decimal"]`).first()
-      await input.fill('99.9')
+      await input.fill(newAmt)
       await page.click('button:has-text("保存修正")')
       await page.waitForTimeout(600)
       await page.screenshot({ path: `${SHOT}/nf-07-after-edit.png` })
 
       // 卡片金额应更新
-      await expect(page.getByText('¥99.90').first()).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(`¥${newAmt}`).first()).toBeVisible({ timeout: 5000 })
     }
   })
 

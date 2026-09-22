@@ -187,6 +187,88 @@ func TestTaskRemoveSoftDeletes(t *testing.T) {
 	}
 }
 
+// TestListDueSoonTimezone 时区回归：入库用 UTC（API 传 Z 后缀），查询用本地时间窗
+// （调度器真实姿势 time.Now()）。修复前 from/to 未转 UTC，而 ent 的 SQLite 时间比较
+// 是字符串比较，「+08:00」与「Z」混排会漏行——调度器扫不到到期任务。
+func TestListDueSoonTimezone(t *testing.T) {
+	c, famID := newTestClient(t)
+	defer func() { _ = c.Close() }()
+
+	s := New(c)
+	assigner, executor := newTestExecutor(t, c, famID)
+	ctx := context.Background()
+
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatalf("加载时区: %v", err)
+	}
+
+	now := time.Now()
+	cmd := task.AssignTaskCmd{Title: "快到期", AssigneeName: "执行人", DueAt: now.Add(30 * time.Minute).UTC()}
+	if _, err := s.Assign(ctx, assigner, cmd, task.IdempotencyKey(assigner, cmd)); err != nil {
+		t.Fatalf("派发: %v", err)
+	}
+
+	from, to := now.In(loc), now.In(loc).Add(time.Hour)
+	list, err := s.ListDueSoon(ctx, from, to)
+	if err != nil {
+		t.Fatalf("查询: %v", err)
+	}
+	if len(list) != 1 || list[0].Title != "快到期" {
+		t.Fatalf("本地时间窗应命中 1 条「快到期」，got %v", list)
+	}
+	if list[0].AssigneeID != executor || list[0].AssigneeName != "执行人" {
+		t.Fatalf("应带出执行人，got id=%q name=%q", list[0].AssigneeID, list[0].AssigneeName)
+	}
+}
+
+// TestListDueSoonWindowAndGuards 窗口半开 [from, to) 与排除规则：超窗/无执行人/已完成/软删除。
+func TestListDueSoonWindowAndGuards(t *testing.T) {
+	c, famID := newTestClient(t)
+	defer func() { _ = c.Close() }()
+
+	s := New(c)
+	assigner, executor := newTestExecutor(t, c, famID)
+	ctx := context.Background()
+
+	now := time.Now()
+	mk := func(title string, due time.Time, assignee string) string {
+		cmd := task.AssignTaskCmd{Title: title, DueAt: due}
+		if assignee != "" {
+			cmd.AssigneeName = assignee
+		}
+		id, err := s.Assign(ctx, assigner, cmd, task.IdempotencyKey(assigner, cmd))
+		if err != nil {
+			t.Fatalf("派发 %s: %v", title, err)
+		}
+		return id
+	}
+
+	mk("窗内", now.Add(30*time.Minute).UTC(), "执行人")
+	mk("超窗", now.Add(2*time.Hour).UTC(), "执行人")
+	mk("边界等于to", now.Add(time.Hour).UTC(), "执行人") // 半开区间，不含 to
+	mk("待认领", now.Add(30*time.Minute).UTC(), "")     // 无执行人，不通知
+	doneID := mk("已完成", now.Add(30*time.Minute).UTC(), "执行人")
+	if err := s.Complete(ctx, doneID, executor); err != nil { // pending → in_progress
+		t.Fatalf("首次打卡: %v", err)
+	}
+	if err := s.Complete(ctx, doneID, executor); err != nil { // in_progress → done
+		t.Fatalf("完成打卡: %v", err)
+	}
+	removedID := mk("已撤回", now.Add(30*time.Minute).UTC(), "执行人")
+	if err := s.Remove(ctx, removedID); err != nil {
+		t.Fatalf("撤销派发: %v", err)
+	}
+
+	list, err := s.ListDueSoon(ctx, now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("查询: %v", err)
+	}
+	if len(list) != 1 || list[0].Title != "窗内" {
+		t.Fatalf("应只命中「窗内」1 条，got %d 条: %v", len(list), list)
+	}
+}
+
 func TestGetTaskMapsFieldsAndMemberName(t *testing.T) {
 	c, famID := newTestClient(t)
 	defer func() { _ = c.Close() }()

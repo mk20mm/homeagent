@@ -78,7 +78,8 @@ func (s *Store) ListActive(ctx context.Context, memberID string) ([]v1.UndoRecor
 		Where(
 			undolog.HasMemberWith(member.IDEQ(toUUID(memberID))),
 			undolog.StatusEQ(undolog.StatusActive),
-			undolog.ExpiresAtGTE(time.Now()),
+			// 与入库口径一致用 UTC 比较（见 store.utcTimes）
+			undolog.ExpiresAtGTE(time.Now().UTC()),
 		).
 		Order(ent.Desc(undolog.FieldCreatedAt)).
 		All(ctx)
@@ -124,7 +125,7 @@ func (s *Store) SaveUndo(ctx context.Context, memberID string, toolName string, 
 // SweepExpired 清理过期记录（cron 调用，P1 接入）。
 func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 	n, err := s.db.UndoLog.Update().
-		Where(undolog.StatusEQ(undolog.StatusActive), undolog.ExpiresAtLT(time.Now())).
+		Where(undolog.StatusEQ(undolog.StatusActive), undolog.ExpiresAtLT(time.Now().UTC())).
 		SetStatus(undolog.StatusExpired).
 		Save(ctx)
 	if err != nil {

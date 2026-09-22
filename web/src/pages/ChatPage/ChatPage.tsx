@@ -10,10 +10,12 @@ import { ERROR_MESSAGE, type ErrorCode } from '@homeagent/shared'
 import { api, ApiError, unwrap } from '../../api/client'
 import { ConversationSidebar } from '../../components/ConversationSidebar'
 import { ExpenseCard } from '../../components/ExpenseCard'
+import { NotificationCenter } from '../../components/NotificationCenter'
 import { ResultCard } from '../../components/ResultCard'
 import { useSSE, type SSEEvent } from '../../hooks/useSSE'
 import { useChatStore, type ChatMessage } from '../../stores/chat'
 import { tokens } from '../../styles/tokens'
+import { formatUnread } from '../../utils/unread'
 
 import styles from './ChatPage.module.css'
 import {
@@ -52,6 +54,8 @@ export function ChatPage() {
   const [models, setModels] = useState<ModelOption[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tools, setTools] = useState<ToolSpec[]>([])
+  const [unread, setUnread] = useState(0)
+  const [notifOpen, setNotifOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const chips = useMemo(() => filterChips(QUICK_CHIPS, tools), [tools])
@@ -102,6 +106,21 @@ export function ChatPage() {
         // 清单加载失败不阻塞对话，只是不显示 chips
       }
     })()
+  }, [])
+
+  // 未读通知角标：每 30 秒轮询一次（ADR-006：静默通知，只有计数）
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = unwrap(await api.GET('/notifications', { params: { query: { limit: 1 } } }))
+        setUnread(data.unread_count)
+      } catch {
+        // 失败不阻塞，下次轮询重试
+      }
+    }
+    void load()
+    const timer = setInterval(() => void load(), 30_000)
+    return () => clearInterval(timer)
   }, [])
 
   // 会话列表：进入时加载并选中最近会话（没有则停在欢迎页，首条消息时自动新建）
@@ -160,6 +179,7 @@ export function ChatPage() {
   return (
     <div className={styles.page}>
       <ConversationSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <NotificationCenter open={notifOpen} onClose={() => setNotifOpen(false)} />
       <header className={styles.header}>
         <button
           type="button"
@@ -172,6 +192,17 @@ export function ChatPage() {
         <h1 className={styles.title} style={{ fontSize: tokens.fontSize.title }}>
           家事助手
         </h1>
+        <button
+          type="button"
+          className={styles.bellBtn}
+          aria-label="通知"
+          onClick={() => setNotifOpen(true)}
+        >
+          🔔
+          {unread > 0 && (
+            <span className={styles.badge}>{formatUnread(unread)}</span>
+          )}
+        </button>
         <select
           className={styles.modelSelect}
           aria-label="切换模型"

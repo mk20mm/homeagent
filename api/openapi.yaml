@@ -513,6 +513,60 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /notifications:
+    get:
+      tags: [notification]
+      summary: 通知中心列表（新的在前，未读优先）
+      operationId: listNotifications
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: 通知列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, unread_count]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  unread_count:
+                    type: integer
+                    description: 未读数（前端封顶 99+）
+    post:
+      tags: [notification]
+      summary: 标记已读（全部或单条）
+      operationId: markNotificationsRead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notification_id:
+                  type: string
+                  description: 留空=全部已读
+      responses:
+        '200':
+          description: 已标记
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [marked]
+                properties:
+                  marked:
+                    type: integer
+                    description: 标记已读的条数
+
   /meals:
     get:
       tags: [meal]
@@ -820,6 +874,38 @@ components:
           type: string
           format: password
           description: 成员预共享密钥，开发期由 --migrate 生成并打印到日志
+
+    Notification:
+      type: object
+      required: [id, type, title, body, read, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [task_due, chore_overdue, meal_gap, bill_due, budget_over, report]
+          description: 通知类型（ADR-006）
+        title:
+          type: string
+        body:
+          type: string
+        ref_type:
+          type: string
+          description: 关联对象类型，如 task / meal_report
+        ref_id:
+          type: string
+        action_label:
+          type: string
+          description: 行动按钮文案，如「去打卡」
+        action_path:
+          type: string
+          description: 行动跳转路径，如 /chores
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
 
     TokenResponse:
       type: object

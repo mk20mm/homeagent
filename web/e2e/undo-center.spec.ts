@@ -34,11 +34,10 @@ test.describe('撤销中心', () => {
     })
     expect(res.status()).toBe(201)
 
-    // 从设置页进撤销中心（顺带验收 T20 的入口；点击事件挂在「查看 →」上）
+    // 从设置页进撤销中心（顺带验收 T20 的入口；整行是 button，点任意位置即可）
     await page.goto('/settings')
     await page.waitForTimeout(300)
-    const undoEntry = page.getByText('可撤销的操作').locator('xpath=..')
-    await undoEntry.getByText('查看 →').click()
+    await page.getByRole('button', { name: /可撤销的操作/ }).click()
     await expect(page).toHaveURL(/\/undo/)
     await page.waitForTimeout(400)
     await page.screenshot({ path: `${SHOT}/ud-01-list.png` })

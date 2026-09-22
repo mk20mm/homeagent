@@ -12,10 +12,22 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
 	"github.com/google/uuid"
 )
+
+// sqliteTextType 时间字段在 SQLite 下的列类型声明。
+//
+// ent 默认把 field.Time 映射成 datetime，而 SQLite 没有真正的日期类型——
+// 「datetime」按类型推导规则落到 NUMERIC 亲和性，比较时会把「2026-09-21T09:39:42Z」
+// 这样的字符串截成数字 2026，于是同年的所有时间互相「相等」，排序与范围查询全错
+// （账本倒序错位、游标分页跳页）。声明成 TEXT 后比较按字符串语义，配合入库统一
+// UTC（store.UseUTCTimes）即正确。
+func sqliteTextType() map[string]string {
+	return map[string]string{dialect.SQLite: "TEXT"}
+}
 
 // UUIDMixin 主键 UUID。
 type UUIDMixin struct{ mixin.Schema }

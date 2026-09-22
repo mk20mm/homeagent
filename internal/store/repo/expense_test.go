@@ -13,6 +13,7 @@ import (
 	_ "modernc.org/sqlite" // 纯 Go 驱动，注册名 "sqlite"
 
 	"github.com/mk20mm/homeagent/internal/domain/expense"
+	"github.com/mk20mm/homeagent/internal/store"
 	"github.com/mk20mm/homeagent/internal/store/ent"
 	"github.com/mk20mm/homeagent/internal/store/ent/member"
 )
@@ -21,12 +22,13 @@ import (
 // 不用 enttest.Open：它用驱动名 "sqlite3"（mattn），modernc 注册的是 "sqlite"。
 func newTestClient(t *testing.T) (*ent.Client, string) {
 	t.Helper()
-	dsn := "file:" + filepath.Join(t.TempDir(), "test.db") + "?cache=shared&_fk=1"
+	dsn := "file:" + filepath.Join(t.TempDir(), "test.db") + "?cache=shared&_fk=1&_timezone=UTC"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	c := ent.NewClient(ent.Driver(entsql.OpenDB(dialect.SQLite, db)))
+	c.Use(store.UseUTCTimes)
 	t.Cleanup(func() { _ = c.Close() })
 	if err := c.Schema.Create(context.Background()); err != nil {
 		t.Fatalf("auto migrate: %v", err)

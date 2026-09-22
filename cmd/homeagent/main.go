@@ -29,6 +29,7 @@ import (
 	"github.com/mk20mm/homeagent/internal/domain/task"
 	"github.com/mk20mm/homeagent/internal/domain/undo"
 	"github.com/mk20mm/homeagent/internal/infra/config"
+	"github.com/mk20mm/homeagent/internal/infra/scheduler"
 	"github.com/mk20mm/homeagent/internal/store"
 	"github.com/mk20mm/homeagent/internal/store/repo"
 )
@@ -148,7 +149,14 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, taskSvc, mealSvc, storeRepo, undoSummaryProvider{repo: storeRepo, tasks: taskSvc}, storeRepo)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, taskSvc, mealSvc, storeRepo, undoSummaryProvider{repo: storeRepo, tasks: taskSvc}, storeRepo, storeRepo)
+
+	// 主动服务调度器（ADR-006）：每分钟 tick，任务到期 + 16:00 报饭缺口
+	sched := scheduler.New(storeRepo)
+	sched.AddSource(scheduler.NewTaskDueSource(storeRepo))
+	sched.AddSource(scheduler.NewMealGapSource(mealSvc))
+	sched.Start()
+	defer sched.Stop()
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {

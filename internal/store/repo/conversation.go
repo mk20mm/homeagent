@@ -44,7 +44,7 @@ func (s *Store) ListConversations(ctx context.Context, memberID string, limit in
 		)
 	if cursor != "" {
 		if t, err := time.Parse(time.RFC3339, cursor); err == nil {
-			query = query.Where(conversation.LastMessageAtLT(t))
+			query = query.Where(conversation.LastMessageAtLT(t.UTC()))
 		}
 	}
 	list, err := query.

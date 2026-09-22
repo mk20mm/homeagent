@@ -42,6 +42,7 @@ func Register(
 	mealSvc MealService,
 	memberNamer MemberNamer,
 	undoSummarizer UndoSummaryProvider,
+	notifStore NotificationStore,
 	audit tool.AuditLogger,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
@@ -72,6 +73,8 @@ func Register(
 
 	// 报饭（T-A01：契约已定义的 /meals 出口）
 	jwtGroup.GET("/meals", ListMeals(mealSvc, pl, audit))
+	jwtGroup.GET("/notifications", ListNotifications(notifStore))
+	jwtGroup.POST("/notifications", MarkNotificationsRead(notifStore))
 	jwtGroup.POST("/meals", ReportMeal(mealSvc, expUndoWriter, pl, audit))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）

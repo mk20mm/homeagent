@@ -21,7 +21,7 @@ test.describe('记账页数据联动', () => {
 
     await page.goto('/money')
     await expect(page.getByText('本月支出')).toBeVisible()
-    // 流水列表含刚记的这笔
-    await expect(page.getByText(/e2e测试买书/)).toBeVisible({ timeout: 20_000 })
+    // 流水列表含刚记的这笔：按金额断言（LLM 提取 hint 的措辞不稳定，金额才确定）
+    await expect(page.getByText(`¥${amount}`).first()).toBeVisible({ timeout: 20_000 })
   })
 })

@@ -41,6 +41,39 @@
   color: #8e8e93;
 }
 
+.bellBtn {
+  flex-shrink: 0;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.bellBtn:hover {
+  background: #f2f3f7;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  padding: 0 4px;
+  border: 1.5px solid #f2f3f7;
+}
+
 .messages {
   flex: 1;
   display: flex;

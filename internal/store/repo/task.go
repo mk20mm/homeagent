@@ -124,6 +124,33 @@ func (s *Store) ListMyTasks(ctx context.Context, memberID string) ([]domtask.Tas
 	return out, nil
 }
 
+// ListDueSoon 未完成且在时间窗内到期的任务（调度器扫描用）。
+// 窗口 [from, to)：from 通常为当前时间，to 为提醒提前量（如 1 小时后）。
+// 待认领任务（无 assignee）不通知——没有具体责任人。
+//
+// 注意：ent 的 SQLite 时间比较是按 time.Time 的字符串格式做的，
+// from/to 与 due_at 必须同一时区。统一转 UTC（存入时 curl 传 Z 后缀）。
+func (s *Store) ListDueSoon(ctx context.Context, from, to time.Time) ([]domtask.Task, error) {
+	list, err := s.db.Task.Query().
+		Where(
+			task.StatusNEQ(task.StatusDone),
+			task.DeletedAtIsNil(),
+			task.HasAssignee(),
+		task.DueAtGTE(from.UTC()),
+		task.DueAtLT(to.UTC()),
+		).
+		WithAssignee().
+		All(ctx)
+	if err != nil {
+		return nil, apperr.New(apperr.CodeInternal, "查询到期任务失败", err)
+	}
+	out := make([]domtask.Task, 0, len(list))
+	for _, t := range list {
+		out = append(out, mapTask(t))
+	}
+	return out, nil
+}
+
 // GetTask 单任务查询（软删除过滤；家庭可见读）。
 func (s *Store) GetTask(ctx context.Context, taskID string) (domtask.Task, error) {
 	t, err := s.db.Task.Query().
