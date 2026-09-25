@@ -196,30 +196,81 @@
 }
 
 .empty {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 24px;
   padding: 32px 20px;
   color: #8e8e93;
   text-align: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.emptySparkle {
+  font-size: 28px;
+  color: #7c3aed; /* AI 紫色 */
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 8px rgba(124, 58, 237, 0.3));
+}
+
+.emptyPrompt {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c1c1e;
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
 }
 
 .hint {
-  margin-top: 10px;
   font-size: 13px;
   color: #8e8e93;
+  margin-bottom: 20px;
+}
+
+.promptCapsules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.promptChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #1c1c1e;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.promptChip:hover {
+  background: #f8f8fa;
+  border-color: rgba(0, 122, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.promptChip:active {
+  transform: scale(0.97);
 }
 
 /* 消息气泡 */
 .bubble {
-  max-width: 82%;
+  max-width: 84%;
   padding: 12px 16px;
-  border-radius: 18px;
+  border-radius: 20px;
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.5;
   overflow-wrap: anywhere;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
@@ -235,7 +286,7 @@
   align-self: flex-start;
   background: #ffffff;
   color: #1c1c1e;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 0.5px solid rgba(0, 0, 0, 0.07);
   border-bottom-left-radius: 4px;
 }
 

@@ -18,6 +18,15 @@ interface Expense {
 
 const CATEGORIES = ['食材', '日用', '外卖', '出行', '餐饮', '其他']
 
+const CATEGORY_ICONS: Record<string, string> = {
+  食材: '🥦',
+  日用: '🧻',
+  外卖: '🛵',
+  出行: '🚗',
+  餐饮: '🍲',
+  其他: '💳',
+}
+
 export function MoneyPage() {
   const [items, setItems] = useState<Expense[]>([])
   const [totalCents, setTotalCents] = useState(0)
@@ -136,13 +145,16 @@ export function MoneyPage() {
             }}
             className={`${styles.item} ${highlightId === e.id ? styles.highlight : ''}`}
           >
+            <div className={styles.categoryIconBox}>
+              {CATEGORY_ICONS[e.category] ?? '💳'}
+            </div>
             <div className={styles.main}>
               <div className={styles.category}>{e.category}</div>
               <div className={styles.hint}>
-                {e.hint} · {e.time}
+                {e.hint ? `${e.hint} · ` : ''}{e.time}
               </div>
             </div>
-            <div className={styles.amount}>{formatYuan(e.amountCents)}</div>
+            <div className={styles.amount}>-{formatYuan(e.amountCents)}</div>
           </div>
         ))}
         {items.length === 0 && !loading && (
@@ -162,6 +174,7 @@ export function MoneyPage() {
       {sheetOpen && (
         <div className={styles.sheetOverlay} onClick={() => setSheetOpen(false)}>
           <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.dragHandle} />
             <div className={styles.sheetTitle}>记一笔</div>
 
             <div className={styles.sheetRow}>

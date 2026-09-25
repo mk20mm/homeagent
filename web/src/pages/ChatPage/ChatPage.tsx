@@ -132,6 +132,22 @@ export function ChatPage() {
     })
   }
 
+  const handlePromptClick = async (promptText: string) => {
+    if (status !== 'idle') return
+    setInput(promptText)
+    setError(undefined)
+    if (!currentConversationId) {
+      await newConversation()
+    }
+    beginStream(promptText)
+    connect({
+      content: promptText,
+      model_id: currentModelId,
+      conversation_id: useChatStore.getState().currentConversationId,
+    })
+    setInput('')
+  }
+
   const currentModel = models.find((m) => m.id === currentModelId)
 
   return (
@@ -205,8 +221,39 @@ export function ChatPage() {
       <div className={styles.messages}>
         {messages.length === 0 && (
           <div className={styles.empty}>
-            <p>说点什么，我来跑腿：</p>
-            <p className={styles.hint}>「今天买菜花了 120」「今晚不回家吃」「提醒媳妇洗碗」</p>
+            <div className={styles.emptySparkle}>✦</div>
+            <p className={styles.emptyPrompt}>说点什么，我来跑腿：</p>
+            <p className={styles.hint}>动嘴一句话，买菜记账/查菜谱/分派家务全办妥</p>
+            <div className={styles.promptCapsules}>
+              <button
+                type="button"
+                className={styles.promptChip}
+                onClick={() => void handlePromptClick('今天买菜花了 35 元')}
+              >
+                <span>💰</span> 今天买菜花了 35 元
+              </button>
+              <button
+                type="button"
+                className={styles.promptChip}
+                onClick={() => void handlePromptClick('查查红烧肉怎么做')}
+              >
+                <span>🍳</span> 查查红烧肉怎么做
+              </button>
+              <button
+                type="button"
+                className={styles.promptChip}
+                onClick={() => void handlePromptClick('提醒媳妇今晚洗碗')}
+              >
+                <span>🧹</span> 提醒媳妇今晚洗碗
+              </button>
+              <button
+                type="button"
+                className={styles.promptChip}
+                onClick={() => void handlePromptClick('我还有什么待办活')}
+              >
+                <span>📋</span> 我还有什么待办活
+              </button>
+            </div>
           </div>
         )}
         {messages.map((m: ChatMessage) => (

@@ -1,9 +1,10 @@
 .card {
   background: #fff;
-  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
-  padding: 14px;
-  margin: 12px 0;
-  border: 1px solid #7c3aed33; /* 紫色描边：工具执行卡片 */
+  border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  padding: 14px 16px;
+  margin: 10px 0;
+  border: 1px solid rgba(124, 58, 237, 0.2); /* AI 紫色轻描边 */
 }
 
 .header {
