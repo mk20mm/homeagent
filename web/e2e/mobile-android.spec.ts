@@ -62,12 +62,12 @@ test.describe('移动端与安卓 App 原生体验走查', () => {
     // 验证记账页 FAB 在移动端正确悬浮
     await expect(page.locator('button[aria-label="记一笔"]')).toBeVisible()
 
-    // 3. 报饭
-    await page.click('nav a:has-text("报饭")')
-    await page.waitForURL('/meal')
-    await expect(page.locator('h1')).toHaveText('报饭')
-    // 验证大尺寸打卡触控按钮
-    await expect(page.getByRole('button', { name: '🏠 在家吃' })).toBeVisible()
+    // 3. 厨房（做饭流程与菜谱）
+    await page.click('nav a:has-text("厨房")')
+    await page.waitForURL('/kitchen')
+    await expect(page.locator('h1')).toHaveText('厨房')
+    // 验证大尺寸烹饪模式按钮
+    await expect(page.locator('button:has-text("开启做饭大字免脏屏模式")')).toBeVisible()
 
     // 4. 设置
     await page.click('nav a:has-text("设置")')

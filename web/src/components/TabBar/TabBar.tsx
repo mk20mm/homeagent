@@ -2,12 +2,12 @@ import { NavLink } from 'react-router'
 
 import styles from './TabBar.module.css'
 
-/** 底部 Tab 栏：毛玻璃半透明，5 个入口（对话/家务/记账/报饭/设置） */
+/** 底部 Tab 栏：毛玻璃半透明，5 个入口（对话/家务/记账/厨房/设置） */
 const TABS = [
   { to: '/', label: '对话', icon: '💬' },
   { to: '/chores', label: '家务', icon: '✅' },
   { to: '/money', label: '记账', icon: '💰' },
-  { to: '/meal', label: '报饭', icon: '🍚' },
+  { to: '/kitchen', label: '厨房', icon: '🍳' },
   { to: '/settings', label: '设置', icon: '⚙️' },
 ] as const
 

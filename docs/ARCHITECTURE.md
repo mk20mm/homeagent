@@ -47,7 +47,7 @@
 - **工程问题**：Agent 与确定性系统的契约——副作用必须可校验、可撤销、可审计。
 - **每个工具 MUST 定义**：Name/Purpose、When to use / When not、Parameter schema + Validation、Permission / Risk level、Idempotency / Timeout / Retry、Error contract / Output schema、Undo（写操作必填）、Observability。
 - **参数在可信代码校验，禁止把 LLM 当唯一安全闸门。**
-- 一期工具清单：财务 `record_expense` `query_budget`；家务 `assign_task` `complete_task` `list_my_tasks`；用餐 `report_meal` `suggest_dinner`；系统 `switch_model` `list_models`。完整字段见 [agent-调度器设计.md 工具注册表](agent-调度器设计.md)。
+- 一期工具清单：财务 `record_expense` `query_budget`；家务 `assign_task` `complete_task` `list_my_tasks`；烹饪与用餐 `save_recipe` `query_recipe` `suggest_dinner`；系统 `switch_model` `list_models`。完整字段见 [agent-调度器设计.md 工具注册表](agent-调度器设计.md)。
 
 ### 2.4 Business Services / DB
 
@@ -141,8 +141,9 @@
 | 家务 | `assign_task`    | 中   | A2       | 是                         | 可撤销               |
 | 家务 | `complete_task`  | 中   | A2       | 是（防重复打卡）           | 可撤销（撤销误打卡） |
 | 家务 | `list_my_tasks`  | 低   | A1       | 查询                       | 不需要               |
-| 用餐 | `report_meal`    | 中   | A2       | 是（人+日期）              | 可撤销               |
-| 用餐 | `suggest_dinner` | 低   | A0       | —                          | 不需要               |
+| 烹饪 | `save_recipe`    | 中   | A2       | 是（user+title）           | 可撤销               |
+| 烹饪 | `query_recipe`   | 低   | A1       | 查询                       | 不需要               |
+| 烹饪 | `suggest_dinner` | 低   | A0       | —                          | 不需要               |
 | 系统 | `switch_model`   | 中   | A2       | 是                         | 可撤销（切回）       |
 | 系统 | `list_models`    | 低   | A1       | 查询                       | 不需要               |
 

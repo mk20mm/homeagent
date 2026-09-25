@@ -6,7 +6,7 @@ import { AppLayout } from './layouts'
 import { ChatPage } from './pages/ChatPage'
 import { ChoresPage } from './pages/ChoresPage'
 import { LoginPage } from './pages/LoginPage'
-import { MealPage } from './pages/MealPage'
+import { KitchenPage } from './pages/KitchenPage'
 import { MoneyPage } from './pages/MoneyPage'
 import { SettingsPage } from './pages/SettingsPage'
 
@@ -49,11 +49,22 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: '/kitchen',
+    element: (
+      <RequireAuth>
+        <AppLayout>
+          <KitchenPage />
+          <TabBar />
+        </AppLayout>
+      </RequireAuth>
+    ),
+  },
+  {
     path: '/meal',
     element: (
       <RequireAuth>
         <AppLayout>
-          <MealPage />
+          <KitchenPage />
           <TabBar />
         </AppLayout>
       </RequireAuth>

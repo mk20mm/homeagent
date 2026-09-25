@@ -1,0 +1,307 @@
+.container {
+  padding-bottom: 24px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 8px 0 16px;
+  color: #1c1c1e;
+  letter-spacing: -0.4px;
+}
+
+.section {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  padding-left: 4px;
+}
+
+/* 正在下厨卡片 */
+.activeCard {
+  background: linear-gradient(135deg, #ff9500 0%, #ff5e3a 100%);
+  border-radius: 20px;
+  padding: 20px;
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(255, 94, 58, 0.25);
+  margin-bottom: 16px;
+}
+
+.activeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.activeBadge {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.activeDish {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.activeStep {
+  font-size: 15px;
+  line-height: 1.4;
+  opacity: 0.95;
+  background: rgba(0, 0, 0, 0.12);
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin: 12px 0 14px;
+}
+
+.activeActions {
+  display: flex;
+  gap: 10px;
+}
+
+.modeBtn {
+  flex: 1;
+  background: #ffffff;
+  color: #ff5e3a;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease;
+}
+
+.modeBtn:active {
+  transform: scale(0.96);
+}
+
+.finishBtn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* 灵感推荐搭配 */
+.suggestCard {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.suggestRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.suggestLabel {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1c1c1e;
+}
+
+.refreshBtn {
+  background: none;
+  border: none;
+  color: #007aff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.suggestList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.suggestChip {
+  background: #f2f2f7;
+  color: #1c1c1e;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+/* 菜谱库列表 */
+.recipeList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recipeCard {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.recipeTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recipeName {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+}
+
+.cookNowBtn {
+  background: rgba(52, 199, 89, 0.12);
+  color: #34c759;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.recipeMeta {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.ingredientTag {
+  font-size: 12px;
+  color: #8e8e93;
+  background: #f2f2f7;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.tipsBox {
+  margin-top: 10px;
+  background: #fff8eb;
+  border-left: 3px solid #ff9500;
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  color: #8a5300;
+  line-height: 1.4;
+}
+
+/* 全屏做饭大字模式（防脏屏） */
+.fullscreenModal {
+  position: fixed;
+  inset: 0;
+  background: #1c1c1e;
+  color: #ffffff;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 20px) 24px env(safe-area-inset-bottom, 24px);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+}
+
+.modalDish {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #ffffff;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.modalBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.stepNumber {
+  font-size: 16px;
+  color: #ff9500;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.stepContent {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #ffffff;
+  margin-bottom: 24px;
+}
+
+.stepTip {
+  font-size: 16px;
+  color: #8e8e93;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin: 0 auto;
+  max-width: 360px;
+}
+
+.modalControls {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+.navStepBtn {
+  flex: 1;
+  background: #3a3a3c;
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 0;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryStepBtn {
+  flex: 2;
+  background: #ff9500;
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 0;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}

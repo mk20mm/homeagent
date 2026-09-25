@@ -1,0 +1,1 @@
+export { KitchenPage } from './KitchenPage'
