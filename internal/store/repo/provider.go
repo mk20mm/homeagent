@@ -124,11 +124,141 @@ func (s *providerStore) DefaultEnabled(ctx context.Context) (conn dommodel.Provi
 	}
 
 	return dommodel.ProviderConnection{
+		ModelID:  m.ID.String(),
 		APIKey:   plain,
 		BaseURL:  m.Edges.Provider.BaseURL,
 		Provider: string(m.Edges.Provider.Name),
 		Model:    m.ModelName,
 	}, true, nil
+}
+
+// CreateModel 为指定供应商新增模型配置。
+func (s *providerStore) CreateModel(ctx context.Context, providerID, modelName, displayName string, isDefault bool) (dommodel.ModelInfo, error) {
+	provUUID := toUUID(providerID)
+	exists, err := s.db.LLMProvider.Query().Where(llmprovider.IDEQ(provUUID)).Exist(ctx)
+	if err != nil || !exists {
+		return dommodel.ModelInfo{}, apperr.New(apperr.CodeNotFound, "供应商不存在", err)
+	}
+
+	if isDefault {
+		// 互斥：先取消其他默认
+		if _, err := s.db.LLMModel.Update().
+			Where(llmmodel.IsDefaultEQ(true)).
+			SetIsDefault(false).
+			Save(ctx); err != nil {
+			return dommodel.ModelInfo{}, apperr.New(apperr.CodeInternal, "更新默认模型失败", err)
+		}
+	}
+
+	b := s.db.LLMModel.Create().
+		SetModelName(modelName).
+		SetDisplayName(displayName).
+		SetProviderID(provUUID).
+		SetEnabled(true).
+		SetIsDefault(isDefault)
+
+	saved, err := b.Save(ctx)
+	if err != nil {
+		return dommodel.ModelInfo{}, apperr.New(apperr.CodeInternal, "创建模型失败", err)
+	}
+
+	loaded, err := s.db.LLMModel.Query().
+		Where(llmmodel.IDEQ(saved.ID)).
+		WithProvider().
+		Only(ctx)
+	if err != nil {
+		return toModelInfo(saved), nil
+	}
+	return toModelInfo(loaded), nil
+}
+
+// DeleteModel 删除模型配置（默认模型不允许直接删除）。
+func (s *providerStore) DeleteModel(ctx context.Context, id string) error {
+	mUUID := toUUID(id)
+	m, err := s.db.LLMModel.Query().Where(llmmodel.IDEQ(mUUID)).Only(ctx)
+	if err != nil {
+		return apperr.New(apperr.CodeNotFound, "模型不存在", err)
+	}
+	if m.IsDefault {
+		return apperr.New(apperr.CodeInvalidInput, "默认模型不可删除，请先将其他模型设为默认", nil)
+	}
+	if err := s.db.LLMModel.DeleteOneID(mUUID).Exec(ctx); err != nil {
+		return apperr.New(apperr.CodeInternal, "删除模型失败", err)
+	}
+	return nil
+}
+
+// ResolveConnection 按 modelID 或 modelName 解析真实连接信息；为空时查全局默认。
+func (s *providerStore) ResolveConnection(ctx context.Context, modelIDOrName string) (conn dommodel.ProviderConnection, ok bool, err error) {
+	if modelIDOrName == "" {
+		return s.DefaultEnabled(ctx)
+	}
+
+	// 1. 尝试按 UUID 查找
+	m, err := s.db.LLMModel.Query().
+		Where(llmmodel.EnabledEQ(true), llmmodel.IDEQ(toUUID(modelIDOrName))).
+		WithProvider().
+		Only(ctx)
+	if err != nil {
+		// 2. 按 model_name 模糊匹配
+		m, err = s.db.LLMModel.Query().
+			Where(llmmodel.EnabledEQ(true), llmmodel.ModelNameContainsFold(modelIDOrName)).
+			WithProvider().
+			Only(ctx)
+		if err != nil {
+			// 未找到指定模型，退回默认模型
+			return s.DefaultEnabled(ctx)
+		}
+	}
+
+	if m.Edges.Provider == nil || !m.Edges.Provider.Enabled {
+		return dommodel.ProviderConnection{}, false, nil
+	}
+
+	plain, decErr := crypto.Decrypt(m.Edges.Provider.APIKey, s.key)
+	if decErr != nil || plain == "" {
+		return dommodel.ProviderConnection{}, false, nil
+	}
+
+	return dommodel.ProviderConnection{
+		ModelID:  m.ID.String(),
+		APIKey:   plain,
+		BaseURL:  m.Edges.Provider.BaseURL,
+		Provider: string(m.Edges.Provider.Name),
+		Model:    m.ModelName,
+	}, true, nil
+}
+
+// GetProviderConnection 获取某供应商的连接信息（用于连接测试探针）
+func (s *providerStore) GetProviderConnection(ctx context.Context, providerID string) (dommodel.ProviderConnection, error) {
+	p, err := s.db.LLMProvider.Query().Where(llmprovider.IDEQ(toUUID(providerID))).Only(ctx)
+	if err != nil {
+		return dommodel.ProviderConnection{}, apperr.New(apperr.CodeNotFound, "供应商不存在", err)
+	}
+
+	plain, decErr := crypto.Decrypt(p.APIKey, s.key)
+	if decErr != nil || plain == "" {
+		return dommodel.ProviderConnection{}, apperr.New(apperr.CodeInvalidInput, "供应商尚未配置有效 API 密钥", nil)
+	}
+
+	testModel := "gpt-4o"
+	if p.Name == llmprovider.NameDeepseek {
+		testModel = "deepseek-chat"
+	}
+	if m, err := p.QueryModels().Where(llmmodel.IsDefaultEQ(true)).First(ctx); err == nil && m != nil {
+		testModel = m.ModelName
+	} else if m, err := p.QueryModels().Where(llmmodel.EnabledEQ(true)).First(ctx); err == nil && m != nil {
+		testModel = m.ModelName
+	} else if m, err := p.QueryModels().First(ctx); err == nil && m != nil {
+		testModel = m.ModelName
+	}
+
+	return dommodel.ProviderConnection{
+		APIKey:   plain,
+		BaseURL:  p.BaseURL,
+		Provider: string(p.Name),
+		Model:    testModel,
+	}, nil
 }
 
 func toProviderInfo(p *ent.LLMProvider, key string) dommodel.ProviderInfo {

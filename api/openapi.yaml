@@ -170,6 +170,48 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /admin/providers/{providerId}/test:
+    post:
+      tags: [admin]
+      summary: 测试供应商连通性
+      description: 发送极小 probe 测试密钥与网络连通性。只有 parent 角色可调。
+      operationId: testProvider
+      parameters:
+        - $ref: '#/components/parameters/ProviderId'
+      responses:
+        '200':
+          description: 测试结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderTestResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/models:
+    post:
+      tags: [admin]
+      summary: 添加模型配置
+      description: 为供应商新增模型配置。只有 parent 角色可调。
+      operationId: createModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateModelRequest'
+      responses:
+        '201':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /admin/models/{modelId}:
     put:
       tags: [admin]
@@ -199,6 +241,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Model'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin]
+      summary: 删除模型配置
+      description: 只有 parent 角色可写。
+      operationId: deleteModel
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+      responses:
+        '204':
+          description: 已删除
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -891,6 +947,35 @@ components:
           type: boolean
           description: 是否已配置密钥（空密钥时 false）
         enabled:
+          type: boolean
+
+    ProviderTestResult:
+      type: object
+      required: [success, latency_ms]
+      properties:
+        success:
+          type: boolean
+        latency_ms:
+          type: integer
+          example: 350
+        error:
+          type: string
+          description: 错误信息（失败时提供）
+
+    CreateModelRequest:
+      type: object
+      required: [provider_id, model_name, display_name]
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+        model_name:
+          type: string
+          example: deepseek-reasoner
+        display_name:
+          type: string
+          example: DeepSeek R1
+        is_default:
           type: boolean
 
     ChatRequest:

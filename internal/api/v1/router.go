@@ -38,6 +38,10 @@ func Register(
 	expSummarizer ExpenseSummarizer,
 	expRecorder ExpenseRecorder,
 	expUndoWriter ExpenseUndoWriter,
+	inv CacheInvalidator,
+	taskSvc TaskService,
+	mealSvc MealService,
+	mealLister MealReportLister,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
 	rg.GET("/health", health)
@@ -58,12 +62,20 @@ func Register(
 	jwtGroup.GET("/expenses/summary", ExpenseSummary(expSummarizer))
 	jwtGroup.POST("/expenses", CreateExpense(expRecorder, expUndoWriter, pl))
 	jwtGroup.PATCH("/expenses/:expenseId", UpdateExpense(expRecorder, expUndoWriter, pl))
+	jwtGroup.GET("/tasks", ListTasks(taskSvc))
+	jwtGroup.POST("/tasks", CreateTask(taskSvc, pl))
+	jwtGroup.POST("/tasks/:taskId/complete", CompleteTask(taskSvc, pl))
+	jwtGroup.GET("/meals", ListMeals(mealLister))
+	jwtGroup.POST("/meals", ReportMeal(mealSvc, pl))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")
 	adminGroup.GET("/providers", ListProviders(provSvc))
-	adminGroup.PUT("/providers/:id", UpdateProvider(provSvc))
-	adminGroup.PUT("/models/:id", UpdateModel(provSvc))
+	adminGroup.PUT("/providers/:id", UpdateProvider(provSvc, inv))
+	adminGroup.POST("/providers/:id/test", TestProvider(provSvc))
+	adminGroup.POST("/models", CreateModel(provSvc, inv))
+	adminGroup.PUT("/models/:id", UpdateModel(provSvc, inv))
+	adminGroup.DELETE("/models/:id", DeleteModel(provSvc, inv))
 }
 
 func health(c *gin.Context) {

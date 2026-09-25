@@ -1,0 +1,19 @@
+{
+  "name": "家事 Agent",
+  "short_name": "家事",
+  "description": "单家庭自用的 AI 协作中枢：一句话搞定家务、用餐、账单与日程",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F3F7",
+  "theme_color": "#F2F3F7",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

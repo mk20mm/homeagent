@@ -144,6 +144,7 @@ type memSession struct {
 type memConv struct {
 	id       string
 	memberID string
+	modelID  string
 	msgs     []session.Message
 }
 
@@ -159,7 +160,7 @@ func (s *memSession) CreateConversation(_ context.Context, memberID, title, mode
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id := uuid.NewString()
-	s.convs[id] = &memConv{id: id, memberID: memberID}
+	s.convs[id] = &memConv{id: id, memberID: memberID, modelID: modelID}
 	return id, nil
 }
 
@@ -170,7 +171,20 @@ func (s *memSession) LoadConversation(_ context.Context, convID, memberID string
 	if !ok || c.memberID != memberID {
 		return session.Conversation{}, nil
 	}
-	return session.Conversation{ID: c.id, MemberID: c.memberID}, nil
+	return session.Conversation{ID: c.id, MemberID: c.memberID, ModelID: c.modelID}, nil
+}
+
+func (s *memSession) SetConversationModel(_ context.Context, convID, modelID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if c, ok := s.convs[convID]; ok {
+		c.modelID = modelID
+	}
+	return nil
+}
+
+func (s *memSession) SetModel(ctx context.Context, convID, memberID, modelID string) error {
+	return s.SetConversationModel(ctx, convID, modelID)
 }
 
 func (s *memSession) LoadMessages(_ context.Context, convID, memberID string) ([]session.Message, error) {

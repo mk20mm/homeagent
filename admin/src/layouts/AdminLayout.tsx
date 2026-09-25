@@ -1,4 +1,10 @@
-import { ApiOutlined, AuditOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons'
+import {
+  AuditOutlined,
+  CloudServerOutlined,
+  DashboardOutlined,
+  SafetyCertificateOutlined,
+  ToolOutlined,
+} from '@ant-design/icons'
 import { Layout, Menu } from 'antd'
 import { useSyncExternalStore, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
@@ -10,7 +16,8 @@ const { Header, Sider, Content } = Layout
 const ITEMS = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
   { key: '/debug', icon: <ToolOutlined />, label: '工具调试' },
-  { key: '/admin', icon: <ApiOutlined />, label: '配置与权限' },
+  { key: '/models', icon: <CloudServerOutlined />, label: '模型管理' },
+  { key: '/permissions', icon: <SafetyCertificateOutlined />, label: '权限管理' },
   { key: '/audit', icon: <AuditOutlined />, label: '审计日志' },
 ]
 

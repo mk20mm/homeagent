@@ -33,12 +33,20 @@ type MealSummary struct {
 	Total      int
 }
 
+// MealMemberReport 单条报饭+成员信息视图（handler 消费）。
+type MealMemberReport struct {
+	MemberID string
+	Name     string
+	AtHome   bool
+}
+
 // MealRepo 仓储接口（store 层实现）。
 // 方法名避开 expense 的 Summary（Store 聚合上不能同名重载）。
 type MealRepo interface {
 	Upsert(ctx context.Context, memberID string, cmd ReportCmd) error
 	RemoveReport(ctx context.Context, memberID string, date time.Time) error
 	DailySummary(ctx context.Context, date time.Time) (MealSummary, error)
+	ListMealReports(ctx context.Context, date time.Time) ([]MealMemberReport, error)
 }
 
 // Service 报饭领域服务。
@@ -46,6 +54,7 @@ type Service interface {
 	Report(ctx context.Context, memberID string, cmd ReportCmd) error
 	Cancel(ctx context.Context, memberID string, date time.Time) error
 	Summary(ctx context.Context, date time.Time) (MealSummary, error)
+	ListReports(ctx context.Context, date time.Time) ([]MealMemberReport, error)
 }
 
 func NewService(repo MealRepo) Service {
@@ -83,6 +92,13 @@ func (s *service) Summary(ctx context.Context, date time.Time) (MealSummary, err
 		date = today()
 	}
 	return s.repo.DailySummary(ctx, date)
+}
+
+func (s *service) ListReports(ctx context.Context, date time.Time) ([]MealMemberReport, error) {
+	if date.IsZero() {
+		date = today()
+	}
+	return s.repo.ListMealReports(ctx, date)
 }
 
 func today() time.Time {

@@ -82,7 +82,8 @@ export function ExpenseCard({ card, undoable, onUndo, onUpdated }: Props) {
         hint: card.hint,
       })
       setEditing(false)
-    } catch {
+    } catch (err) {
+      console.error('PATCH expense failed:', err)
       setError('修正失败，请重试')
     } finally {
       setSaving(false)

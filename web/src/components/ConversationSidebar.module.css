@@ -3,17 +3,21 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 78%;
+  width: 82%;
   max-width: 320px;
-  background: #fff;
-  box-shadow: 2px 0 16px rgb(0 0 0 / 12%);
+  background: #ffffff;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
   transform: translateX(-105%);
-  transition: transform 0.22s ease;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 40;
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
+  padding: 16px 14px;
+  padding-top: max(env(safe-area-inset-top), 16px);
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
   visibility: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .open {
@@ -24,37 +28,60 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 35%);
-  z-index: 30;
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 35;
+  transition: opacity 0.2s ease;
 }
 
 .newBtn {
   width: 100%;
+  min-height: 44px;
   padding: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   border: 1px dashed var(--ha-primary, #0a84ff);
-  border-radius: 12px;
-  background: rgb(10 132 255 / 6%);
+  border-radius: 14px;
+  background: rgba(10, 132, 255, 0.06);
   color: #0a84ff;
   font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.newBtn:active {
+  transform: scale(0.97);
+  background: rgba(10, 132, 255, 0.12);
 }
 
 .list {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px;
+  padding: 12px 10px;
+  min-height: 48px;
   border-radius: 12px;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+.item:active {
+  background: #ebeef5;
 }
 
 .item:hover {
@@ -62,7 +89,7 @@
 }
 
 .active {
-  background: rgb(10 132 255 / 8%);
+  background: rgba(10, 132, 255, 0.08);
 }
 
 .itemMain {
@@ -72,7 +99,8 @@
 
 .itemTitle {
   font-size: 15px;
-  color: #000;
+  font-weight: 500;
+  color: #1c1c1e;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -86,23 +114,29 @@
 
 .delBtn {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
   background: transparent;
   color: #8e8e93;
-  font-size: 13px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
 }
 
-.delBtn:hover {
-  background: rgb(255 59 48 / 10%);
+.delBtn:active {
+  background: rgba(255, 59, 48, 0.15);
   color: #ff3b30;
+  transform: scale(0.92);
 }
 
 .empty {
-  padding: 24px 8px;
+  padding: 32px 12px;
   text-align: center;
   color: #8e8e93;
   font-size: 13px;

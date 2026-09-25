@@ -53,6 +53,7 @@ func Chat(rt *runtime.Runtime) gin.HandlerFunc {
 		err := rt.Run(c.Request.Context(), runtime.RunRequest{
 			ConversationID: req.ConversationID,
 			MemberID:       memberID,
+			ModelID:        req.ModelID,
 			Content:        req.Content,
 			TraceID:        c.GetString("trace_id"),
 			OnEvent:        writeEvent,

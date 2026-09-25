@@ -102,8 +102,13 @@ func (p *OpenAIProvider) buildRequest(req ChatRequest) openai.ChatCompletionRequ
 		})
 	}
 
+	model := p.model
+	if req.Model != "" {
+		model = req.Model
+	}
+
 	out := openai.ChatCompletionRequest{
-		Model:    p.model,
+		Model:    model,
 		Messages: messages,
 		Stream:   true,
 		StreamOptions: &openai.StreamOptions{

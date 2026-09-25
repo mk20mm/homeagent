@@ -1,63 +1,144 @@
 /** 报饭页（page-04-meal）：申报今晚是否在家用餐 + 汇总给做饭人 */
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+import { api, unwrap } from '../../api/client'
 
 import styles from './MealPage.module.css'
 
-interface MemberMeal {
-  memberId: string
+interface MealMember {
+  member_id: string
   name: string
-  atHome: boolean
+  at_home: boolean
 }
 
-// 骨架阶段静态数据；后续接 GET /meals（今日汇总）
-const MOCK: MemberMeal[] = [
-  { memberId: '1', name: '爸爸', atHome: true },
-  { memberId: '2', name: '奶奶', atHome: true },
-  { memberId: '3', name: '孩子', atHome: false },
-]
+interface MealData {
+  date: string
+  at_home_count: number
+  not_at_home_count: number
+  members: MealMember[]
+}
 
 export function MealPage() {
-  const [mine, setMine] = useState(true)
-  const atHome = MOCK.filter((m) => m.atHome).length
+  const [data, setData] = useState<MealData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
+  const fetchMeals = useCallback(async () => {
+    try {
+      const res = await api.GET('/meals')
+      const d = unwrap(res)
+      setData(d)
+    } catch {
+      // 接口可能尚未上线（渐进式）
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMeals()
+  }, [fetchMeals])
+
+  const handleReport = async (atHome: boolean) => {
+    setSubmitting(true)
+    try {
+      await api.POST('/meals', {
+        body: { at_home: atHome },
+      })
+      // 刷新汇总
+      await fetchMeals()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '报饭失败'
+      alert(msg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div>
+        <h1 className={styles.title}>报饭</h1>
+        <div className={styles.empty}>加载中...</div>
+      </div>
+    )
+  }
+
+  const atHomeCount = data?.at_home_count ?? 0
+  const notAtHomeCount = data?.not_at_home_count ?? 0
+  const members = data?.members ?? []
+  const reported = members.filter((m) => m.at_home !== undefined)
+  const atHomeMembers = reported.filter((m) => m.at_home)
+  const notAtHomeMembers = reported.filter((m) => !m.at_home)
 
   return (
     <div>
       <h1 className={styles.title}>报饭</h1>
 
       <div className={styles.today}>
-        <div className={styles.count}>今晚 {atHome} 人在家吃</div>
-        <div className={styles.sub}>不包含明确未报者以外推断</div>
+        <div className={styles.count}>
+          今晚 {atHomeCount} 人在家吃
+          {notAtHomeCount > 0 && ` · ${notAtHomeCount} 人不在家`}
+        </div>
+        <div className={styles.sub}>
+          {members.length === 0
+            ? '暂无人申报，试试在对话里说「今晚不回家吃」'
+            : `共 ${members.length} 人已申报`}
+        </div>
       </div>
 
       <div className={styles.section}>我的申报</div>
       <div className={styles.actions}>
         <button
           type="button"
-          className={`${styles.btn} ${mine ? styles.btnOn : styles.btnOff}`}
-          onClick={() => setMine(true)}
+          className={`${styles.btn} ${styles.btnOn}`}
+          disabled={submitting}
+          onClick={() => handleReport(true)}
         >
           🏠 在家吃
         </button>
         <button
           type="button"
-          className={`${styles.btn} ${!mine ? styles.btnOffActive : styles.btnOff}`}
-          onClick={() => setMine(false)}
+          className={`${styles.btn} ${styles.btnOff}`}
+          disabled={submitting}
+          onClick={() => handleReport(false)}
         >
           🚪 不在家吃
         </button>
       </div>
 
-      <div className={styles.section}>家人申报</div>
-      <div className={styles.list}>
-        {MOCK.map((m) => (
-          <div key={m.memberId} className={styles.item}>
-            <span className={styles.name}>{m.name}</span>
-            <span className={m.atHome ? styles.tagOn : styles.tagOff}>
-              {m.atHome ? '在家吃' : '不在家'}
-            </span>
+      {atHomeMembers.length > 0 && (
+        <>
+          <div className={styles.section}>
+            在家吃（{atHomeMembers.length}）
           </div>
-        ))}
-      </div>
+          <div className={styles.list}>
+            {atHomeMembers.map((m) => (
+              <div key={m.member_id} className={styles.item}>
+                <span className={styles.name}>{m.name}</span>
+                <span className={styles.tagOn}>在家吃</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {notAtHomeMembers.length > 0 && (
+        <>
+          <div className={styles.section}>
+            不在家（{notAtHomeMembers.length}）
+          </div>
+          <div className={styles.list}>
+            {notAtHomeMembers.map((m) => (
+              <div key={m.member_id} className={styles.item}>
+                <span className={styles.name}>{m.name}</span>
+                <span className={styles.tagOff}>不在家</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -25,7 +25,6 @@ import (
 	"github.com/mk20mm/homeagent/internal/domain/expense"
 	"github.com/mk20mm/homeagent/internal/domain/meal"
 	"github.com/mk20mm/homeagent/internal/domain/model"
-	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
 	"github.com/mk20mm/homeagent/internal/domain/task"
 	"github.com/mk20mm/homeagent/internal/infra/config"
 	"github.com/mk20mm/homeagent/internal/store"
@@ -107,11 +106,20 @@ func main() {
 	// JWT 签发器（HS256 + JWTSecret；P1 认证）
 	signer := auth.NewSigner(cfg.JWTSecret, "homeagent")
 
-	// LLM 网关：优先用数据库配置的默认模型 + 供应商密钥；
-	// 数据库没配或密钥缺失时，回落环境变量；都没有用脚本供应商（本地联调不依赖外网）
-	provider := buildProvider(ctx, cfg, provRepo)
+	// LLM 网关：使用 DynamicGateway，支持按模型所属供应商动态路由；
+	// 数据库未配置或无密钥时，优先回退到环境变量，最后回退到脚本供应商
+	var fallbackProvider gateway.Provider
+	if cfg.LLMAPIKey != "" && cfg.LLMModel != "" {
+		slog.Info("llm fallback provider: env", "model", cfg.LLMModel)
+		fallbackProvider = gateway.NewOpenAIProvider(cfg.LLMAPIKey, cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMProvider)
+	} else {
+		slog.Info("llm fallback provider: scripted")
+		fallbackProvider = gateway.NewScriptedProvider(gateway.RecordExpenseScript())
+	}
+	gw := gateway.NewDynamicGateway(provRepo, fallbackProvider)
+
 	rt := runtime.New(runtime.Options{
-		Provider: provider,
+		Provider: gw,
 		Executor: executor,
 		Sessions: sessions,
 		Usage:    storeRepo, // 用量埋点写 llm_usage
@@ -120,7 +128,7 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {
@@ -154,26 +162,3 @@ func parseLevel(s string) slog.Level {
 	}
 }
 
-// buildProvider 选 LLM 供应商：数据库默认模型 → 环境变量 → 脚本供应商。
-//
-// 优先级设计（配置单一真相源是数据库，环境变量只做开发期覆盖/兜底）：
-//  1. 数据库默认模型 + 其供应商已配密钥 → 真实供应商
-//  2. 环境变量 LLM_API_KEY + LLM_MODEL → 真实供应商（开发期便利）
-//  3. 都没有 → 脚本供应商（本地联调不花一分钱）
-func buildProvider(ctx context.Context, cfg config.Config, provRepo dommodel.ProviderRepo) gateway.Provider {
-	// 1. 数据库默认模型（明文密钥只在 store→main 这一段传递）
-	if conn, ok, err := provRepo.DefaultEnabled(ctx); err == nil && ok {
-		slog.Info("llm provider: db default", "provider", conn.Provider, "model", conn.Model)
-		return gateway.NewOpenAIProvider(conn.APIKey, conn.BaseURL, conn.Model, conn.Provider)
-	}
-
-	// 2. 环境变量兜底
-	if cfg.LLMAPIKey != "" && cfg.LLMModel != "" {
-		slog.Info("llm provider: env", "model", cfg.LLMModel)
-		return gateway.NewOpenAIProvider(cfg.LLMAPIKey, cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMProvider)
-	}
-
-	// 3. 脚本供应商
-	slog.Info("llm provider: scripted (no api_key configured in db or env)")
-	return gateway.NewScriptedProvider(gateway.RecordExpenseScript())
-}

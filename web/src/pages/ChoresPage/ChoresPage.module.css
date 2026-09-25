@@ -2,6 +2,8 @@
   font-size: 22px;
   font-weight: 700;
   padding: 8px 0 16px;
+  color: #1c1c1e;
+  letter-spacing: -0.4px;
 }
 
 .list {
@@ -14,10 +16,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #fff;
+  background: #ffffff;
   border-radius: 16px;
-  padding: 14px;
-  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
 .icon {
@@ -31,6 +33,7 @@
 .taskTitle {
   font-size: 15px;
   font-weight: 600;
+  color: #1c1c1e;
 }
 
 .meta {
@@ -43,8 +46,50 @@
   border: none;
   border-radius: 12px;
   background: #34c759;
-  color: #fff;
+  color: #ffffff;
   padding: 8px 16px;
+  min-height: 38px;
   font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.doneBtn:active {
+  transform: scale(0.94);
+  opacity: 0.88;
+}
+
+.doneBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.emptyText {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 8px;
+}
+
+.emptyHint {
+  font-size: 14px;
+  color: #8e8e93;
+  line-height: 1.4;
+  max-width: 260px;
 }

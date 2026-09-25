@@ -22,6 +22,6 @@ test.describe('记账页数据联动', () => {
     await page.goto('/money')
     await expect(page.getByText('本月支出')).toBeVisible()
     // 流水列表含刚记的这笔
-    await expect(page.getByText(/e2e测试买书/)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(/e2e测试买书/).first()).toBeVisible({ timeout: 20_000 })
   })
 })

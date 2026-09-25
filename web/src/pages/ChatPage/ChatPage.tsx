@@ -1,8 +1,8 @@
 /**
- * 对话主页：AI 交互入口，底部输入框 + 模型切换（page-01-chat）。
+ * 对话主页：AI 交互入口，底部悬浮胶囊输入框 + 苹果毛玻璃模型切换胶囊（Grok Bot × Apple Style）。
  * 消息先乐观渲染，工具结果以服务器回执为准（CONVENTIONS-frontend §4）。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { ERROR_MESSAGE, type ErrorCode } from '@homeagent/shared'
 
@@ -43,6 +43,8 @@ export function ChatPage() {
   const [error, setError] = useState<string>()
   const [models, setModels] = useState<ModelOption[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const { connect } = useSSE({
     url: '/api/v1/chat',
@@ -69,12 +71,23 @@ export function ChatPage() {
         const data = unwrap(await api.GET('/models'))
         setModels(data.models)
         const def = data.models.find((m) => m.is_default)
-        if (def) setModel(def.id)
+        if (def && !currentModelId) setModel(def.id)
       } catch {
         // 清单加载失败不阻塞对话，沿用后端默认模型
       }
     })()
-  }, [setModel])
+  }, [setModel, currentModelId])
+
+  // 点击外部收起模型下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // 会话列表：进入时加载并选中最近会话（没有则停在欢迎页，首条消息时自动新建）
   useEffect(() => {
@@ -119,35 +132,74 @@ export function ChatPage() {
     })
   }
 
+  const currentModel = models.find((m) => m.id === currentModelId)
+
   return (
     <div className={styles.page}>
       <ConversationSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <header className={styles.header}>
-        <button
-          type="button"
-          className={styles.menuBtn}
-          aria-label="会话列表"
-          onClick={() => setSidebarOpen(true)}
-        >
-          ☰
-        </button>
-        <h1 className={styles.title} style={{ fontSize: tokens.fontSize.title }}>
-          家事助手
-        </h1>
-        <select
-          className={styles.modelSelect}
-          aria-label="切换模型"
-          value={currentModelId ?? ''}
-          onChange={(e) => setModel(e.target.value)}
-        >
-          {models.length === 0 && <option value="">默认模型</option>}
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.display_name}
-              {m.is_default ? '（默认）' : ''}
-            </option>
-          ))}
-        </select>
+        <div className={styles.headerLeft}>
+          <button
+            type="button"
+            className={styles.menuBtn}
+            aria-label="会话列表"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
+          <h1 className={styles.title} style={{ fontSize: tokens.fontSize.title }}>
+            家事助手
+          </h1>
+        </div>
+
+        {/* Grok Bot 风格苹果毛玻璃胶囊模型切换器 */}
+        <div className={styles.modelPillContainer} ref={dropdownRef}>
+          <button
+            type="button"
+            className={styles.modelPill}
+            onClick={() => setModelDropdownOpen((v) => !v)}
+            aria-label="切换模型"
+            aria-haspopup="listbox"
+            aria-expanded={modelDropdownOpen}
+          >
+            <span className={styles.modelIcon}>✦</span>
+            <span className={styles.modelLabel}>
+              {currentModel ? currentModel.display_name : '默认模型'}
+            </span>
+            <span className={`${styles.chevron} ${modelDropdownOpen ? styles.chevronOpen : ''}`}>
+              ▼
+            </span>
+          </button>
+
+          {modelDropdownOpen && (
+            <div className={styles.modelDropdown} role="listbox">
+              {models.length === 0 && (
+                <div style={{ padding: '8px 12px', fontSize: 13, color: '#8e8e93' }}>
+                  暂无可选模型
+                </div>
+              )}
+              {models.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="option"
+                  aria-selected={m.id === currentModelId}
+                  className={`${styles.modelItem} ${m.id === currentModelId ? styles.modelItemSelected : ''}`}
+                  onClick={() => {
+                    setModel(m.id)
+                    setModelDropdownOpen(false)
+                  }}
+                >
+                  <div className={styles.modelItemMain}>
+                    <span>{m.display_name}</span>
+                    {m.is_default && <span className={styles.defaultBadge}>默认</span>}
+                  </div>
+                  {m.id === currentModelId && <span className={styles.checkIcon}>✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
 
       <div className={styles.messages}>
@@ -188,29 +240,48 @@ export function ChatPage() {
               ))}
           </div>
         ))}
-        {status === 'streaming' && <div className={styles.ai}>正在思考…</div>}
-        {status === 'tool_running' && <div className={styles.ai}>正在执行操作…</div>}
+        {status === 'streaming' && (
+          <div className={styles.statusPill}>
+            <span className={styles.pulseDot} />
+            <span>正在思考…</span>
+          </div>
+        )}
+        {status === 'tool_running' && (
+          <div className={styles.statusPill}>
+            <span className={styles.gearIcon}>⚡</span>
+            <span>正在执行操作…</span>
+          </div>
+        )}
         {error && <div className={styles.error}>{error}</div>}
       </div>
 
-      <footer className={styles.inputBar}>
-        <input
-          className={styles.input}
-          value={input}
-          placeholder="输入消息…"
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void handleSend()
-          }}
-        />
-        <button
-          type="button"
-          className={styles.send}
-          onClick={() => void handleSend()}
-          disabled={status !== 'idle'}
-        >
-          发送
-        </button>
+      {/* 底部悬浮毛玻璃胶囊输入区（Grok + Apple 风格） */}
+      <footer className={styles.inputContainer}>
+        <div className={styles.inputCapsule}>
+          <input
+            className={styles.input}
+            value={input}
+            placeholder="输入消息…"
+            enterKeyHint="send"
+            autoCapitalize="off"
+            autoCorrect="off"
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleSend()
+            }}
+          />
+          <button
+            type="button"
+            className={styles.sendBtn}
+            onClick={() => void handleSend()}
+            disabled={status !== 'idle'}
+            aria-label="发送"
+            title="发送"
+          >
+            <span className={styles.sendArrow}>↑</span>
+            <span className={styles.srOnly}>发送</span>
+          </button>
+        </div>
       </footer>
     </div>
   )

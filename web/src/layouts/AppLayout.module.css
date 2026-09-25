@@ -2,11 +2,18 @@
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f2f3f7;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 16px;
+  padding-top: max(env(safe-area-inset-top), 16px);
   padding-bottom: calc(76px + env(safe-area-inset-bottom));
 }

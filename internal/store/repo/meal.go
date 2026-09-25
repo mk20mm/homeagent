@@ -83,3 +83,26 @@ func (s *Store) DailySummary(ctx context.Context, date time.Time) (dommeal.MealS
 	}
 	return out, nil
 }
+
+// ListMealReports 查询某日的所有报饭记录并携带成员信息。
+func (s *Store) ListMealReports(ctx context.Context, date time.Time) ([]dommeal.MealMemberReport, error) {
+	list, err := s.db.MealReport.Query().
+		Where(mealreport.DateEQ(date)).
+		WithMember().
+		All(ctx)
+	if err != nil {
+		return nil, apperr.New(apperr.CodeInternal, "查询报饭列表失败", err)
+	}
+	var out []dommeal.MealMemberReport
+	for _, r := range list {
+		if r.Edges.Member == nil {
+			continue
+		}
+		out = append(out, dommeal.MealMemberReport{
+			MemberID: r.Edges.Member.ID.String(),
+			Name:     r.Edges.Member.Name,
+			AtHome:   r.AtHome,
+		})
+	}
+	return out, nil
+}

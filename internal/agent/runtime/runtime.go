@@ -33,6 +33,7 @@ type Event struct {
 type RunRequest struct {
 	ConversationID string
 	MemberID       string
+	ModelID        string // 会话内指定的模型 id（可选）
 	Content        string
 	TraceID        string
 	OnEvent        func(Event) // 流式回调，禁止阻塞（handler 直接转发 SSE）
@@ -91,6 +92,12 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 	conv, history, err := rt.sessions.Ensure(ctx, req.ConversationID, req.MemberID)
 	if err != nil {
 		return fail("会话初始化失败", err)
+	}
+
+	// 指定了模型且与会话当前不同：更新会话绑定
+	if req.ModelID != "" && req.ModelID != conv.ModelID {
+		_ = rt.sessions.SetModel(ctx, conv.ID, req.MemberID, req.ModelID)
+		conv.ModelID = req.ModelID
 	}
 
 	perms, err := rt.sessions.Permissions(ctx, req.MemberID)

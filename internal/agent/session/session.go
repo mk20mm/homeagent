@@ -56,6 +56,8 @@ type Repository interface {
 	AppendMessages(ctx context.Context, convID, memberID string, msgs []Message) error
 	// Permissions 取成员权限集合（权限双保险源头，ADR-005）
 	Permissions(ctx context.Context, memberID string) (map[string]bool, error)
+	// SetConversationModel 更新会话模型
+	SetConversationModel(ctx context.Context, convID, modelID string) error
 }
 
 // Service 会话服务：负责装配请求上下文（历史 + 权限 + 模型）。
@@ -76,6 +78,8 @@ type Service interface {
 	Append(ctx context.Context, convID, memberID string, msgs []Message) error
 	// Permissions 成员权限
 	Permissions(ctx context.Context, memberID string) (map[string]bool, error)
+	// SetModel 更新会话模型绑定
+	SetModel(ctx context.Context, convID, memberID, modelID string) error
 }
 
 func NewService(repo Repository) Service {
@@ -172,6 +176,19 @@ func (s *service) Append(ctx context.Context, convID, memberID string, msgs []Me
 
 func (s *service) Permissions(ctx context.Context, memberID string) (map[string]bool, error) {
 	return s.repo.Permissions(ctx, memberID)
+}
+
+func (s *service) SetModel(ctx context.Context, convID, memberID, modelID string) error {
+	if memberID == "" {
+		return apperr.New(apperr.CodePermission, "缺少成员身份", nil)
+	}
+	if convID == "" {
+		return apperr.New(apperr.CodeInvalidInput, "会话 id 不能为空", nil)
+	}
+	if _, err := s.repo.LoadConversation(ctx, convID, memberID); err != nil {
+		return err
+	}
+	return s.repo.SetConversationModel(ctx, convID, modelID)
 }
 
 // EncodeAssistantContent 把 assistant 消息（可能含 tool_calls）序列化为可存储的 content。

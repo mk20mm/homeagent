@@ -3,12 +3,17 @@
   bottom: 0;
   left: 0;
   right: 0;
+  max-width: 480px;
+  margin: 0 auto;
   display: flex;
-  background: #fffc; /* 毛玻璃半透明 */
-  backdrop-filter: blur(12px);
-  border-top: 0.5px solid #e5e5ea;
-  padding-bottom: env(safe-area-inset-bottom); /* 苹果 HIG 安全区适配 */
+  background: rgba(255, 255, 255, 0.88); /* 毛玻璃半透明 */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  padding-bottom: max(env(safe-area-inset-bottom), 8px); /* 苹果 HIG & 安卓手势导航条安全区适配 */
   z-index: 100;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .item {
@@ -16,13 +21,23 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 0 6px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 6px 0 4px;
   text-decoration: none;
   color: #8e8e93;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+}
+
+.item:active {
+  transform: scale(0.92);
+  opacity: 0.8;
 }
 
 .active {
   color: #0a84ff;
+  font-weight: 600;
 }
 
 .icon {
@@ -31,6 +46,7 @@
 }
 
 .label {
-  font-size: 12px;
+  font-size: 11px;
   margin-top: 2px;
+  letter-spacing: -0.2px;
 }

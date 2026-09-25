@@ -53,18 +53,27 @@ type ProviderRepo interface {
 	ListProviders(ctx context.Context) ([]ProviderInfo, error)
 	UpdateProvider(ctx context.Context, id string, u ProviderUpdate) (ProviderInfo, error)
 	UpdateModel(ctx context.Context, id string, u ModelUpdate) (ModelInfo, error)
+	CreateModel(ctx context.Context, providerID, modelName, displayName string, isDefault bool) (ModelInfo, error)
+	DeleteModel(ctx context.Context, id string) error
 
 	// DefaultEnabled 取当前默认模型的完整连接信息（含解密后的明文密钥）。
-	// 仅供启动期装配网关用，绝不返回给 handler 层（明文不跨层传递）。
+	// 仅供装配网关用，绝不返回给 handler 层（明文不跨层传递）。
 	DefaultEnabled(ctx context.Context) (conn ProviderConnection, ok bool, err error)
+
+	// ResolveConnection 按 modelID 或 modelName 解析真实连接信息；为空时查全局默认。
+	ResolveConnection(ctx context.Context, modelIDOrName string) (conn ProviderConnection, ok bool, err error)
+
+	// GetProviderConnection 获取某供应商的连接信息（用于连接测试）
+	GetProviderConnection(ctx context.Context, providerID string) (conn ProviderConnection, err error)
 }
 
-// ProviderConnection 网关连接信息（明文密钥，只在 store→main 之间传递）。
+// ProviderConnection 网关连接信息（明文密钥，只在 store/gateway 之间传递）。
 type ProviderConnection struct {
+	ModelID  string // 数据库模型 UUID
 	APIKey   string // 明文
 	BaseURL  string
-	Provider string
-	Model    string
+	Provider string // 供应商标识，如 deepseek / openai
+	Model    string // 底层模型名，如 deepseek-chat / gpt-4o
 }
 
 // Service 模型领域服务。
@@ -75,6 +84,10 @@ type Service interface {
 	ListProviders(ctx context.Context) ([]ProviderInfo, error)
 	UpdateProvider(ctx context.Context, id string, u ProviderUpdate) (ProviderInfo, error)
 	UpdateModel(ctx context.Context, id string, u ModelUpdate) (ModelInfo, error)
+	CreateModel(ctx context.Context, providerID, modelName, displayName string, isDefault bool) (ModelInfo, error)
+	DeleteModel(ctx context.Context, id string) error
+	ResolveConnection(ctx context.Context, modelIDOrName string) (ProviderConnection, bool, error)
+	GetProviderConnection(ctx context.Context, providerID string) (ProviderConnection, error)
 }
 
 func NewService(repo ModelRepo, provRepo ProviderRepo) Service {
@@ -84,6 +97,31 @@ func NewService(repo ModelRepo, provRepo ProviderRepo) Service {
 type service struct {
 	repo     ModelRepo
 	provRepo ProviderRepo
+}
+
+func (s *service) CreateModel(ctx context.Context, providerID, modelName, displayName string, isDefault bool) (ModelInfo, error) {
+	if providerID == "" || modelName == "" || displayName == "" {
+		return ModelInfo{}, apperr.New(apperr.CodeInvalidInput, "缺少必填字段", nil)
+	}
+	return s.provRepo.CreateModel(ctx, providerID, modelName, displayName, isDefault)
+}
+
+func (s *service) DeleteModel(ctx context.Context, id string) error {
+	if id == "" {
+		return apperr.New(apperr.CodeInvalidInput, "缺少模型 id", nil)
+	}
+	return s.provRepo.DeleteModel(ctx, id)
+}
+
+func (s *service) ResolveConnection(ctx context.Context, modelIDOrName string) (ProviderConnection, bool, error) {
+	return s.provRepo.ResolveConnection(ctx, modelIDOrName)
+}
+
+func (s *service) GetProviderConnection(ctx context.Context, providerID string) (ProviderConnection, error) {
+	if providerID == "" {
+		return ProviderConnection{}, apperr.New(apperr.CodeInvalidInput, "缺少供应商 id", nil)
+	}
+	return s.provRepo.GetProviderConnection(ctx, providerID)
 }
 
 func (s *service) ListModels(ctx context.Context) ([]ModelInfo, error) {

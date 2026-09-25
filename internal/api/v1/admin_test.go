@@ -41,6 +41,26 @@ func (s *stubProviderService) UpdateModel(_ context.Context, _ string, u dommode
 	return dommodel.ModelInfo{ID: "m1", ModelName: "gpt-4o", DisplayName: "GPT-4o", Provider: "openai"}, nil
 }
 
+func (s *stubProviderService) CreateModel(_ context.Context, providerID, modelName, displayName string, isDefault bool) (dommodel.ModelInfo, error) {
+	return dommodel.ModelInfo{ID: "m2", ModelName: modelName, DisplayName: displayName, Provider: "deepseek", IsDefault: isDefault}, nil
+}
+
+func (s *stubProviderService) DeleteModel(_ context.Context, id string) error {
+	if id == "default-model" {
+		return apperr.New(apperr.CodeInvalidInput, "默认模型不可删除", nil)
+	}
+	return nil
+}
+
+func (s *stubProviderService) GetProviderConnection(_ context.Context, providerID string) (dommodel.ProviderConnection, error) {
+	if providerID == "no-key" {
+		return dommodel.ProviderConnection{}, apperr.New(apperr.CodeInvalidInput, "未配置密钥", nil)
+	}
+	return dommodel.ProviderConnection{
+		APIKey: "sk-test", BaseURL: "https://api.test.com", Provider: "openai", Model: "gpt-4o",
+	}, nil
+}
+
 func setupAdminRouter(role string, svc ProviderService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -53,8 +73,11 @@ func setupAdminRouter(role string, svc ProviderService) *gin.Engine {
 		c.Next()
 	})
 	g.GET("/admin/providers", ListProviders(svc))
-	g.PUT("/admin/providers/:id", UpdateProvider(svc))
-	g.PUT("/admin/models/:id", UpdateModel(svc))
+	g.PUT("/admin/providers/:id", UpdateProvider(svc, nil))
+	g.POST("/admin/providers/:id/test", TestProvider(svc))
+	g.POST("/admin/models", CreateModel(svc, nil))
+	g.PUT("/admin/models/:id", UpdateModel(svc, nil))
+	g.DELETE("/admin/models/:id", DeleteModel(svc, nil))
 	return r
 }
 
@@ -132,5 +155,28 @@ func TestUpdateModelRejectsUnsetDefault(t *testing.T) {
 	w := adminDo(r, http.MethodPut, "/api/v1/admin/models/m1", `{"is_default":false}`)
 	if w.Code != 400 {
 		t.Fatalf("is_default:false should be rejected, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCreateModelAndDeleteModel(t *testing.T) {
+	svc := &stubProviderService{}
+	r := setupAdminRouter("parent", svc)
+
+	// 新建模型
+	w := adminDo(r, http.MethodPost, "/api/v1/admin/models", `{"provider_id":"p1","model_name":"deepseek-reasoner","display_name":"R1"}`)
+	if w.Code != 201 {
+		t.Fatalf("create model should succeed, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 删除模型
+	w2 := adminDo(r, http.MethodDelete, "/api/v1/admin/models/m2", "")
+	if w2.Code != 204 {
+		t.Fatalf("delete model should return 204, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	// 尝试删除默认模型返回 400
+	w3 := adminDo(r, http.MethodDelete, "/api/v1/admin/models/default-model", "")
+	if w3.Code != 400 {
+		t.Fatalf("delete default model should return 400, got %d: %s", w3.Code, w3.Body.String())
 	}
 }

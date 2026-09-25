@@ -7,6 +7,7 @@ import (
 	"github.com/mk20mm/homeagent/internal/store/ent"
 	"github.com/mk20mm/homeagent/internal/store/ent/llmmodel"
 	"github.com/mk20mm/homeagent/internal/store/ent/llmprovider"
+	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
 )
 
 // seedTestModels 建两个模型供切换测试。
@@ -115,3 +116,84 @@ func TestSwitchConversationModel(t *testing.T) {
 		t.Fatalf("切换后应为 gpt-4o，got err=%v m=%+v", err, m)
 	}
 }
+
+func TestResolveConnectionAndModelCRUD(t *testing.T) {
+	c, _ := newTestClient(t)
+	defer func() { _ = c.Close() }()
+	ctx := context.Background()
+
+	encKey := "01234567890123456789012345678901"
+	s := New(c)
+	ps := NewProviderStore(s, encKey)
+
+	// 建 provider 并配加密 key
+	plainKey := "sk-test-secret-12345"
+	prov, err := ps.UpdateProvider(ctx, "", dommodel.ProviderUpdate{})
+	// 取出任意已有 provider 或新建
+	providers, err := ps.ListProviders(ctx)
+	if err != nil || len(providers) == 0 {
+		p, err := c.LLMProvider.Create().
+			SetName(llmprovider.NameDeepseek).
+			SetEnabled(true).
+			SetBaseURL("https://api.deepseek.com").
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create provider: %v", err)
+		}
+		prov.ID = p.ID.String()
+	} else {
+		prov = providers[0]
+	}
+
+	// 更新 API Key
+	if _, err := ps.UpdateProvider(ctx, prov.ID, dommodel.ProviderUpdate{
+		APIKey: &plainKey,
+	}); err != nil {
+		t.Fatalf("update provider key: %v", err)
+	}
+
+	// 创建模型
+	modelInfo, err := ps.CreateModel(ctx, prov.ID, "deepseek-reasoner", "DeepSeek R1", true)
+	if err != nil {
+		t.Fatalf("create model: %v", err)
+	}
+	if modelInfo.ModelName != "deepseek-reasoner" || !modelInfo.IsDefault {
+		t.Fatalf("model mismatch: %+v", modelInfo)
+	}
+
+	// 测试 ResolveConnection (默认模型)
+	conn, ok, err := ps.ResolveConnection(ctx, "")
+	if err != nil || !ok {
+		t.Fatalf("resolve default conn: ok=%v err=%v", ok, err)
+	}
+	if conn.APIKey != plainKey || conn.Model != "deepseek-reasoner" {
+		t.Fatalf("conn mismatch: %+v", conn)
+	}
+
+	// 按模型名解析
+	conn2, ok, err := ps.ResolveConnection(ctx, "deepseek-reasoner")
+	if err != nil || !ok || conn2.Model != "deepseek-reasoner" {
+		t.Fatalf("resolve by name: ok=%v err=%v conn=%+v", ok, err, conn2)
+	}
+
+	// GetProviderConnection
+	pconn, err := ps.GetProviderConnection(ctx, prov.ID)
+	if err != nil || pconn.APIKey != plainKey {
+		t.Fatalf("get provider connection: err=%v pconn=%+v", err, pconn)
+	}
+
+	// 默认模型不可删除
+	if err := ps.DeleteModel(ctx, modelInfo.ID); err == nil {
+		t.Fatal("默认模型应不可删除")
+	}
+
+	// 建非默认模型并删除
+	m2, err := ps.CreateModel(ctx, prov.ID, "temp-model", "Temp", false)
+	if err != nil {
+		t.Fatalf("create temp model: %v", err)
+	}
+	if err := ps.DeleteModel(ctx, m2.ID); err != nil {
+		t.Fatalf("delete non-default model: %v", err)
+	}
+}
+
