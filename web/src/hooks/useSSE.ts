@@ -51,6 +51,7 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
           const decoder = new TextDecoder()
           let buffer = ''
 
+          let receivedDone = false
           for (;;) {
             const { done, value } = await reader.read()
             if (done) break
@@ -66,9 +67,11 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
                     setStatus('error')
                     cbRef.current.onError?.(new Error(payload.error))
                     continue
+                  } else if (payload.type === 'done') {
+                    receivedDone = true
+                    setStatus('idle')
                   }
                   cbRef.current.onEvent(payload)
-                  if (payload.type === 'done') setStatus('idle')
                 } catch {
                   // 非 JSON 行忽略，不中断流
                 }
@@ -76,6 +79,9 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
             }
           }
           setStatus('idle')
+          if (!receivedDone) {
+            cbRef.current.onEvent({ type: 'done' })
+          }
         })
         .catch((err: Error) => {
           if (err.name === 'AbortError') return // 客户端主动断开

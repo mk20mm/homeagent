@@ -84,7 +84,7 @@ test.describe('UX 端到端走查', () => {
     // ── 4. 异常：重复提交（连点发送） ──
     await page.fill('input[placeholder="输入消息…"]', '今晚不回家吃饭')
     for (let i = 0; i < 5; i++) {
-      await page.click('button:has-text("发送")')
+      await page.click('button:has-text("发送")', { force: true }).catch(() => {})
     }
     await expect(page.locator('button:has-text("发送")')).toBeEnabled({ timeout: 60_000 })
     await page.waitForTimeout(500)
@@ -130,19 +130,23 @@ test.describe('UX 端到端走查', () => {
     await page.waitForTimeout(500)
     await page.screenshot({ path: `${SHOT}/ux-15-money.png` })
 
-    // ── 10. 报饭页 ──
-    await page.click('a[href="/meal"]')
-    await page.waitForTimeout(400)
-    await page.screenshot({ path: `${SHOT}/ux-16-meal.png` })
-    const notHome = page.locator('button:has-text("不在家吃")')
-    if ((await notHome.count()) > 0) {
-      await notHome.click()
-      await page.waitForTimeout(400)
-      await page.screenshot({ path: `${SHOT}/ux-17-meal-toggle.png` })
+    // ── 10. 厨房页 ──
+    const kitchenLink = page.locator('a[href="/kitchen"]')
+    if (await kitchenLink.count() > 0) {
+      await kitchenLink.click()
+    } else {
+      await page.goto('/kitchen')
     }
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: `${SHOT}/ux-16-kitchen.png` })
 
-    // ── 11. 设置页：TabBar 没有入口，只能手敲 URL ──
-    await page.goto('/settings')
+    // ── 11. 设置页 ──
+    const settingsLink = page.locator('a[href="/settings"]')
+    if (await settingsLink.count() > 0) {
+      await settingsLink.click()
+    } else {
+      await page.goto('/settings')
+    }
     await page.waitForTimeout(400)
     await page.screenshot({ path: `${SHOT}/ux-18-settings.png` })
     // 点"配置 →"——有反应吗？

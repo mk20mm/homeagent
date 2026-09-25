@@ -52,6 +52,7 @@ export function ChatPage() {
       if (e.type === 'token') {
         appendToken(e.content)
       } else if (e.type === 'tool_call') {
+        setStatus('tool_running')
         appendCard(e.card as ChatMessage['card'], Boolean(e.undo_id), e.undo_id)
       } else if (e.type === 'done') {
         setStatus('idle')

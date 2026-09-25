@@ -29,6 +29,9 @@ export default defineConfig({
   server: {
     host: true, // 允许局域网访问（手机 H5 真机调试）
     port: 5173,
+    watch: {
+      ignored: ['**/e2e-shots/**', '**/e2e-results/**', '**/e2e-report/**', '**/playwright-report/**'],
+    },
     proxy: {
       // 开发期 API 走 Vite 代理，避免 CORS
       '/api': {
