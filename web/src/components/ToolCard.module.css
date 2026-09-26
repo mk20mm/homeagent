@@ -1,0 +1,39 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.headline {
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+.dup {
+  color: var(--c-text-sub);
+  font-size: var(--fs-body);
+}
+
+.facts {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+}
+
+.actions {
+  margin-top: 2px;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--c-primary);
+  font-size: var(--fs-caption);
+  padding: 0;
+  cursor: pointer;
+}
+
+.linkBtn:disabled {
+  color: var(--c-text-sub);
+  cursor: default;
+}

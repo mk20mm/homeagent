@@ -12,6 +12,7 @@ import { ConversationSidebar } from '../../components/ConversationSidebar'
 import { ExpenseCard } from '../../components/ExpenseCard'
 import { NotificationCenter } from '../../components/NotificationCenter'
 import { ResultCard } from '../../components/ResultCard'
+import { ToolCard } from '../../components/ToolCard'
 import { useSSE, type SSEEvent } from '../../hooks/useSSE'
 import { useChatStore, type ChatMessage } from '../../stores/chat'
 import { tokens } from '../../styles/tokens'
@@ -30,6 +31,23 @@ interface ModelOption {
   id: string
   display_name: string
   is_default?: boolean
+}
+
+/** 结果卡片标题（A-03：按工具类型区分，不再统一叫「执行结果」） */
+function cardTitle(card: ChatMessage['card']): string {
+  if (!card) return '执行结果'
+  switch (card.type) {
+    case 'task':
+      return '派任务结果'
+    case 'task_done':
+      return '打卡结果'
+    case 'meal':
+      return '报饭结果'
+    case 'event':
+      return '日程已创建'
+    default:
+      return '执行结果'
+  }
 }
 
 export function ChatPage() {
@@ -254,16 +272,14 @@ export function ChatPage() {
                 />
               ) : (
                 <ResultCard
-                  title="执行结果"
+                  title={cardTitle(m.card)}
                   undoable={Boolean(m.undoable) && !m.undone}
                   onUndo={() => void handleUndo(m.undoId)}
                 >
                   {m.undone ? (
                     <span className={styles.undone}>已撤销</span>
-                  ) : m.card.duplicated ? (
-                    <span className={styles.undone}>今天已记过这笔，未重复记账</span>
                   ) : (
-                    JSON.stringify(m.card)
+                    <ToolCard card={m.card} />
                   )}
                 </ResultCard>
               ))}

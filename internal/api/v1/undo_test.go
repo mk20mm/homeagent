@@ -59,6 +59,13 @@ func (s *stubSummaryProvider) TaskTitle(_ context.Context, _ string) (string, er
 	return s.title, nil
 }
 
+func (s *stubSummaryProvider) EventTitle(_ context.Context, _ string) (string, error) {
+	if s.fail {
+		return "", apperr.New(apperr.CodeNotFound, "找不到", nil)
+	}
+	return s.title, nil
+}
+
 func setupUndoRouter(store UndoStore, sp UndoSummaryProvider) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

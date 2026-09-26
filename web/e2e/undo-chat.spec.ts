@@ -37,6 +37,8 @@ test.describe('对话侧撤销（T-A09，修 T-e2e-2）', () => {
     await page.getByRole('button', { name: '登录' }).click()
     await page.waitForURL('/')
 
+    // 对话页在 /chat（V1.0-A 起首屏是 Today）
+    await page.goto('/chat')
     await page.getByPlaceholder('输入消息…').fill('取消刚才那笔')
     await page.getByRole('button', { name: '发送' }).click()
     await waitForStreamDone(page, 60_000)

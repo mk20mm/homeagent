@@ -61,7 +61,7 @@ test.describe('记账快捷路径', () => {
     await page.waitForTimeout(600)
 
     // 回对话页，发消息触发记账（用唯一 hint 避免与历史 e2e 数据撞幂等键）
-    await page.click('a[href="/"]')
+    await page.click('a[href="/chat"]')
     await page.waitForTimeout(400)
     const amt = String(1 + Math.floor(Math.random() * 90))
     const stamp = Date.now() % 100000

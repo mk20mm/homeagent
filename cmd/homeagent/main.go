@@ -26,7 +26,9 @@ import (
 	"github.com/mk20mm/homeagent/internal/domain/meal"
 	"github.com/mk20mm/homeagent/internal/domain/model"
 	dommodel "github.com/mk20mm/homeagent/internal/domain/model"
+	"github.com/mk20mm/homeagent/internal/domain/calendar"
 	"github.com/mk20mm/homeagent/internal/domain/task"
+	"github.com/mk20mm/homeagent/internal/domain/today"
 	"github.com/mk20mm/homeagent/internal/domain/undo"
 	"github.com/mk20mm/homeagent/internal/infra/config"
 	"github.com/mk20mm/homeagent/internal/infra/scheduler"
@@ -37,8 +39,9 @@ import (
 // undoSummaryProvider 给撤销中心提供「对象摘要」：按工具类型查不同的领域对象。
 // 查不到时 handler 会降级成工具标签，这里只管尽力查。
 type undoSummaryProvider struct {
-	repo  *repo.Store
-	tasks task.Service
+	repo     *repo.Store
+	tasks    task.Service
+	calendars calendar.Service
 }
 
 func (p undoSummaryProvider) ExpenseBrief(ctx context.Context, memberID, expenseID string) (int64, string, error) {
@@ -55,6 +58,45 @@ func (p undoSummaryProvider) TaskTitle(ctx context.Context, taskID string) (stri
 		return "", err
 	}
 	return t.Title, nil
+}
+
+func (p undoSummaryProvider) EventTitle(ctx context.Context, eventID string) (string, error) {
+	ev, err := p.repo.GetEvent(ctx, eventID)
+	if err != nil {
+		return "", err
+	}
+	return ev.Title, nil
+}
+
+// notifReaderAdapter 把 store 的 v1.NotificationItem 转成 domain/today 的视图，
+// 避免 domain 层反向依赖 api 层（ARCHITECTURE 分层依赖单向）。
+type notifReaderAdapter struct {
+	inner interface {
+		ListNotifications(ctx context.Context, memberID string, limit int, unreadFirst bool) ([]v1.NotificationItem, error)
+	}
+}
+
+func (a *notifReaderAdapter) ListNotifications(ctx context.Context, memberID string, limit int, unreadFirst bool) ([]today.NotificationItem, error) {
+	items, err := a.inner.ListNotifications(ctx, memberID, limit, unreadFirst)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]today.NotificationItem, 0, len(items))
+	for _, n := range items {
+		out = append(out, today.NotificationItem{
+			ID:          n.ID,
+			Type:        n.Type,
+			Title:       n.Title,
+			Body:        n.Body,
+			RefType:     n.RefType,
+			RefID:       n.RefID,
+			ActionLabel: n.ActionLabel,
+			ActionPath:  n.ActionPath,
+			ReadAt:      n.ReadAt,
+			CreatedAt:   n.CreatedAt,
+		})
+	}
+	return out, nil
 }
 
 func main() {
@@ -104,6 +146,7 @@ func main() {
 	taskSvc := task.NewService(storeRepo)
 	mealSvc := meal.NewService(storeRepo)
 	modelSvc := model.NewService(storeRepo, provRepo)
+	calendarSvc := calendar.NewService(storeRepo)
 	undoLastTool := undo.NewUndoLastTool(&undoStoreAdapter{inner: storeRepo})
 	for _, t := range []tool.Tool{
 		expense.NewRecordExpenseTool(expenseSvc),
@@ -116,6 +159,8 @@ func main() {
 		meal.NewSuggestDinnerTool(mealSvc),
 		model.NewListModelsTool(modelSvc),
 		model.NewSwitchModelTool(modelSvc),
+		calendar.NewCreateEventTool(calendarSvc),
+		calendar.NewListEventsTool(calendarSvc, storeRepo),
 		undoLastTool,
 	} {
 		if err := registry.Register(t); err != nil {
@@ -146,10 +191,14 @@ func main() {
 		Usage:    storeRepo, // 用量埋点写 llm_usage
 	})
 
+	// 今日摘要聚合服务（A-01：只读各模块，权限服务端裁剪）
+	// today.NotificationReader 用 domain 层自己的 NotificationItem（不反向依赖 api 层），这里做一次转换
+	todaySvc := today.NewService(taskSvc, calendarSvc, mealSvc, &notifReaderAdapter{storeRepo}, storeRepo)
+
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, taskSvc, mealSvc, storeRepo, undoSummaryProvider{repo: storeRepo, tasks: taskSvc}, storeRepo, storeRepo)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, taskSvc, mealSvc, storeRepo, 	undoSummaryProvider{repo: storeRepo, tasks: taskSvc, calendars: calendarSvc}, storeRepo, calendarSvc, storeRepo, todaySvc, storeRepo)
 
 	// 主动服务调度器（ADR-006）：每分钟 tick，任务到期 + 16:00 报饭缺口
 	sched := scheduler.New(storeRepo)

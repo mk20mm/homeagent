@@ -7,6 +7,8 @@ const SHOT = 'e2e-shots/quick'
 test.describe('快捷 chips + 可点空态（T-A05）', () => {
   test('输入框上方常驻 chips，点击直接发送', async ({ page }) => {
     await login(page)
+    // chips 在对话页（V1.0-A 起首屏是 Today，对话移到 /chat）
+    await page.goto('/chat')
     await expect(page.getByRole('heading', { name: '家事助手' })).toBeVisible()
     await expect(page.getByRole('group', { name: '快捷操作' })).toBeVisible()
 
@@ -68,6 +70,8 @@ test.describe('快捷 chips + 可点空态（T-A05）', () => {
     await page.getByRole('button', { name: '登录' }).click()
     await page.waitForURL('/')
 
+    // chips 在对话页（V1.0-A 起首屏是 Today）
+    await page.goto('/chat')
     await expect(page.getByRole('group', { name: '快捷操作' })).toBeVisible()
     // 孩子没有 expense.write / task.write
     await expect(page.getByRole('button', { name: '记一笔' })).toBeHidden()

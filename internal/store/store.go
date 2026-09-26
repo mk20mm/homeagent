@@ -523,13 +523,19 @@ func MustSeed(ctx context.Context, client *ent.Client) error {
 			"expense.write": true, "expense.read": true,
 			"task.write": true, "task.read": true,
 			"meal.write": true, "system.admin": true,
+			"calendar.write": true, "calendar.read": true,
+			"today.read": true,
 		}, "dev-baba"},
 		{"奶奶", member.RoleElder, member.PermissionTemplateLimited, map[string]bool{
 			"expense.write": true, "expense.read": true,
 			"task.read": true, "meal.write": true,
+			"calendar.read": true,
+			"today.read": true,
 		}, "dev-nainai"},
 		{"孩子", member.RoleChild, member.PermissionTemplateChild, map[string]bool{
 			"task.read": true, "meal.write": true,
+			"calendar.read": true,
+			"today.read": true,
 		}, "dev-haizi"},
 	}
 	for _, m := range members {

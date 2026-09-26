@@ -8,7 +8,9 @@
 单家庭自用的 AI 协作中枢：家人说一句话，Agent 调用后端工具把家务/用餐/账单/日程办到位。
 Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管理端）+ OpenAPI 契约驱动双端类型。
 
-**当前阶段**：A/B 骨架已完成；C 阶段 **P0 关键路径 ✅ 9/9**、**P1 工具集+JWT+观测 ✅ 11/11**（9 工具 + JWT 认证 + 权限双保险 + 幂等 + go-openai 适配器 + GET /models·/audit·/usage）、**P2 前端双端联调 ✅**（JWT 登录守卫 + ChatPage 真实 SSE + undo_id 撤销闭环 + admin Debug/仪表盘/审计），进入 P2 剩余项（evals 评测套件、账单/任务 handler）。**产品设计研究已升为 V1 需求**：三条主脉（输入/可见/跑腿）+ 四模块同权（`docs/product/product-design-research-01.md` / `product-inspiration-01.md`）→ **需求真相源 `docs/AI-PRD.md` §10**（59 条 FR）→ **待执行计划** `docs/exec-plans/active/stage-a-credibility-base.md`（可信度与底座）与 `stage-b-module-depth.md`（四模块深耕）；**模块全景扩展**：四模块之外的增量模块论证见 `docs/product/product-design-research-02.md`（七层全景 + 采购囤货/家庭档案/健康关怀 + C17–C20 登记）；**接手开发先读 exec-plans/README.md 的 V1 任务总览**。
+**当前阶段**：**V1.0-A 现有产品价值重构 ✅ 提交 0~4 全量完成**——产品方向重构为「以个人为中心的 AI 代理人」，需求真相源是 `docs/家庭AI代理人_V1.0现有产品价值重构_执行PRD_V1.0.md`（A-00~~A-05 + E2E-01~~07 + G1~G5），执行计划见 `docs/exec-plans/active/family-agent-v1a.md`，基线复核见 `family-agent-v1a-audit.md`。已完成：A-00 审计、A-02 日程列表/详情/`GET /events/{id}`、A-03 结构化结果卡片（删 JSON.stringify）、A-01 Today 首屏（`GET /today` 服务端聚合 + TodayPage 占 `/`，对话移 `/chat`）、A-04 跨入口失效约定与状态解耦（E2E-06 5/5 全绿 + 全量非 chat 回归 29/29 全绿）。**环境阻塞**：DeepSeek 账户余额不足（402），chat 路径 e2e 待充值后重跑。
+
+**前情**：阶段 A 12/12 + evals 29 条全过；阶段 B 开工 T-B18 日程模型 ✅ 后转入 V1.0-A 重构（阶段 B 四模块深耕暂停，见 `stage-b-module-depth.md`）。旧需求源 `docs/AI-PRD.md` §10 仍为四模块深耕的登记表，但**本期范围以 V1.0-A PRD 为准**：不重写聊天/记账/家务/用餐/权限/通知/调度器，不进 B/C/D 阶段（用餐默认值、家务轮值、真实催办、跨成员协作全部延后）。
 进度与决策日志见 `docs/exec-plans/active/`，技术债见 `docs/tech-debt.md`。
 
 ## 不可违反的不变量（改任何代码前先读）
@@ -29,11 +31,14 @@ api/openapi.yaml            # 契约：接口唯一真相源
 internal/
   api/v1/                   # HTTP handler（当前 noop 桩，C 阶段撤）
   domain/expense/           # 领域服务
-  store/ent/schema/*.go     # ent 14 表 schema（9 个领域文件 + 2 mixin）
+  domain/calendar/          # 日程（T-B18：重复展开/例外/可见性）
+  domain/today/             # 今日摘要聚合（V1.0-A A-01：只读各模块，不建表）
+  store/ent/schema/*.go     # ent 16 表 schema（11 个领域文件 + 2 mixin）
   openapi/api.gen.go        # 生成（勿改）
   agent/tool/               # 工具注册表 + 接口约束
 cmd/homeagent/main.go       # 入口，--migrate flag
-web/   admin/               # 前端两端口（5173 / 3001）
+web/   admin/               # 前端两端口（5173 / 3001）；web 首页是 Today（/），对话在 /chat
+evals/                      # 金标准评测套件（make eval，沙箱 + 脚本供应商）
 packages/shared/            # 前后端共享枚举 + 金额工具
 docs/                       # 知识库（见 docs/README.md 地图）
 docs/exec-plans/            # 执行计划（一等公民，带状态与决策日志）
@@ -50,6 +55,7 @@ docs/tech-debt.md           # 技术债登记
 make generate          # ent + oapi-codegen + 前端 schema 全量生成
 make migrate           # 建库 + 种子数据（data/homeagent.db）
 make test              # go test ./...（无 -race：本机无 gcc）
+make eval              # evals 金标准套件（29 任务 + 安全否决项，AI-PRD §6）
 go run ./cmd/homeagent # 启服务，:8080，/api/v1/health
 
 # 本地联调认证（JWT）：--migrate 打印 name+auth_token，再换令牌
@@ -87,6 +93,7 @@ pnpm run docs:check    # 文档自检：链接 / FR 覆盖 / 图表成对 / 计�
 
 | 问题类型                            | 去哪找                                                      | 关键内容                                                                                                                                                           |
 | ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 自主开发与知识沉淀说明书            | `docs/HARNESS.md`                                           | 基于 OpenAI 契约与结构化 JSON 任务卡验收标准 + 极简使用姿势 + 知识分类、真伪检验与瘦身机制                                                                         |
 | V1 功能需求 / 模块深度 / 验收       | `docs/AI-PRD.md` §10                                        | 四模块深耕需求（FR-CHORE/MEAL/BILL/CAL/HUB/AI）+ 角色能力矩阵 + 信息架构 + 出口标准；**接活前先读**                                                                |
 | 体验断点 / 产品机会                 | `docs/product/ux-exploration-*.md`                          | 真机走查结论 + 体验断点表 + A/B/C 方案；**改产品前先读**，避免重复发现                                                                                             |
 | 产品理念 / 设计原则 / IA / 交互系统 | `docs/product/product-design-research-01.md`                | 三条主脉（输入/可见/跑腿）+ 原则 8 条 + 用户旅程 + 信息架构 + AI 能力边界 + 演进路线 + **四模块深耕矩阵**（家庭事务中枢，非记账应用）；**定方向先读**，越界项标 ⚠️ |
@@ -99,6 +106,33 @@ pnpm run docs:check    # 文档自检：链接 / FR 覆盖 / 图表成对 / 计�
 | 技术债                              | `docs/tech-debt.md`                                         | T1–T16 登记与偿还时机                                                                                                                                              |
 
 **走查方法**（复用）：`web/e2e/ux-walkthrough.spec.ts` 是可回归的端到端走查脚本——登录→记账→撤销→侧边栏→各 Tab→异常制造（空输入/错误令牌/重复提交/超长文本/刷新），截图落 `web/e2e-shots/`（已 gitignore），截图用 `docling_describe_image` 做 VLM 分析。
+
+## Agent 自主研发架构与开发资产 (Autonomous Harness & Skills)
+
+为了实现「用户仅需提供高层想法与难点决策，Agent 自主协同闭环」，仓库建立了标准化的技能与脚本资产：
+
+### 1. 核心自动化脚本 (`scripts/`)
+
+- `.\scripts\harness-env.ps1`: Go 环境配置、清理 8080 残留进程、网络代理提示。
+- `.\scripts\codegen.ps1`: 契约先行全量代码生成（ent generate -> oapi-codegen -> openapi-typescript）。
+- `.\scripts\verify-all.ps1`: 质量门禁一键自检（Go Build + Go Test + TS Typecheck + Vitest + Playwright E2E）。
+
+### 2. 仓库专用技能库 (`.agents/skills/`)
+
+| 技能名称                        | 职责定位             | 激活时机                                                       |
+| ------------------------------- | -------------------- | -------------------------------------------------------------- |
+| `homeagent-feature-loop`        | 自主研发主闭环       | 接收高层需求后，端到端执行需求拆解、契约同步、编码、自测与呈报 |
+| `homeagent-contract-workflow`   | 契约先行与生成       | 修改 API、OpenAPI 契约、Ent 数据模型或前后端共享类型           |
+| `homeagent-e2e-verifier`        | E2E 走查与视觉验证   | 验证移动端交互、SSE 流式、结果卡片、撤销回滚与截图审查         |
+| `homeagent-env-troubleshooting` | 踩坑与自愈知识库     | 遇到端口占用、代理 502、Vite 重载死循环、PowerShell 编码等异常 |
+| `init-spec-map`                 | 新项目架构地图初始化 | 新项目或新模块从零初始化规范蓝图、OpenAPI 契约与任务卡规范     |
+
+### 3. 子智能体拓扑分工 (`.agents/agents/README.md`)
+
+- **Spec Architect（契约架构师）**：领域模型与 OpenAPI 契约同步。
+- **Fullstack Builder（全栈实现者）**：Go + Ent + React 双端组件实现。
+- **QA Auditor（质量审计官）**：Playwright 走查、控制台排查与截图审查。
+- **Lead Orchestrator（主控调度者）**：汇总结果，仅在重大架构权衡时通过 `ask_question` 请示用户。
 
 ## 工作方式（Harness）
 

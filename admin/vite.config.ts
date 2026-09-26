@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     port: 3001,
     proxy: {
       // 开发期 API 走 Vite 代理，避免 CORS

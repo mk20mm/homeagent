@@ -19,10 +19,10 @@ test('验证新功能渲染', async ({ page }) => {
   await page.waitForTimeout(400)
   await page.screenshot({ path: `${SHOT}/verify-02-sheet.png` })
 
-  // 关闭弹层，回对话页
+  // 关闭弹层，回对话页（V1.0-A 起首屏是 Today，对话在 /chat）
   await page.keyboard.press('Escape')
   await page.waitForTimeout(300)
-  await page.click('a[href="/"]')
+  await page.click('a[href="/chat"]')
   await page.waitForTimeout(500)
   await page.screenshot({ path: `${SHOT}/verify-03-chat.png` })
 })

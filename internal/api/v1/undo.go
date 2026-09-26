@@ -38,6 +38,8 @@ type UndoSummaryProvider interface {
 	ExpenseBrief(ctx context.Context, memberID, expenseID string) (amountCents int64, category string, err error)
 	// TaskTitle 家务任务标题。
 	TaskTitle(ctx context.Context, taskID string) (title string, err error)
+	// EventTitle 日程事件标题。
+	EventTitle(ctx context.Context, eventID string) (title string, err error)
 }
 
 // ListUndo GET /undo —— 我的可撤销操作（24h 内有效，新的在前）。
@@ -76,6 +78,7 @@ var undoSummaryFallback = map[string]string{
 	"report_meal":    "报饭",
 	"suggest_dinner": "晚餐建议",
 	"switch_model":   "切换模型",
+	"create_event":   "建日程",
 }
 
 // summarizeUndo 把 undo_data 解析成「记账 ¥12.00 · 食材」这样的摘要；
@@ -113,6 +116,18 @@ func summarizeUndo(ctx context.Context, sp UndoSummaryProvider, memberID string,
 			return label
 		}
 		title, err := sp.TaskTitle(ctx, d.TaskID)
+		if err != nil || title == "" {
+			return label
+		}
+		return fmt.Sprintf("%s：%s", label, title)
+	case "create_event":
+		var d struct {
+			EventID string `json:"event_id"`
+		}
+		if err := json.Unmarshal(r.UndoData, &d); err != nil || d.EventID == "" {
+			return label
+		}
+		title, err := sp.EventTitle(ctx, d.EventID)
 		if err != nil || title == "" {
 			return label
 		}

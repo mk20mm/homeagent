@@ -52,6 +52,8 @@ test.describe('UX 端到端走查', () => {
 
     // 正常登录
     await login(page)
+    // 对话页在 /chat（V1.0-A 起首屏是 Today）
+    await page.goto('/chat')
 
     // ── 2. 主页第一印象 ──
     await page.waitForTimeout(500)
@@ -153,8 +155,8 @@ test.describe('UX 端到端走查', () => {
       await page.screenshot({ path: `${SHOT}/ux-19-settings-click.png` })
     }
 
-    // ── 12. 回到对话页，检查记账页是否同步 ──
-    await page.goto('/')
+    // ── 12. 回对话页，检查记账页是否同步 ──
+    await page.goto('/chat')
     await page.waitForTimeout(500)
     await page.goto('/money')
     await page.waitForTimeout(500)

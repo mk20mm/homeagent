@@ -29,8 +29,8 @@ exec-plans/
 
 | 阶段               | 计划                                                                     | 任务              | 出口标准                                                                            | 状态               |
 | ------------------ | ------------------------------------------------------------------------ | ----------------- | ----------------------------------------------------------------------------------- | ------------------ |
-| **A 可信度与底座** | [active/stage-a-credibility-base.md](active/stage-a-credibility-base.md) | T-A01–T-A11（11） | 「说了/点了页面就变」+ 24h 写操作一处可撤销 + 通知可静音/可回溯/不越权 + evals 全绿 | ⏳ 已立项，未开工  |
-| **B 四模块深耕**   | [active/stage-b-module-depth.md](active/stage-b-module-depth.md)         | T-B01–T-B36（36） | 四模块 ≥ L3 + Today 五块可用 + ≥ 1 条跨模块联动真实可用                             | ⏳ 依赖 A 出口     |
+| **A 可信度与底座** | [active/stage-a-credibility-base.md](active/stage-a-credibility-base.md) | T-A01–T-A11（11） | 「说了/点了页面就变」+ 24h 写操作一处可撤销 + 通知可静音/可回溯/不越权 + evals 全绿 | ✅ 12/12 完成（2026-09-23） |
+| **B 四模块深耕**   | [active/stage-b-module-depth.md](active/stage-b-module-depth.md)         | T-B01–T-B36（36） | 四模块 ≥ L3 + Today 五块可用 + ≥ 1 条跨模块联动真实可用                             | 🚧 进行中 1/36（T-B18 ✅） |
 | **C 智能化收尾**   | 并入 [stage-b](active/stage-b-module-depth.md) 第六节                    | T-B31–T-B36（6）  | 依据/置信度、异常检测、周报、导出、邀请、离线                                       | ⏳ 随 B 尾部推进   |
 | **D 形态升级**     | 未立项                                                                   | —                 | 购物清单完整版、跨模块联动完整版、语音/图片、长期记忆、适老深化                     | ⏳ 待 B 出口后立项 |
 

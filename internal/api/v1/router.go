@@ -43,6 +43,9 @@ func Register(
 	memberNamer MemberNamer,
 	undoSummarizer UndoSummaryProvider,
 	notifStore NotificationStore,
+	calendarSvc CalendarService,
+	familyLookup FamilyLookup,
+	todaySvc TodayService,
 	audit tool.AuditLogger,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
@@ -77,11 +80,23 @@ func Register(
 	jwtGroup.POST("/notifications", MarkNotificationsRead(notifStore))
 	jwtGroup.POST("/meals", ReportMeal(mealSvc, expUndoWriter, pl, audit))
 
+	// 今日摘要（PRD A-01：服务端聚合，权限一次性裁剪）
+	jwtGroup.GET("/today", GetToday(todaySvc, pl, audit))
+	jwtGroup.GET("/events", ListEvents(calendarSvc, familyLookup, pl, audit))
+	jwtGroup.GET("/events/:eventId", GetEvent(calendarSvc, pl, audit))
+	jwtGroup.POST("/events", CreateEvent(calendarSvc, expUndoWriter, pl, audit))
+	jwtGroup.DELETE("/events/:eventId", DeleteEvent(calendarSvc, expUndoWriter, pl, audit))
+	jwtGroup.DELETE("/events/:eventId/instances/:occurrence", SkipEventInstance(calendarSvc, pl, audit))
+
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")
 	adminGroup.GET("/providers", ListProviders(provSvc))
+	adminGroup.POST("/providers/test", TestProviderConnection(provSvc))
 	adminGroup.PUT("/providers/:id", UpdateProvider(provSvc))
+	adminGroup.GET("/models", ListAllModels(provSvc))
+	adminGroup.POST("/models", CreateModel(provSvc))
 	adminGroup.PUT("/models/:id", UpdateModel(provSvc))
+	adminGroup.DELETE("/models/:id", DeleteModel(provSvc))
 }
 
 func health(c *gin.Context) {

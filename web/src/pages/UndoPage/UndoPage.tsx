@@ -61,6 +61,7 @@ export function UndoPage() {
           params: { path: { undoId: id } },
         }),
       )
+      await reload()
     } catch (e) {
       setItems(snapshot)
       if (e instanceof ApiError && e.code === 'not_found') {
@@ -102,9 +103,9 @@ export function UndoPage() {
           <button
             type="button"
             className={styles.emptyBtn}
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/chat')}
           >
-            回去聊聊
+            去跟管家说一句
           </button>
         </div>
       ) : (

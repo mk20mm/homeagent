@@ -74,6 +74,15 @@ func (s *providerStore) UpdateModel(ctx context.Context, id string, u dommodel.M
 	}
 
 	upd := m.Update()
+	if u.ModelName != nil && *u.ModelName != "" {
+		upd.SetModelName(*u.ModelName)
+	}
+	if u.DisplayName != nil && *u.DisplayName != "" {
+		upd.SetDisplayName(*u.DisplayName)
+	}
+	if u.ContextWindow != nil && *u.ContextWindow > 0 {
+		upd.SetContextWindow(*u.ContextWindow)
+	}
 	if u.Enabled != nil {
 		upd.SetEnabled(*u.Enabled)
 	}
@@ -129,6 +138,86 @@ func (s *providerStore) DefaultEnabled(ctx context.Context) (conn dommodel.Provi
 		Provider: string(m.Edges.Provider.Name),
 		Model:    m.ModelName,
 	}, true, nil
+}
+
+// GetProvider 查询单个供应商信息（脱敏）。
+func (s *providerStore) GetProvider(ctx context.Context, id string) (dommodel.ProviderInfo, error) {
+	p, err := s.db.LLMProvider.Query().Where(llmprovider.IDEQ(toUUID(id))).Only(ctx)
+	if err != nil {
+		return dommodel.ProviderInfo{}, apperr.New(apperr.CodeNotFound, "供应商不存在", err)
+	}
+	return toProviderInfo(p, s.key), nil
+}
+
+// GetProviderDecrypted 查询解密后的供应商明文凭据（仅供测试连接/内部网关使用）。
+func (s *providerStore) GetProviderDecrypted(ctx context.Context, id string) (apiKey string, baseURL string, name string, err error) {
+	p, qerr := s.db.LLMProvider.Query().Where(llmprovider.IDEQ(toUUID(id))).Only(ctx)
+	if qerr != nil {
+		return "", "", "", apperr.New(apperr.CodeNotFound, "供应商不存在", qerr)
+	}
+	plain, decErr := crypto.Decrypt(p.APIKey, s.key)
+	if decErr != nil {
+		plain = ""
+	}
+	return plain, p.BaseURL, string(p.Name), nil
+}
+
+// CreateModel 添加自定义模型。
+func (s *providerStore) CreateModel(ctx context.Context, req dommodel.ModelCreateRequest) (dommodel.ModelInfo, error) {
+	prov, err := s.db.LLMProvider.Query().Where(llmprovider.IDEQ(toUUID(req.ProviderID))).Only(ctx)
+	if err != nil {
+		return dommodel.ModelInfo{}, apperr.New(apperr.CodeNotFound, "所属供应商不存在", err)
+	}
+
+	builder := s.db.LLMModel.Create().
+		SetProviderID(prov.ID).
+		SetModelName(req.ModelName).
+		SetDisplayName(req.DisplayName).
+		SetEnabled(true)
+
+	if req.ContextWindow != nil && *req.ContextWindow > 0 {
+		builder.SetContextWindow(*req.ContextWindow)
+	}
+
+	if req.IsDefault != nil && *req.IsDefault {
+		if _, err := s.db.LLMModel.Update().
+			Where(llmmodel.IsDefaultEQ(true)).
+			SetIsDefault(false).
+			Save(ctx); err != nil {
+			return dommodel.ModelInfo{}, apperr.New(apperr.CodeInternal, "取消旧默认模型失败", err)
+		}
+		builder.SetIsDefault(true)
+	}
+
+	saved, err := builder.Save(ctx)
+	if err != nil {
+		return dommodel.ModelInfo{}, apperr.New(apperr.CodeInternal, "创建模型失败", err)
+	}
+
+	loaded, err := s.db.LLMModel.Query().
+		Where(llmmodel.IDEQ(saved.ID)).
+		WithProvider().
+		Only(ctx)
+	if err != nil {
+		return toModelInfo(saved), nil
+	}
+	return toModelInfo(loaded), nil
+}
+
+// DeleteModel 删除自定义模型（不能删除当前默认模型）。
+func (s *providerStore) DeleteModel(ctx context.Context, id string) error {
+	m, err := s.db.LLMModel.Query().Where(llmmodel.IDEQ(toUUID(id))).Only(ctx)
+	if err != nil {
+		return apperr.New(apperr.CodeNotFound, "模型不存在", err)
+	}
+	if m.IsDefault {
+		return apperr.New(apperr.CodeInvalidInput, "不能删除当前默认模型，请先将其他模型设为默认", nil)
+	}
+
+	if err := s.db.LLMModel.DeleteOneID(m.ID).Exec(ctx); err != nil {
+		return apperr.New(apperr.CodeInternal, "删除模型失败", err)
+	}
+	return nil
 }
 
 func toProviderInfo(p *ent.LLMProvider, key string) dommodel.ProviderInfo {

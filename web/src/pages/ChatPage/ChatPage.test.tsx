@@ -134,4 +134,47 @@ describe('ChatPage 对话联调', () => {
 
     await waitFor(() => expect(screen.getByText('服务暂时不可用，请稍后重试')).toBeInTheDocument())
   })
+
+  it('A-03：task 卡片经 SSE 流结构化渲染，不暴露原始 JSON', async () => {
+    server.use(
+      http.get('/api/v1/models', () => HttpResponse.json({ models: [] })),
+      http.post('/api/v1/chat', () =>
+        sseResponse([
+          { type: 'token', content: '好的' },
+          {
+            type: 'tool_call',
+            tool: 'assign_task',
+            card: {
+              type: 'task',
+              task_id: 't1',
+              title: '提醒媳妇洗碗',
+              assignee: '媳妇',
+              due_at: '今晚',
+              status: 'pending',
+            },
+            undo_id: 'undo-t',
+          },
+          { type: 'done' },
+        ]),
+      ),
+    )
+
+    renderPage()
+    fireEvent.change(screen.getByPlaceholderText('输入消息…'), {
+      target: { value: '提醒媳妇洗碗' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '发送' }))
+
+    await waitFor(() =>
+      expect(screen.getByText('已派任务「提醒媳妇洗碗」')).toBeInTheDocument(),
+    )
+    expect(screen.getByText('负责人：媳妇')).toBeInTheDocument()
+    expect(screen.getByText('截止：今晚')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '去家务页查看' })).toBeInTheDocument()
+    // 卡片标题按类型区分（不再统一叫「执行结果」）
+    expect(screen.getByText('派任务结果')).toBeInTheDocument()
+
+    // 关键断言：页面不出现任何原始 JSON
+    expect(document.body.textContent).not.toMatch(/"type":"task"/)
+  })
 })

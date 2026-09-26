@@ -37,3 +37,18 @@ func (s *Store) MemberName(ctx context.Context, memberID string) (string, error)
 	}
 	return m.Name, nil
 }
+
+// FamilyIDByMember 成员 → 家庭 id（查全家日程/账单等聚合视图用）。
+func (s *Store) FamilyIDByMember(ctx context.Context, memberID string) (string, error) {
+	m, err := s.db.Member.Query().
+		Where(member.IDEQ(toUUID(memberID))).
+		WithFamily().
+		Only(ctx)
+	if err != nil {
+		return "", apperr.New(apperr.CodeNotFound, "成员不存在", err)
+	}
+	if m.Edges.Family == nil {
+		return "", apperr.New(apperr.CodeNotFound, "成员不属于任何家庭", nil)
+	}
+	return m.Edges.Family.ID.String(), nil
+}

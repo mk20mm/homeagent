@@ -10,7 +10,9 @@ test.describe('登录守卫', () => {
 
   test('正确凭据登录后进入主页', async ({ page }) => {
     await login(page)
-    await expect(page.getByText('家事助手')).toBeVisible()
+    // 首页是 Today（V1.0-A），登录后落在 /
+    await expect(page).toHaveURL('/')
+    await expect(page.getByRole('heading', { name: '今天' })).toBeVisible()
   })
 
   test('错误令牌提示「用户名或令牌错误」，不再误报「登录已过期」（T-e2e-1）', async ({ page }) => {

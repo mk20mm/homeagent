@@ -24,17 +24,22 @@ func (s *Store) ListEnabled(ctx context.Context) ([]dommodel.ModelInfo, error) {
 	}
 	out := make([]dommodel.ModelInfo, 0, len(list))
 	for _, m := range list {
-		provider := ""
-		if m.Edges.Provider != nil {
-			provider = string(m.Edges.Provider.Name)
-		}
-		out = append(out, dommodel.ModelInfo{
-			ID:          m.ID.String(),
-			ModelName:   m.ModelName,
-			DisplayName: m.DisplayName,
-			Provider:    provider,
-			IsDefault:   m.IsDefault,
-		})
+		out = append(out, toModelInfo(m))
+	}
+	return out, nil
+}
+
+// ListAll 获取全量模型清单（包括未启用，供管理后台使用）。
+func (s *Store) ListAll(ctx context.Context) ([]dommodel.ModelInfo, error) {
+	list, err := s.db.LLMModel.Query().
+		WithProvider().
+		All(ctx)
+	if err != nil {
+		return nil, apperr.New(apperr.CodeInternal, "查询全部模型失败", err)
+	}
+	out := make([]dommodel.ModelInfo, 0, len(list))
+	for _, m := range list {
+		out = append(out, toModelInfo(m))
 	}
 	return out, nil
 }
@@ -113,5 +118,6 @@ func toModelInfo(m *ent.LLMModel) dommodel.ModelInfo {
 		DisplayName: m.DisplayName,
 		Provider:    provider,
 		IsDefault:   m.IsDefault,
+		Enabled:     m.Enabled,
 	}
 }

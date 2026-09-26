@@ -132,6 +132,28 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/providers/test:
+    post:
+      tags: [admin]
+      summary: 测试供应商连通性
+      description: 发送轻量请求探测 API 端点与密钥有效性，返回响应状态、延迟及错误信息。只有 parent 角色可写。
+      operationId: testProviderConnection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderTestRequest'
+      responses:
+        '200':
+          description: 测试结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderTestResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /admin/providers/{providerId}:
     put:
       tags: [admin]
@@ -170,11 +192,58 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /admin/models:
+    get:
+      tags: [admin]
+      summary: 获取全量模型清单（含停用模型，管理端配置用）
+      description: 返回当前系统内所有模型（无论是否启用）。只有 parent 角色可读。
+      operationId: listAllModels
+      responses:
+        '200':
+          description: 模型清单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [models]
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Model'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin]
+      summary: 添加自定义模型
+      description: 为指定供应商添加可用模型，支持配置展示名称与上下文窗口。只有 parent 角色可写。
+      operationId: createModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelCreate'
+      responses:
+        '201':
+          description: 创建成功的模型
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /admin/models/{modelId}:
     put:
       tags: [admin]
-      summary: 更新模型配置（启停/设默认）
+      summary: 更新模型配置（名称/标识/启停/设默认）
       description: |
+        支持修改模型展示名称、实际请求模型标识、启停与设为全局默认。
         设默认模型是互斥操作：旧默认自动取消。
         只有 parent 角色可写。
       operationId: updateModel
@@ -187,6 +256,14 @@ paths:
             schema:
               type: object
               properties:
+                model_name:
+                  type: string
+                  description: 实际请求模型标识
+                display_name:
+                  type: string
+                  description: 页面展示名称
+                context_window:
+                  type: integer
                 enabled:
                   type: boolean
                 is_default:
@@ -199,6 +276,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Model'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin]
+      summary: 删除自定义模型
+      description: 删除非默认自定义模型。只有 parent 角色可写。
+      operationId: deleteModel
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -651,6 +752,145 @@ paths:
               schema:
                 $ref: '#/components/schemas/MealReport'
 
+  /events:
+    get:
+      tags: [calendar]
+      summary: 日程列表（按时间窗口，重复事件展开为实例）
+      operationId: listEvents
+      description: |
+        返回窗口内的事件实例（单次事件直接返回，重复事件按规则展开）。
+        可见性过滤：private 事件只有创建人与家长可见（权限双保险，执行层再校验一次）。
+      parameters:
+        - in: query
+          name: start
+          description: 窗口起点（为空取今日 0 点）
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: end
+          description: 窗口终点（为空取今日 +30 天）
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: scope
+          description: my=只看我相关的；family=全家可见的（默认）
+          schema:
+            type: string
+            enum: [my, family]
+            default: family
+      responses:
+        '200':
+          description: 事件实例列表（按 start_at 升序）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventInstance'
+    post:
+      tags: [calendar]
+      summary: 建事件（create_event 的 HTTP 出口，幂等）
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventCreate'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResult'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /events/{eventId}:
+    get:
+      tags: [calendar]
+      summary: 事件详情（单个事件，按可见性过滤）
+      operationId: getEvent
+      description: |
+        返回事件的详情视图。private 事件只有创建人可见（服务端校验，不只靠前端隐藏）。
+        用于「对话结果卡片 → 日程详情」深链；对象不存在或无权限时返回 404（不区分二者，避免探测）。
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: 事件详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [calendar]
+      summary: 删除事件（整条系列，可撤销）
+      operationId: deleteEvent
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: 已删除
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [undo_id]
+                properties:
+                  undo_id:
+                    type: string
+                    description: 撤销 id（POST /undo/{id} 用）
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /events/{eventId}/instances/{occurrence}:
+    delete:
+      tags: [calendar]
+      summary: 删除重复事件的单个实例（例外，不影响系列）
+      operationId: skipEventInstance
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+        - in: path
+          name: occurrence
+          required: true
+          description: 该实例按规则展开的发生时间（RFC3339，URL 编码）
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 已跳过该实例
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /today:
+    get:
+      tags: [today]
+      summary: 今日行动摘要（个人，服务端聚合）
+      operationId: getToday
+      description: |
+        聚合「需要我处理 / 今日安排 / 家庭用餐 / 通知动态」四块，供首页 Today 使用。
+        权限服务端一次性裁剪：任务只看我的、日程按可见性、通知只看我的。
+        「未申报」原样保留，不转写为「不在家」（A-01-03）。
+        局部失败策略（A-01-06）：某模块失败时其余照常返回，前端按区域降级。
+      responses:
+        '200':
+          description: 今日摘要
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodaySummary'
+
   /undo:
     get:
       tags: [undo]
@@ -834,8 +1074,21 @@ components:
       schema:
         type: string
         format: uuid
+    EventId:
+      in: path
+      name: eventId
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Unauthorized:
       description: 未认证
       content:
@@ -987,7 +1240,7 @@ components:
 
     Model:
       type: object
-      required: [id, model_name, display_name]
+      required: [id, model_name, display_name, enabled]
       properties:
         id:
           type: string
@@ -1003,6 +1256,31 @@ components:
           example: openai
         is_default:
           type: boolean
+        enabled:
+          type: boolean
+
+    ModelCreate:
+      type: object
+      required: [provider_id, model_name, display_name]
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: 所属供应商 ID
+        model_name:
+          type: string
+          example: Atria-Dawn-Preview
+          description: 实际请求模型名
+        display_name:
+          type: string
+          example: Atria 深度推理
+          description: 前端展示名称
+        context_window:
+          type: integer
+          default: 131072
+        is_default:
+          type: boolean
+          default: false
 
     Provider:
       type: object
@@ -1027,6 +1305,43 @@ components:
           description: 是否已配置密钥（空密钥时 false）
         enabled:
           type: boolean
+
+    ProviderTestRequest:
+      type: object
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: 已有供应商 ID（若提供，缺失字段从已有配置读取）
+        base_url:
+          type: string
+          description: 覆盖或指定的 API Base URL
+        api_key:
+          type: string
+          format: password
+          description: 覆盖或指定的 API Key（留空则尝试用库中已存 Key）
+        model:
+          type: string
+          description: 测试探测所用模型名（如 Atria-Dawn-Preview / deepseek-chat 等）
+
+    ProviderTestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          description: 是否连接成功
+        latency_ms:
+          type: integer
+          description: 探测往返耗时（毫秒）
+        error:
+          type: string
+          description: 错误详情（如 401 密钥无效 / 402 余额不足 / 404 地址错）
+        models:
+          type: array
+          items:
+            type: string
+          description: 探测发现的可用模型清单（若端点支持 /v1/models）
 
     ChatRequest:
       type: object
@@ -1279,6 +1594,291 @@ components:
           description: 越权尝试记录
         latency_ms:
           type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    EventRepeat:
+      type: string
+      enum: [once, daily, weekly, monthly]
+      description: 重复规则；once=单次
+
+    EventVisibility:
+      type: string
+      enum: [family, private]
+      description: family=全家可见；private=仅本人与家长
+
+    EventInstance:
+      type: object
+      description: 展开后的一个日程实例（重复事件按规则展开，含例外）
+      required: [id, title, start_at, repeat, visibility, owner_id, occurrence, is_exception]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 事件 id（系列 id；同系列实例共享）
+        title:
+          type: string
+          example: 开家长会
+        description:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+          description: 实例开始时间（例外时为改后的时间）
+        end_at:
+          type: string
+          format: date-time
+        repeat:
+          $ref: '#/components/schemas/EventRepeat'
+        visibility:
+          $ref: '#/components/schemas/EventVisibility'
+        owner_id:
+          type: string
+          format: uuid
+          description: 创建人（前端取成员颜色）
+        owner_name:
+          type: string
+        is_lunar:
+          type: boolean
+          description: 农历事件
+        location:
+          type: string
+        occurrence:
+          type: string
+          format: date-time
+          description: 该实例按规则展开的原发生时间（例外定位用；单次=开始时间）
+        is_exception:
+          type: boolean
+          description: 是否为被改动/跳过的例外实例
+        skipped:
+          type: boolean
+          description: 该实例被跳过（删单次）
+
+    EventCreate:
+      type: object
+      required: [title, start_at]
+      properties:
+        title:
+          type: string
+          example: 开家长会
+        description:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+          description: 开始时间（自然语言解析后传入，或页面手填）
+        end_at:
+          type: string
+          format: date-time
+        repeat:
+          $ref: '#/components/schemas/EventRepeat'
+        interval:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 重复间隔（每 N 天/周/月）
+        visibility:
+          $ref: '#/components/schemas/EventVisibility'
+        is_lunar:
+          type: boolean
+          description: 农历事件（生日/纪念日）
+        location:
+          type: string
+
+    EventResult:
+      type: object
+      required: [id, title, start_at, undoable]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        repeat:
+          $ref: '#/components/schemas/EventRepeat'
+        undoable:
+          type: boolean
+          description: 是否可撤销（幂等命中时为 false）
+        undo_id:
+          type: string
+          description: 撤销 id（POST /undo/{id} 用）
+        duplicated:
+          type: boolean
+          description: 是否幂等命中（重复建同一事件）
+
+    EventDetail:
+      type: object
+      description: 事件详情（供「去日程详情」深链；不含实例展开，只描述事件本身）
+      required: [id, title, start_at, repeat, visibility, owner_id, can_edit, can_cancel_series, actions]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        repeat:
+          $ref: '#/components/schemas/EventRepeat'
+        interval:
+          type: integer
+          description: 重复间隔
+        visibility:
+          $ref: '#/components/schemas/EventVisibility'
+        owner_id:
+          type: string
+          format: uuid
+        owner_name:
+          type: string
+        is_lunar:
+          type: boolean
+        location:
+          type: string
+        can_edit:
+          type: boolean
+          description: 本期是否允许修改（当前固定 false：暂无修改接口，前端据此隐藏入口）
+        can_cancel_series:
+          type: boolean
+          description: 是否可删除整条系列（创建人可删自己的）
+        actions:
+          type: array
+          description: 该事件当前可执行的操作（服务端按权限给出，前端照此渲染）
+          items:
+            type: object
+            required: [label, kind]
+            properties:
+              label:
+                type: string
+                example: 删除整条日程
+              kind:
+                type: string
+                enum: [cancel_series]
+                description: 操作类型；本期仅 cancel_series（删整系列）
+
+    TodaySummary:
+      type: object
+      description: 今日行动摘要（PRD A-01）
+      required: [need_action, schedule, meal, activity]
+      properties:
+        need_action:
+          type: object
+          description: 需要我处理（强行动区；普通未读消息不混入）
+          required: [tasks, meal_unreported, notifications]
+          properties:
+            tasks:
+              type: array
+              description: 我的未完成任务
+              items:
+                type: object
+                required: [id, title, status]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending, in_progress]
+                  due_at:
+                    type: string
+                    format: date-time
+                    description: 截止时间（空串=无截止）
+            meal_unreported:
+              type: boolean
+              description: 我今天尚未申报用餐
+            notifications:
+              type: array
+              description: 未读且需回应的通知（有限条）
+              items:
+                $ref: '#/components/schemas/TodayActivity'
+        schedule:
+          type: array
+          description: 今日可见日程（私密日程按可见性过滤）
+          items:
+            type: object
+            required: [id, title, start_at]
+            properties:
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+              start_at:
+                type: string
+                format: date-time
+              end_at:
+                type: string
+                format: date-time
+              owner_name:
+                type: string
+              visibility:
+                $ref: '#/components/schemas/EventVisibility'
+        meal:
+          type: object
+          description: 家庭用餐概览与我的状态
+          required: [date, at_home, not_at_home, unreported, mine]
+          properties:
+            date:
+              type: string
+              format: date
+            at_home:
+              type: array
+              items:
+                type: string
+              description: 今晚在家吃的成员名
+            not_at_home:
+              type: array
+              items:
+                type: string
+            unreported:
+              type: array
+              items:
+                type: string
+              description: 尚未申报的成员名（缺口显式，不等于不在家）
+            mine:
+              type: string
+              enum: [at_home, not_at_home, unreported]
+              description: 我自己的申报状态
+        activity:
+          type: array
+          description: 与我相关的通知动态（有限条，新的在前；已读≠事务已完成）
+          items:
+            $ref: '#/components/schemas/TodayActivity'
+
+    TodayActivity:
+      type: object
+      required: [id, type, title, read, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: 通知类型（task_due / meal_gap 等）
+        title:
+          type: string
+        body:
+          type: string
+        action_label:
+          type: string
+          description: 通知附带操作的按钮文案（可空）
+        action_path:
+          type: string
+          description: 通知附带操作的跳转路径（可空，前端按路径跳转）
+        read:
+          type: boolean
+          description: 是否已读（≠ 事务已完成）
         created_at:
           type: string
           format: date-time

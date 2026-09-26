@@ -5,7 +5,10 @@ import { RequireAuth } from './components/RequireAuth'
 import { AppLayout } from './layouts'
 import { ChatPage } from './pages/ChatPage'
 import { ChoresPage } from './pages/ChoresPage'
+import { EventDetailPage } from './pages/EventDetailPage'
+import { EventsPage } from './pages/EventsPage'
 import { LoginPage } from './pages/LoginPage'
+import { TodayPage } from './pages/TodayPage'
 import { MealPage } from './pages/MealPage'
 import { MoneyPage } from './pages/MoneyPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -18,6 +21,17 @@ const router = createBrowserRouter([
   },
   {
     path: '/',
+    element: (
+      <RequireAuth>
+        <AppLayout>
+          <TodayPage />
+          <TabBar />
+        </AppLayout>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/chat',
     element: (
       <RequireAuth>
         <AppLayout>
@@ -34,6 +48,27 @@ const router = createBrowserRouter([
         <AppLayout>
           <ChoresPage />
           <TabBar />
+        </AppLayout>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/events',
+    element: (
+      <RequireAuth>
+        <AppLayout>
+          <EventsPage />
+          <TabBar />
+        </AppLayout>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/events/:eventId',
+    element: (
+      <RequireAuth>
+        <AppLayout>
+          <EventDetailPage />
         </AppLayout>
       </RequireAuth>
     ),

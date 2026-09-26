@@ -22,6 +22,8 @@ async function waitForNotification(page: import('@playwright/test').APIRequestCo
 test.describe('通知中心（T-A10 / ADR-006）', () => {
   test('铃铛角标显示未读数，抽屉可查看与已读', async ({ page, request }) => {
     await login(page)
+    // 通知角标在对话页顶栏（V1.0-A 起首屏是 Today，对话移到 /chat）
+    await page.goto('/chat')
     await expect(page.getByRole('heading', { name: '家事助手' })).toBeVisible()
 
     // 造一个 30 分钟后到期的任务（指派给自己），调度器 tick 后生成未读通知

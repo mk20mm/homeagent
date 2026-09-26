@@ -1,0 +1,177 @@
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  margin: 0;
+}
+
+.date {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  margin-top: 2px;
+}
+
+.chatBtn {
+  background: var(--c-primary);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: var(--fs-caption);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.sub {
+  color: var(--c-text-sub);
+  font-size: var(--fs-body);
+}
+
+.error {
+  color: var(--c-danger);
+  font-size: var(--fs-body);
+  margin: 8px 0;
+}
+
+.empty {
+  margin-top: 56px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.emptySub {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  margin-bottom: 16px;
+  padding: 0 24px;
+}
+
+.section {
+  margin-top: 20px;
+}
+
+.sectionTitle {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.card {
+  background: var(--c-card);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.dot {
+  flex-shrink: 0;
+}
+
+.time {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  flex-shrink: 0;
+}
+
+.mealLine {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.mealLine:last-of-type {
+  border-bottom: none;
+}
+
+.mealTag {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  min-width: 44px;
+  flex-shrink: 0;
+}
+
+.mealNames {
+  font-size: var(--fs-body);
+}
+
+.mealMine {
+  padding: 10px 14px;
+  color: var(--c-primary);
+  font-size: var(--fs-caption);
+  border-top: 1px solid var(--c-border);
+}
+
+.activityRow {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.activityRow:last-child {
+  border-bottom: none;
+}
+
+.activityTitle {
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+.activityBody {
+  color: var(--c-text-sub);
+  font-size: var(--fs-caption);
+  margin-top: 2px;
+}
+
+.unreadDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  margin-right: 5px;
+  vertical-align: middle;
+}
