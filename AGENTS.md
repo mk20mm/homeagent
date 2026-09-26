@@ -111,6 +111,7 @@ pnpm run format        # Prettier
 | `homeagent-contract-workflow` | 契约先行与生成 | 修改 API、OpenAPI 契约、Ent 数据模型或前后端共享类型 |
 | `homeagent-e2e-verifier` | E2E 走查与视觉验证 | 验证移动端交互、SSE 流式、结果卡片、撤销回滚与截图审查 |
 | `homeagent-env-troubleshooting` | 踩坑与自愈知识库 | 遇到端口占用、代理 502、Vite 重载死循环、PowerShell 编码等异常 |
+| `init-spec-map` | 新项目架构地图初始化 | 新项目或新模块从零初始化规范蓝图、OpenAPI 契约与任务卡规范 |
 
 ### 3. 子智能体拓扑分工 (`.agents/agents/README.md`)
 - **Spec Architect（契约架构师）**：领域模型与 OpenAPI 契约同步。
