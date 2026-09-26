@@ -52,3 +52,6 @@ e2e-out/
 e2e-report/
 e2e-shots/
 e2e-results.json
+
+# APK 安装包
+*.apk

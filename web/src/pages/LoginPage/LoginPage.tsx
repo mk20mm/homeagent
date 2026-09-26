@@ -16,8 +16,19 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [authToken, setAuthToken] = useState('')
+  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('homeagent_server_url') || '')
+  const [showConfig, setShowConfig] = useState(false)
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(false)
+
+  const handleServerChange = (val: string) => {
+    setServerUrl(val)
+    if (val.trim()) {
+      localStorage.setItem('homeagent_server_url', val.trim())
+    } else {
+      localStorage.removeItem('homeagent_server_url')
+    }
+  }
 
   // 已登录直接进主页
   if (getAuth()) return <Navigate to="/" replace />
@@ -78,6 +89,35 @@ export function LoginPage() {
         <button type="submit" className={styles.submit} disabled={loading}>
           {loading ? '登录中…' : '登录'}
         </button>
+
+        <div style={{ marginTop: '16px', textAlign: 'center' }}>
+          <button
+            type="button"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#8e8e93',
+              fontSize: '12px',
+              cursor: 'pointer',
+              padding: '6px 10px',
+            }}
+            onClick={() => setShowConfig(!showConfig)}
+          >
+            ⚙️ {showConfig ? '收起配置' : '服务器设置 (局域网/原生)'}
+          </button>
+        </div>
+
+        {showConfig && (
+          <div style={{ marginTop: '10px', width: '100%' }}>
+            <input
+              className={styles.input}
+              style={{ fontSize: '13px', padding: '10px 12px' }}
+              placeholder="服务器地址 (如 http://192.168.0.109:8080)"
+              value={serverUrl}
+              onChange={(e) => handleServerChange(e.target.value)}
+            />
+          </div>
+        )}
       </form>
     </div>
   )

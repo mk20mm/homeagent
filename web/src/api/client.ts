@@ -11,6 +11,22 @@ import type { components, paths } from './schema'
 /** 后端错误码枚举：唯一真相源是 openapi 契约（对齐 apperr.Code） */
 export type ApiErrorCode = components['schemas']['Error']['code']
 
+export function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '/api/v1'
+  const custom = localStorage.getItem('homeagent_server_url')
+  if (custom) return custom.replace(/\/+$/, '') + '/api/v1'
+
+  // 在 Capacitor 原生安卓环境中，页面 origin 是 https://localhost 或 http://localhost
+  // 非 5173 端口说明是在独立 APK 里运行，需连到局域网开发机
+  const isCapacitor =
+    (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost') &&
+    window.location.port !== '5173'
+  if (isCapacitor) {
+    return 'http://192.168.0.109:8080/api/v1'
+  }
+  return window.location.origin ? `${window.location.origin}/api/v1` : '/api/v1'
+}
+
 export const api = createClient<paths>({
   // 绝对 baseUrl：openapi-fetch 内部 new Request() 需要完整来源，
   // 相对路径在浏览器靠 document 兜底，但 SSR/测试环境会抛 Failed to parse URL
@@ -18,9 +34,22 @@ export const api = createClient<paths>({
     typeof window !== 'undefined' && window.location?.origin
       ? `${window.location.origin}/api/v1`
       : '/api/v1',
-  // 延迟解析 fetch：MSW 在 beforeAll 才 patch globalThis.fetch，
-  // 导入期捕获的引用会绕过拦截（测试里表现为请求被吞、接口 '' 静默失败）
-  fetch: (...args) => fetch(...args),
+  // 延迟解析 fetch，同时在原生 WebView 环境将本地 localhost 替换为真实后端基址
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+    let url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+    const base = getApiBaseUrl()
+    if (
+      (url.startsWith('https://localhost/api/v1') || url.startsWith('http://localhost/api/v1')) &&
+      !base.includes('localhost')
+    ) {
+      url = url.replace(/^https?:\/\/localhost\/api\/v1/, base)
+      if (input instanceof Request) {
+        return fetch(new Request(url, input), init)
+      }
+      return fetch(url, init)
+    }
+    return fetch(input, init)
+  },
 })
 
 // 认证中间件：每个请求带 JWT；401（令牌失效）立即清空登录态

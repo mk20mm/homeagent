@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { clearAuth, getToken, type ChatStatus } from '@homeagent/shared'
+import { getApiBaseUrl } from '../api/client'
 
 export type SSEEvent =
   | { type: 'token'; content: string }
@@ -35,7 +36,18 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      fetch(url, {
+      let targetUrl = url
+      const base = getApiBaseUrl()
+      if (targetUrl.startsWith('/api/v1') && !base.startsWith('/api/v1')) {
+        targetUrl = base + targetUrl.slice('/api/v1'.length)
+      } else if (
+        (targetUrl.startsWith('http://localhost/api/v1') || targetUrl.startsWith('https://localhost/api/v1')) &&
+        !base.includes('localhost')
+      ) {
+        targetUrl = targetUrl.replace(/^https?:\/\/localhost\/api\/v1/, base)
+      }
+
+      fetch(targetUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
