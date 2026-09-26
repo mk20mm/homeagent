@@ -5,9 +5,9 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 
-import { ERROR_MESSAGE, type ErrorCode, getAuth, saveAuth, type MemberRole } from '@homeagent/shared'
+import { ERROR_MESSAGE, getAuth, saveAuth, type MemberRole } from '@homeagent/shared'
 
-import { api, ApiError, unwrap } from '../../api/client'
+import { api, ApiError, getApiBaseUrl, unwrap } from '../../api/client'
 import { tokens } from '../../styles/tokens'
 
 import styles from './LoginPage.module.css'
@@ -53,8 +53,14 @@ export function LoginPage() {
       })
       navigate('/', { replace: true })
     } catch (err) {
-      const code: ErrorCode = err instanceof ApiError ? err.code : 'internal'
-      setError(ERROR_MESSAGE[code])
+      if (err instanceof ApiError) {
+        setError(ERROR_MESSAGE[err.code] || err.message)
+      } else if (err instanceof Error) {
+        const base = getApiBaseUrl()
+        setError(`网络连接失败: 无法连接后端 [${base}] - ${err.message}`)
+      } else {
+        setError('登录失败，请检查网络连接')
+      }
     } finally {
       setLoading(false)
     }
