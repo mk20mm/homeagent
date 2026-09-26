@@ -94,9 +94,33 @@ pnpm run format        # Prettier
 
 **走查方法**（复用）：`web/e2e/ux-walkthrough.spec.ts` 是可回归的端到端走查脚本——登录→记账→撤销→侧边栏→各 Tab→异常制造（空输入/错误令牌/重复提交/超长文本/刷新），截图落 `web/e2e-shots/`（已 gitignore），截图用 `docling_describe_image` 做 VLM 分析。
 
+## Agent 自主研发架构与开发资产 (Autonomous Harness & Skills)
+
+为了实现「用户仅需提供高层想法与难点决策，Agent 自主协同闭环」，仓库建立了标准化的技能与脚本资产：
+
+### 1. 核心自动化脚本 (`scripts/`)
+- `.\scripts\harness-env.ps1`: Go 环境配置、清理 8080 残留进程、网络代理提示。
+- `.\scripts\codegen.ps1`: 契约先行全量代码生成（ent generate -> oapi-codegen -> openapi-typescript）。
+- `.\scripts\verify-all.ps1`: 质量门禁一键自检（Go Build + Go Test + TS Typecheck + Vitest + Playwright E2E）。
+
+### 2. 仓库专用技能库 (`.agents/skills/`)
+| 技能名称 | 职责定位 | 激活时机 |
+|---|---|---|
+| `homeagent-feature-loop` | 自主研发主闭环 | 接收高层需求后，端到端执行需求拆解、契约同步、编码、自测与呈报 |
+| `homeagent-contract-workflow` | 契约先行与生成 | 修改 API、OpenAPI 契约、Ent 数据模型或前后端共享类型 |
+| `homeagent-e2e-verifier` | E2E 走查与视觉验证 | 验证移动端交互、SSE 流式、结果卡片、撤销回滚与截图审查 |
+| `homeagent-env-troubleshooting` | 踩坑与自愈知识库 | 遇到端口占用、代理 502、Vite 重载死循环、PowerShell 编码等异常 |
+
+### 3. 子智能体拓扑分工 (`.agents/agents/README.md`)
+- **Spec Architect（契约架构师）**：领域模型与 OpenAPI 契约同步。
+- **Fullstack Builder（全栈实现者）**：Go + Ent + React 双端组件实现。
+- **QA Auditor（质量审计官）**：Playwright 走查、控制台排查与截图审查。
+- **Lead Orchestrator（主控调度者）**：汇总结果，仅在重大架构权衡时通过 `ask_question` 请示用户。
+
 ## 工作方式（Harness）
 
 - 人定方向、定约束、验结果；执行交给智能体。
 - 卡住时不要"更努力"，问：**缺什么能力/文档/约束，才能让智能体可靠地做出来？** 答案写进本文件或 docs/。
 - 每次改动同步更新：计划状态（exec-plans）、新增不变量（本文 + CONVENTIONS）、技术债（tech-debt）。
 - 发现坏模式立即偿还，技术债是高息贷款。
+
