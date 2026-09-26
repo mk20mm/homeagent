@@ -89,7 +89,7 @@ func (cmd UpdateExpenseCmd) ApplyTo(prev ExpenseRecord) ExpenseRecord {
 	return next
 }
 
-// Service 财务领域服务（工具通过它操作账单，不直接碰 ent.Client）。
+// Service 财务领域服务（工具通过它操作账单与收入，不直接碰 ent.Client）。
 type Service interface {
 	// RecordExpense 记账；duplicated=true 表示幂等命中（今天已记过同样的一笔，未重复入库）。
 	RecordExpense(ctx context.Context, cmd RecordExpenseCmd, memberID string) (id string, category string, duplicated bool, err error)
@@ -97,14 +97,24 @@ type Service interface {
 	UpdateExpense(ctx context.Context, id string, memberID string, cmd UpdateExpenseCmd) (next ExpenseRecord, prev ExpenseRecord, err error)
 	DeleteExpense(ctx context.Context, id string) error
 	QueryBudget(ctx context.Context, memberID string) (ExpenseSummary, error)
+	QueryBudgetMonth(ctx context.Context, memberID string, month time.Time) (ExpenseSummary, error)
+
+	// RecordIncome 记录收入；duplicated=true 表示幂等命中。
+	RecordIncome(ctx context.Context, cmd RecordIncomeCmd, memberID string) (id string, source string, duplicated bool, err error)
+	// UpdateIncome 修正收入
+	UpdateIncome(ctx context.Context, id string, memberID string, cmd UpdateIncomeCmd) (next IncomeRecord, prev IncomeRecord, err error)
+	DeleteIncome(ctx context.Context, id string) error
+	QueryIncomeSummary(ctx context.Context, memberID string, target time.Time, period string) (IncomeSummary, error)
+	QueryFinanceSummary(ctx context.Context, memberID string, target time.Time, period string) (FinanceSummary, error)
 }
 
-func NewService(repo ExpenseRepo) Service {
-	return &service{repo: repo}
+func NewService(repo ExpenseRepo, incomeRepo IncomeRepo) Service {
+	return &service{repo: repo, incomeRepo: incomeRepo}
 }
 
 type service struct {
-	repo ExpenseRepo
+	repo       ExpenseRepo
+	incomeRepo IncomeRepo
 }
 
 // RecordExpense 记账：校验→归类→幂等键→入库。幂等命中返回原账单，duplicated=true。
@@ -162,7 +172,11 @@ func (s *service) UpdateExpense(ctx context.Context, id string, memberID string,
 }
 
 func (s *service) QueryBudget(ctx context.Context, memberID string) (ExpenseSummary, error) {
-	return s.repo.Summary(ctx, memberID, time.Now())
+	return s.QueryBudgetMonth(ctx, memberID, time.Now())
+}
+
+func (s *service) QueryBudgetMonth(ctx context.Context, memberID string, month time.Time) (ExpenseSummary, error) {
+	return s.repo.Summary(ctx, memberID, month)
 }
 
 // IdempotencyKey 记账幂等键 sha256(member+amount+hint+day)。

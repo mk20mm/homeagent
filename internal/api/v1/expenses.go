@@ -19,6 +19,8 @@ type ExpenseQuery struct {
 	Category  string
 	StartDate *time.Time
 	EndDate   *time.Time
+	Year      int
+	Month     int
 }
 
 // ExpenseItem 流水展示项（对齐 openapi Expense schema）。
@@ -39,6 +41,7 @@ type ExpenseLister interface {
 // ExpenseSummarizer 记账汇总（expense.Service 实现）。
 type ExpenseSummarizer interface {
 	QueryBudget(ctx context.Context, memberID string) (expense.ExpenseSummary, error)
+	QueryBudgetMonth(ctx context.Context, memberID string, month time.Time) (expense.ExpenseSummary, error)
 }
 
 // ExpenseRecorder 记账写入（expense.Service 实现）。
@@ -81,6 +84,13 @@ func ListExpenses(lister ExpenseLister) gin.HandlerFunc {
 		if d := parseDate(c.Query("end_date")); d != nil {
 			q.EndDate = d
 		}
+		if yr, err := strconv.Atoi(c.Query("year")); err == nil && yr > 0 {
+			q.Year = yr
+		}
+		if mo, err := strconv.Atoi(c.Query("month")); err == nil && mo > 0 && mo <= 12 {
+			q.Month = mo
+		}
+
 		items, nextCursor, err := lister.ListExpenses(c.Request.Context(), memberID, q)
 		if err != nil {
 			abortWith(c, asAppErr(err))
@@ -98,7 +108,8 @@ func ExpenseSummary(svc ExpenseSummarizer) gin.HandlerFunc {
 			abortWith(c, apperr.New(apperr.CodePermission, "缺少成员身份", nil))
 			return
 		}
-		s, err := svc.QueryBudget(c.Request.Context(), memberID)
+		target := parseYearMonth(c.Query("year"), c.Query("month"))
+		s, err := svc.QueryBudgetMonth(c.Request.Context(), memberID, target)
 		if err != nil {
 			abortWith(c, asAppErr(err))
 			return

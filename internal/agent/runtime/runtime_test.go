@@ -110,6 +110,22 @@ func (r *memExpenseRepo) Summary(_ context.Context, memberID string, month time.
 	return sm, nil
 }
 
+func (r *memExpenseRepo) CreateIncome(_ context.Context, _ string, _ expense.RecordIncomeCmd, _ string) (string, error) {
+	return uuid.NewString(), nil
+}
+
+func (r *memExpenseRepo) UpdateIncome(_ context.Context, _ string, _ string, _ expense.UpdateIncomeCmd) (expense.IncomeRecord, error) {
+	return expense.IncomeRecord{}, nil
+}
+
+func (r *memExpenseRepo) DeleteIncome(_ context.Context, _ string) error {
+	return nil
+}
+
+func (r *memExpenseRepo) IncomeSummary(_ context.Context, _ string, _ time.Time, _ string) (expense.IncomeSummary, error) {
+	return expense.IncomeSummary{BySource: map[string]int64{}}, nil
+}
+
 type memUndo struct {
 	mu      sync.Mutex
 	records []tool.UndoRecord
@@ -302,7 +318,7 @@ func (s *memSession) Delete(_ context.Context, convID, memberID string) error {
 func newTestRuntime(t *testing.T, perms map[string]bool) (*Runtime, *memExpenseRepo, *memUndo, *memAudit, *memSession) {
 	t.Helper()
 	repo := newMemExpenseRepo()
-	svc := expense.NewService(repo) // 真实领域服务：归类/幂等/校验都被覆盖
+	svc := expense.NewService(repo, repo) // 真实领域服务：归类/幂等/校验都被覆盖
 	reg := tool.NewRegistry()
 	if err := reg.Register(expense.NewRecordExpenseTool(svc)); err != nil {
 		t.Fatalf("register tool: %v", err)

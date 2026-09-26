@@ -1,4 +1,4 @@
-﻿package schema
+package schema
 
 import (
 	"entgo.io/ent"
@@ -53,6 +53,7 @@ func (Member) Edges() []ent.Edge {
 		edge.From("family", Family.Type).Ref("members").Unique().Required(),
 		edge.To("conversations", Conversation.Type),
 		edge.To("expenses", Expense.Type),
+		edge.To("incomes", Income.Type),
 		edge.To("tasks", Task.Type),
 		edge.To("assigned_tasks", Task.Type),
 		edge.To("meal_reports", MealReport.Type),

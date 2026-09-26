@@ -72,9 +72,9 @@ func main() {
 	// 供应商仓储（带加密能力，api_key 落库加密）
 	provRepo := repo.NewProviderStore(storeRepo, cfg.EncryptionKey)
 
-	// 工具注册表：一期 9 工具（P1 补齐）
+	// 工具注册表：财务+家务+用餐+模型工具
 	registry := tool.NewRegistry()
-	expenseSvc := expense.NewService(storeRepo)
+	expenseSvc := expense.NewService(storeRepo, storeRepo)
 	taskSvc := task.NewService(storeRepo)
 	mealSvc := meal.NewService(storeRepo)
 	modelSvc := model.NewService(storeRepo, provRepo)
@@ -82,6 +82,8 @@ func main() {
 		expense.NewRecordExpenseTool(expenseSvc),
 		expense.NewQueryBudgetTool(expenseSvc),
 		expense.NewUpdateExpenseTool(expenseSvc),
+		expense.NewRecordIncomeTool(expenseSvc),
+		expense.NewUpdateIncomeTool(expenseSvc),
 		task.NewAssignTaskTool(taskSvc),
 		task.NewCompleteTaskTool(taskSvc),
 		task.NewListMyTasksTool(taskSvc),
@@ -95,7 +97,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	slog.Info("tools registered", "count", 9)
+	slog.Info("tools registered", "count", 12)
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
@@ -128,7 +130,7 @@ func main() {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo, storeRepo, expenseSvc, expenseSvc, storeRepo, expenseSvc)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {

@@ -390,6 +390,16 @@ paths:
           schema:
             type: string
             format: date
+        - in: query
+          name: year
+          description: 年份过滤（如 2026）
+          schema:
+            type: integer
+        - in: query
+          name: month
+          description: 月份过滤（1-12）
+          schema:
+            type: integer
       responses:
         '200':
           description: 流水列表
@@ -462,6 +472,16 @@ paths:
             type: string
             enum: [month, year]
             default: month
+        - in: query
+          name: year
+          description: 年份（如 2026）
+          schema:
+            type: integer
+        - in: query
+          name: month
+          description: 月份（1-12）
+          schema:
+            type: integer
       responses:
         '200':
           description: 汇总
@@ -484,6 +504,187 @@ paths:
                           type: string
                         total_cents:
                           type: integer
+
+  /incomes:
+    get:
+      tags: [income]
+      summary: 收入流水（member 隔离，occurred_at 倒序，游标分页）
+      operationId: listIncomes
+      parameters:
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - in: query
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: source
+          description: 按收入来源过滤（工资/奖金/兼职/报销/退款/红包/利息/其他）
+          schema:
+            type: string
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: year
+          description: 年份过滤（如 2026）
+          schema:
+            type: integer
+        - in: query
+          name: month
+          description: 月份过滤（1-12）
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 收入列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Income'
+                  next_cursor:
+                    type: string
+    post:
+      tags: [income]
+      summary: 手动记一笔收入（同样幂等可撤销）
+      operationId: createIncome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomeCreate'
+      responses:
+        '201':
+          description: 已记录收入
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Income'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /incomes/{incomeId}:
+    patch:
+      tags: [income]
+      summary: 修正一笔收入（金额/来源/备注，可撤销）
+      operationId: updateIncome
+      parameters:
+        - in: path
+          name: incomeId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomeUpdate'
+      responses:
+        '200':
+          description: 已修正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Income'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /incomes/summary:
+    get:
+      tags: [income]
+      summary: 收入汇总（按来源/按月/按年）
+      operationId: incomeSummary
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [month, year]
+            default: month
+        - in: query
+          name: year
+          description: 年份（如 2026）
+          schema:
+            type: integer
+        - in: query
+          name: month
+          description: 月份（1-12）
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 收入汇总
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total_cents, sources]
+                properties:
+                  total_cents:
+                    type: integer
+                    description: 总收入（分）
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                      required: [source, total_cents]
+                      properties:
+                        source:
+                          type: string
+                        total_cents:
+                          type: integer
+
+  /finance/summary:
+    get:
+      tags: [finance]
+      summary: 财务收支总览（结合总收入、总支出、结余）
+      operationId: financeSummary
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [month, year]
+            default: month
+        - in: query
+          name: year
+          description: 年份（如 2026）
+          schema:
+            type: integer
+        - in: query
+          name: month
+          description: 月份（1-12）
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 收支总结余
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceSummary'
 
   /budget:
     get:
@@ -1097,6 +1298,96 @@ components:
         category:
           type: string
           description: 修正后的分类
+
+    Income:
+      type: object
+      required: [id, member_id, amount_cents, source, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          example: 工资
+          description: 收入来源（工资/奖金/兼职/报销/退款/红包/利息/其他）
+        amount_cents:
+          type: integer
+          description: 金额（分）
+        hint:
+          type: string
+          example: 9月工资入账
+        note:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        undoable:
+          type: boolean
+          description: 是否在 24h 撤销窗口内
+        undo_id:
+          type: string
+          description: 撤销凭据 ID
+        duplicated:
+          type: boolean
+          description: 是否触发幂等防重
+
+    IncomeCreate:
+      type: object
+      required: [amount_cents, source]
+      properties:
+        amount_cents:
+          type: integer
+          minimum: 1
+        source:
+          type: string
+          example: 工资
+        hint:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+
+    IncomeUpdate:
+      type: object
+      description: 修正收入记录（部分更新，至少传一个字段）
+      minProperties: 1
+      properties:
+        amount_cents:
+          type: integer
+          minimum: 1
+          description: 修正后的金额（分）
+        source:
+          type: string
+          description: 修正后的来源
+        hint:
+          type: string
+          description: 修正后的内容
+
+    FinanceSummary:
+      type: object
+      required: [total_income_cents, total_expense_cents, balance_cents, period]
+      properties:
+        total_income_cents:
+          type: integer
+          description: 总收入（分）
+        total_expense_cents:
+          type: integer
+          description: 总支出（分）
+        balance_cents:
+          type: integer
+          description: 净结余（分 = 收入 - 支出）
+        period:
+          type: string
+          example: month
+        year:
+          type: integer
+          example: 2026
+        month:
+          type: integer
+          example: 9
 
     TaskStatus:
       type: string

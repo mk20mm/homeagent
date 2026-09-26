@@ -6,7 +6,7 @@ import styles from './TabBar.module.css'
 const TABS = [
   { to: '/', label: '对话', icon: '💬' },
   { to: '/chores', label: '家务', icon: '✅' },
-  { to: '/money', label: '记账', icon: '💰' },
+  { to: '/money', label: '财务', icon: '💰' },
   { to: '/kitchen', label: '厨房', icon: '🍳' },
   { to: '/settings', label: '设置', icon: '⚙️' },
 ] as const

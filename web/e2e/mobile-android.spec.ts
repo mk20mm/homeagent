@@ -55,10 +55,10 @@ test.describe('移动端与安卓 App 原生体验走查', () => {
     await page.waitForURL('/chores')
     await expect(page.locator('h1')).toHaveText('家务任务')
 
-    // 2. 记账
-    await page.click('nav a:has-text("记账")')
+    // 2. 财务
+    await page.click('nav a:has-text("财务")')
     await page.waitForURL('/money')
-    await expect(page.locator('h1')).toHaveText('记账')
+    await expect(page.locator('h1')).toHaveText('财务')
     // 验证记账页 FAB 在移动端正确悬浮
     await expect(page.locator('button[aria-label="记一笔"]')).toBeVisible()
 

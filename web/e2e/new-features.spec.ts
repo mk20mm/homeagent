@@ -76,14 +76,15 @@ test.describe('记账快捷路径', () => {
       await page.screenshot({ path: `${SHOT}/nf-06-editing.png` })
 
       // 改金额并保存
+      const editAmt = `${100 + Math.floor(Math.random() * 800)}.${Math.floor(10 + Math.random() * 89)}`
       const input = page.locator(`input[inputMode="decimal"]`).first()
-      await input.fill('99.9')
+      await input.fill(editAmt)
       await page.click('button:has-text("保存修正")')
       await page.waitForTimeout(600)
       await page.screenshot({ path: `${SHOT}/nf-07-after-edit.png` })
 
       // 卡片金额应更新
-      await expect(page.getByText('¥99.90').first()).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(`¥${Number(editAmt).toFixed(2)}`).first()).toBeVisible({ timeout: 5000 })
     }
   })
 

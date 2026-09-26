@@ -231,6 +231,17 @@ func (s *Store) ListExpenses(ctx context.Context, memberID string, q v1.ExpenseQ
 		// end_date 含端点：查到次日 0 点
 		query = query.Where(expense.OccurredAtLT(q.EndDate.AddDate(0, 0, 1)))
 	}
+	if q.Year > 0 {
+		if q.Month > 0 {
+			start := time.Date(q.Year, time.Month(q.Month), 1, 0, 0, 0, 0, time.Local)
+			end := start.AddDate(0, 1, 0)
+			query = query.Where(expense.OccurredAtGTE(start), expense.OccurredAtLT(end))
+		} else {
+			start := time.Date(q.Year, 1, 1, 0, 0, 0, 0, time.Local)
+			end := start.AddDate(1, 0, 0)
+			query = query.Where(expense.OccurredAtGTE(start), expense.OccurredAtLT(end))
+		}
+	}
 	if q.Cursor != "" {
 		if t, err := time.Parse(time.RFC3339, q.Cursor); err == nil {
 			query = query.Where(expense.OccurredAtLT(t))

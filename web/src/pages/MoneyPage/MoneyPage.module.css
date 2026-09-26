@@ -1,40 +1,194 @@
-.title {
-  font-size: 22px;
-  font-weight: 700;
+.container {
+  padding: 0 0 100px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 0 16px;
 }
 
-.summary {
-  background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 60%, #0a84ff 120%);
-  border-radius: 22px;
-  padding: 24px 20px;
-  margin-bottom: 16px;
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin: 0;
+}
+
+/* 时间切换胶囊 */
+.timeCapsule {
+  display: flex;
+  align-items: center;
+  background: #f2f2f7;
+  border-radius: 999px;
+  padding: 3px 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.timeNavBtn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #8e8e93;
+  cursor: pointer;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.timeNavBtn:active {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1c1c1e;
+}
+
+.timeDisplayBtn {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c1c1e;
+  cursor: pointer;
+}
+
+.pickerIcon {
+  font-size: 10px;
+  color: #8e8e93;
+}
+
+/* Apple Card 风格收支总览卡片 */
+.summaryCard {
+  background: linear-gradient(145deg, #1c1c1e 0%, #25282a 55%, #183324 100%);
+  border-radius: 24px;
+  padding: 22px 20px;
+  margin-bottom: 20px;
   color: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
   position: relative;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.summaryLabel {
-  font-size: 13px;
-  opacity: 0.8;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+.summaryCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.summaryAmount {
-  font-size: 32px;
+.cardPeriodBadge {
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.12);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.balanceAmount {
+  font-size: 34px;
   font-weight: 800;
-  margin-top: 6px;
-  letter-spacing: -0.8px;
+  margin-top: 10px;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.balancePositive {
+  color: #30d158;
+}
+
+.balanceNegative {
+  color: #ff453a;
+}
+
+.summaryDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 18px 0 14px;
+}
+
+.subStatsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.subStatItem {
+  flex: 1;
+  text-align: center;
+}
+
+.subStatLabel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+}
+
+.subStatIncome {
+  font-size: 16px;
+  font-weight: 700;
+  color: #30d158;
   font-variant-numeric: tabular-nums;
 }
 
+.subStatExpense {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff9f0a;
+  font-variant-numeric: tabular-nums;
+}
+
+.subStatDivider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 筛选栏 Segmented Control */
+.filterSection {
+  margin-bottom: 14px;
+}
+
+.segmentedControl {
+  display: flex;
+  background: #e5e5ea;
+  border-radius: 12px;
+  padding: 3px;
+}
+
+.segmentBtn {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #8e8e93;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.segmentActive {
+  background: #ffffff;
+  color: #1c1c1e;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* 收支明细列表 */
 .list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-bottom: 96px;
 }
 
 .item {
@@ -59,20 +213,33 @@
 }
 
 .categoryIconBox {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #f2f2f7;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 20px;
   flex-shrink: 0;
+}
+
+.expenseIconBox {
+  background: #f2f2f7;
+}
+
+.incomeIconBox {
+  background: #e9f8ee;
 }
 
 .main {
   flex: 1;
   min-width: 0;
+}
+
+.categoryRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .category {
@@ -81,10 +248,27 @@
   color: #1c1c1e;
 }
 
+.typeBadge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.expenseBadge {
+  background: #f2f2f7;
+  color: #8e8e93;
+}
+
+.incomeBadge {
+  background: #e5f7eb;
+  color: #34c759;
+}
+
 .hint {
   font-size: 12px;
   color: #8e8e93;
-  margin-top: 2px;
+  margin-top: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -96,13 +280,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+.expenseAmount {
+  color: #1c1c1e;
+}
+
+.incomeAmount {
+  color: #34c759;
+}
+
 .empty {
   text-align: center;
   color: #8e8e93;
   font-size: 13px;
-  padding: 32px 0;
+  padding: 40px 0;
 }
 
+/* FAB 悬浮按钮 */
 .fab {
   position: fixed;
   right: calc(max(calc((100vw - 480px) / 2), 0px) + 20px);
@@ -129,6 +322,127 @@
   transform: scale(0.92);
 }
 
+/* 年月选择器弹窗 */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.pickerModal {
+  width: 100%;
+  max-width: 320px;
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pickerTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.resetBtn {
+  border: none;
+  background: none;
+  color: #0a84ff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yearRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.yearBtn {
+  flex: 1;
+  border: 1px solid #e5e5ea;
+  background: #f8f8fa;
+  border-radius: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3c3c43;
+  cursor: pointer;
+}
+
+.yearBtnActive {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.monthBtn {
+  border: 1px solid #e5e5ea;
+  background: #f8f8fa;
+  border-radius: 10px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1c1c1e;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.monthBtnActive {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.fullYearBtn {
+  width: 100%;
+  border: 1px solid #e5e5ea;
+  background: #f8f8fa;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #3c3c43;
+  cursor: pointer;
+}
+
+/* 记一笔浮层 Sheet */
 .sheetOverlay {
   position: fixed;
   inset: 0;
@@ -146,7 +460,6 @@
   margin: 0 auto;
   background: #fff;
   border-radius: 24px 24px 0 0;
-  /* 底部留出 TabBar 高度，避免保存按钮被遮挡 */
   padding: 12px 18px calc(16px + 68px + env(safe-area-inset-bottom));
   animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -168,14 +481,65 @@
   }
 }
 
-.sheetTitle {
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 14px;
+.sheetTypeTabs {
+  display: flex;
+  background: #f2f2f7;
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.sheetTypeBtn {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8e8e93;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sheetTypeBtnExpenseActive {
+  background: #ffffff;
+  color: #ff453a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.sheetTypeBtnIncomeActive {
+  background: #ffffff;
+  color: #34c759;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .sheetRow {
-  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.currencyPrefix {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin-right: 8px;
+}
+
+.sheetAmountInput {
+  flex: 1;
+  border: none;
+  border-bottom: 2px solid #e5e5ea;
+  font-size: 28px;
+  font-weight: 700;
+  padding: 4px 0;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheetAmountInput:focus {
+  border-color: #0a84ff;
 }
 
 .sheetInput {
@@ -184,7 +548,7 @@
   border: 1px solid #e5e5ea;
   border-radius: 12px;
   padding: 12px 14px;
-  font-size: 16px;
+  font-size: 15px;
   outline: none;
 }
 
@@ -192,11 +556,18 @@
   border-color: #0a84ff;
 }
 
+.chipsLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8e8e93;
+  margin: 10px 0 8px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 4px 0 14px;
+  margin-bottom: 16px;
 }
 
 .chip {
@@ -207,13 +578,60 @@
   font-size: 13px;
   color: #3c3c43;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .chipOn {
-  background: #e8f0ff;
-  border-color: #0a84ff;
-  color: #0a84ff;
+  background: #feeceb;
+  border-color: #ff3b30;
+  color: #ff3b30;
   font-weight: 600;
+}
+
+.chipIncomeOn {
+  background: #e8f7ee;
+  border-color: #34c759;
+  color: #34c759;
+  font-weight: 600;
+}
+
+.dateSelectorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dateChips {
+  display: flex;
+  gap: 6px;
+}
+
+.dateChip {
+  border: 1px solid #e5e5ea;
+  background: #f5f5f7;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #3c3c43;
+  cursor: pointer;
+}
+
+.dateChipActive {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  color: #fff;
+  font-weight: 600;
+}
+
+.dateInput {
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #1c1c1e;
+  outline: none;
 }
 
 .sheetError {
@@ -225,13 +643,18 @@
 .sheetSave {
   width: 100%;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px;
   font-size: 16px;
   font-weight: 600;
   background: #0a84ff;
   color: #fff;
   cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.sheetSaveIncome {
+  background: #34c759;
 }
 
 .sheetSave:disabled {

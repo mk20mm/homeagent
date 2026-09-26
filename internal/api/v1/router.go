@@ -42,6 +42,11 @@ func Register(
 	taskSvc TaskService,
 	mealSvc MealService,
 	mealLister MealReportLister,
+	incomeLister IncomeLister,
+	incomeRecorder IncomeRecorder,
+	incomeSummarizer IncomeSummarizer,
+	incomeUndoWriter IncomeUndoWriter,
+	financeSummarizer FinanceSummarizer,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
 	rg.GET("/health", health)
@@ -62,6 +67,11 @@ func Register(
 	jwtGroup.GET("/expenses/summary", ExpenseSummary(expSummarizer))
 	jwtGroup.POST("/expenses", CreateExpense(expRecorder, expUndoWriter, pl))
 	jwtGroup.PATCH("/expenses/:expenseId", UpdateExpense(expRecorder, expUndoWriter, pl))
+	jwtGroup.GET("/incomes", ListIncomes(incomeLister))
+	jwtGroup.POST("/incomes", CreateIncome(incomeRecorder, incomeUndoWriter, pl))
+	jwtGroup.PATCH("/incomes/:incomeId", UpdateIncome(incomeRecorder, incomeUndoWriter, pl))
+	jwtGroup.GET("/incomes/summary", IncomeSummary(incomeSummarizer))
+	jwtGroup.GET("/finance/summary", FinanceSummaryHandler(financeSummarizer))
 	jwtGroup.GET("/tasks", ListTasks(taskSvc))
 	jwtGroup.POST("/tasks", CreateTask(taskSvc, pl))
 	jwtGroup.POST("/tasks/:taskId/complete", CompleteTask(taskSvc, pl))
