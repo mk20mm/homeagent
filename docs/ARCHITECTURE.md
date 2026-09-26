@@ -134,18 +134,23 @@
 
 ## 8. 工具清单（Tool Inventory · 一期）
 
-| 模块 | 工具             | Risk | Autonomy | 幂等                       | 撤销                 |
-| ---- | ---------------- | ---- | -------- | -------------------------- | -------------------- |
-| 财务 | `record_expense` | 高   | A3       | 是（user+amount+hint+day） | 必须                 |
-| 财务 | `query_budget`   | 低   | A1       | 查询，天然幂等             | 不需要               |
-| 家务 | `assign_task`    | 中   | A2       | 是                         | 可撤销               |
-| 家务 | `complete_task`  | 中   | A2       | 是（防重复打卡）           | 可撤销（撤销误打卡） |
-| 家务 | `list_my_tasks`  | 低   | A1       | 查询                       | 不需要               |
-| 烹饪 | `save_recipe`    | 中   | A2       | 是（user+title）           | 可撤销               |
-| 烹饪 | `query_recipe`   | 低   | A1       | 查询                       | 不需要               |
-| 烹饪 | `suggest_dinner` | 低   | A0       | —                          | 不需要               |
-| 系统 | `switch_model`   | 中   | A2       | 是                         | 可撤销（切回）       |
-| 系统 | `list_models`    | 低   | A1       | 查询                       | 不需要               |
+| 模块 | 工具                     | Risk | Autonomy | 幂等                          | 撤销                 |
+| ---- | ------------------------ | ---- | -------- | ----------------------------- | -------------------- |
+| 财务 | `record_expense`         | 高   | A3       | 是（user+amount+hint+day）    | 必须                 |
+| 财务 | `record_income`          | 高   | A3       | 是（user+amount+source+day）  | 必须                 |
+| 财务 | `create_recurring_bill`  | 高   | A3       | 是（user+title+cycle）        | 可撤销（删除账单）   |
+| 财务 | `query_finance_summary`  | 低   | A1       | 查询，天然幂等                | 不需要               |
+| 财务 | `query_expense_report`   | 低   | A1       | 查询，天然幂等                | 不需要               |
+| 财务 | `query_budget`           | 低   | A1       | 查询，天然幂等                | 不需要               |
+| 家务 | `assign_task`            | 中   | A2       | 是                            | 可撤销               |
+| 家务 | `complete_task`          | 中   | A2       | 是（防重复打卡）              | 可撤销（撤销误打卡） |
+| 家务 | `list_my_tasks`          | 低   | A1       | 查询                          | 不需要               |
+| 烹饪 | `save_recipe`            | 中   | A2       | 是（user+title）              | 可撤销               |
+| 烹饪 | `query_recipe`           | 低   | A1       | 查询                          | 不需要               |
+| 烹饪 | `suggest_dinner`         | 低   | A0       | —                             | 不需要               |
+| 出行 | `record_vehicle_expense` | 高   | A3       | 是（user+type+amount+day）    | 必须（联动 record_expense） |
+| 系统 | `switch_model`           | 中   | A2       | 是                            | 可撤销（切回）       |
+| 系统 | `list_models`            | 低   | A1       | 查询                          | 不需要               |
 
 > 工具热插拔：注册表支持动态注册，新模块工具直接挂载，不改调度器核心（见 PRD §8.1）。
 
