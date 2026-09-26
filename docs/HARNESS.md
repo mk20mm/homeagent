@@ -1,27 +1,102 @@
-# HomeAgent · Agent 自主研发与知识沉淀使用手册 (HARNESS.md)
+# HomeAgent · 仓库 Spec 规范与自主开发沉淀指南 (HARNESS.md)
 
 > 对齐 **AI-STD-006（仓库 Harness 标准）** 与 **Antigravity Customization System**。
-> 本手册是人与 Agent 协同开发的**操作说明书**：上篇指导**「日常如何极简使用」**，下篇规范**「知识如何持续沉淀与进化」**。
+> 本文件是本仓库智能体协同开发的核心指南：
+> - **第一篇 · Spec Map 架构规范与任务卡验收标准**：基于 OpenAPI 契约与结构化 JSON 任务卡的设计标准；
+> - **第二篇 · 日常研发与协同操作手册**：人类与 Agent 的极简交互姿势与自动化脚本；
+> - **第三篇 · 知识沉淀与自我进化手册**：知识分类唯一槽位、真伪检验与定期瘦身法则。
 
 ---
 
-# 上篇 · 日常使用手册 (How to Use)
+# 第一篇 · Spec Map 架构规范与任务卡验收标准 (Spec & Acceptance)
+
+## 1. Spec Map 4 阶段架构构建标准
+
+本项目及未来衍生项目的蓝图均遵循严格的四阶段递进规范，杜绝无约束自由发挥：
+
+```
+[阶段 1: 业务定义与领域挖掘] ──> [阶段 2: AGENTS.md 顶层地图构建]
+                                          │
+[阶段 4: AI-PRD 与确定性架构] <── [阶段 3: OpenAPI 契约与结构化 JSON 任务卡]
+```
+
+1. **阶段 1：业务定义与领域挖掘**（`docs/DOMAIN/`）
+   - 梳理 3~5 个限界上下文（Core vs Supporting）。
+   - 建立中英文统一语言表（Ubiquitous Language），消除概念歧义。
+   - 编写 S1~S10 黄金评测任务样本（Golden Eval Task Samples），定义真实用户意图与期望工具输出。
+2. **阶段 2：AGENTS.md 顶层地图构建**（根目录 `AGENTS.md`）
+   - 严格控制在 100~120 行，作为 Agent 进入项目的“指南针”。
+   - 载明 8 条绝对架构红线（UUID 主键、分单位金额、全量 24h 撤销、权限双保险等）。
+   - 声明目录地图、常用命令、环境踩坑（避坑槽位）与知识去向地图。
+3. **阶段 3：OpenAPI 契约先行与代码生成**（`api/openapi.yaml`）
+   - OpenAPI 3.0+ 作为接口唯一真相源。
+   - 驱动后端服务桩生成（如 Go `oapi-codegen`）与前端双端 TypeScript 类型生成（`openapi-typescript`）。
+4. **阶段 4：AI-PRD 与确定性架构**（`docs/AI-PRD.md` & `docs/ARCHITECTURE.md`）
+   - 划分确定性边界：代码硬防（金额计算、事务、权限、幂等、循环上限）vs 模型推理（意图抽取、文案润色）。
+   - 划分工具自治级别：A0 建议 ➔ A1 查询 ➔ A2 可逆写 ➔ A3 难逆高危写（Preview + 可撤销）。
+
+---
+
+## 2. 结构化 JSON 任务卡设计标准 (Result Card Pattern)
+
+> **核心原则：Agent 与客户端交互禁止仅依赖纯自然语言。每次工具执行必须产出类型化、结构化且包含撤销凭据的 JSON 任务卡。**
+
+### 标准外层信封结构 (Envelope Schema)
+```typescript
+export interface ToolEventEnvelope<T = unknown> {
+  /** 事件类型：token (文字增量) | tool_call (工具卡片) | done (结束) | error (报错) */
+  type: 'tool_call'
+  /** 底层工具唯一标识 */
+  tool: string
+  /** 任务卡核心负载 (Payload) */
+  card: T
+  /** 逆向撤销凭据 (仅对写操作产生，24 小时内有效) */
+  undo_id?: string
+}
+```
+
+### 经典任务卡 Payload 规范示例
+```json
+{
+  "type": "tool_call",
+  "tool": "record_expense",
+  "card": {
+    "type": "expense",
+    "expense_id": "87ee0710-4301-4b88-a531-421ea2b9e7be",
+    "amount_cents": 3500,
+    "category": "食材",
+    "category_icon": "🥦",
+    "hint": "买菜",
+    "time": "23:10",
+    "duplicated": false
+  },
+  "undo_id": "b10f8c3e-cd25-48a2-ae98-8c31f5a0d148"
+}
+```
+
+### 任务卡验收标准
+1. **双端高保真渲染**：前端将 `card` 直接解析为磨砂质感卡片，包含图标、分类、格式化金额（千分位）与时间。
+2. **24 小时可撤销闭环**：卡片右下角附带「撤销」胶囊按钮。点击触发 `POST /api/v1/undo/{undo_id}`，前端立即乐观标记为「已撤销」并回滚对应本地数据。
+3. **幂等防御可视化**：当命中幂等键重复提交时，卡片回显历史记录并标记 `duplicated: true`，提示用户「今日已记过该记录，未重复入账」。
+
+---
+
+# 第二篇 · 日常研发与协同操作手册 (How to Use)
 
 ## 1. 核心定位与协作角色
 
-在 HomeAgent 的自主研发模式下，双方分工边界严格确立：
 - **您（人类开发者）= 首席产品官 / 首席架构师**：负责提出业务意图（WHAT / WHY）、进行关键取舍与架构决策（DECISION）、验收最终视觉与体验结果（OUTCOME）。
 - **Agent（智能体集群）= 全栈自主工程团队**：负责需求转译、契约同步、代码生成、全栈编码、自动化门禁测试、截图捕获与踩坑自愈。
 
 ---
 
-## 2. 三大日常使用姿势
+## 2. 三大日常极简使用姿势
 
 ### 姿势一：提想法（自主放手模式）
 直接向 Agent 描述业务目标，无需给出具体的技术实现步骤。
 - **输入示例**：
   > “开始做财务模块的【收入记录】功能，支持工资/红包/报销，样式参考微信账单的绿色标识，并把总览卡片更新为收支结余。”
-- **Agent 自主行为**（激活 `homeagent-feature-loop`）：
+- **Agent 自主行为**（激活 `homeagent-feature-loop` 技能）：
   1. 领域同步：自动更新 `docs/DOMAIN/家庭领域模型.md` 与 `docs/AI-PRD.md`。
   2. 契约先行：自动修改 `api/openapi.yaml` 并运行 `.\scripts\codegen.ps1`。
   3. 全栈实现：编写 Ent Schema、后端 Service/Tool/Router、前端 React/CSS Modules。
@@ -66,11 +141,11 @@ Agent 在完成前端功能后，会自动捕获移动端（Pixel 7 视口，100
 
 ---
 
-# 下篇 · 知识沉淀与进化手册 (How to Accumulate & Evolve)
+# 第三篇 · 知识沉淀与自我进化手册 (How to Accumulate & Evolve)
 
 ## 1. 知识分类与唯一真相源（绝不乱放）
 
-知识如果到处乱写，会导致严重的信息污染。所有新认知必须严格落入以下 6 个标准槽位：
+所有新认知必须严格落入以下 6 个标准槽位，避免信息碎片化：
 
 ```
                 ┌───────────────────────────────────────────────┐
