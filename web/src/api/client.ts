@@ -22,7 +22,7 @@ export function getApiBaseUrl(): string {
     (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost') &&
     window.location.port !== '5173'
   if (isCapacitor) {
-    return 'http://192.168.0.109:8080/api/v1'
+    return 'http://192.168.7.115:8080/api/v1'
   }
   return window.location.origin ? `${window.location.origin}/api/v1` : '/api/v1'
 }

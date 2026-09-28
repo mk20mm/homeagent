@@ -30,12 +30,37 @@ export function LoginPage() {
     }
   }
 
+  const [diagMsg, setDiagMsg] = useState<string>()
+  const [testing, setTesting] = useState(false)
+
+  const handleTestConnection = async () => {
+    setTesting(true)
+    setDiagMsg('正在检测连通性…')
+    try {
+      const base = getApiBaseUrl().replace(/\/api\/v1\/?$/, '')
+      const res = await fetch(`${base}/api/v1/health`, { method: 'GET' })
+      if (res.ok) {
+        setDiagMsg(`✅ 连接正常: ${base} 响应 OK`)
+      } else {
+        setDiagMsg(`⚠️ 后端响应异常: HTTP ${res.status}`)
+      }
+    } catch (e) {
+      setDiagMsg(`❌ 无法连接到电脑后端: ${(e as Error).message}。请确认手机与电脑连接同一WiFi`)
+    } finally {
+      setTesting(false)
+    }
+  }
+
   // 已登录直接进主页
   if (getAuth()) return <Navigate to="/" replace />
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !authToken.trim() || loading) return
+    if (!name.trim() || !authToken.trim()) {
+      setError('请先输入成员名与登录令牌，或点击下方快捷填入')
+      return
+    }
+    if (loading) return
 
     setError(undefined)
     setLoading(true)
@@ -74,6 +99,50 @@ export function LoginPage() {
         </h1>
         <p className={styles.subtitle}>登录后即可让 Agent 跑腿</p>
 
+        {/* 快捷填入按钮 */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', justifyContent: 'center' }}>
+          <button
+            type="button"
+            style={{
+              padding: '6px 12px',
+              fontSize: '12px',
+              borderRadius: '16px',
+              border: '1px solid #007aff',
+              background: '#f0f7ff',
+              color: '#007aff',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+            onClick={() => {
+              setName('爸爸')
+              setAuthToken('dev-baba')
+              setError(undefined)
+            }}
+          >
+            👨 一键填入爸爸
+          </button>
+          <button
+            type="button"
+            style={{
+              padding: '6px 12px',
+              fontSize: '12px',
+              borderRadius: '16px',
+              border: '1px solid #34c759',
+              background: '#f0fff4',
+              color: '#34c759',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+            onClick={() => {
+              setName('妈妈')
+              setAuthToken('dev-mama')
+              setError(undefined)
+            }}
+          >
+            👩 一键填入妈妈
+          </button>
+        </div>
+
         <input
           className={styles.input}
           placeholder="成员名（如：爸爸）"
@@ -96,20 +165,48 @@ export function LoginPage() {
           {loading ? '登录中…' : '登录'}
         </button>
 
-        <div style={{ marginTop: '16px', textAlign: 'center' }}>
+        {/* 实时后端网络指示器 */}
+        <div style={{ marginTop: '14px', textAlign: 'center' }}>
+          <div style={{ fontSize: '11px', color: '#8e8e93', marginBottom: '4px' }}>
+            目标后端: <span style={{ fontFamily: 'monospace' }}>{getApiBaseUrl()}</span>
+          </div>
+          <button
+            type="button"
+            style={{
+              background: '#f2f2f7',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              color: '#007aff',
+              cursor: 'pointer',
+            }}
+            onClick={handleTestConnection}
+            disabled={testing}
+          >
+            {testing ? '正在测试…' : '🔍 点此测试后端连通性'}
+          </button>
+          {diagMsg && (
+            <div style={{ fontSize: '11px', marginTop: '6px', color: diagMsg.startsWith('✅') ? '#34c759' : '#ff3b30' }}>
+              {diagMsg}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: '12px', textAlign: 'center' }}>
           <button
             type="button"
             style={{
               background: 'none',
               border: 'none',
               color: '#8e8e93',
-              fontSize: '12px',
+              fontSize: '11px',
               cursor: 'pointer',
-              padding: '6px 10px',
+              padding: '4px 8px',
             }}
             onClick={() => setShowConfig(!showConfig)}
           >
-            ⚙️ {showConfig ? '收起配置' : '服务器设置 (局域网/原生)'}
+            ⚙️ {showConfig ? '收起配置' : '手动修改服务器地址'}
           </button>
         </div>
 
@@ -117,8 +214,8 @@ export function LoginPage() {
           <div style={{ marginTop: '10px', width: '100%' }}>
             <input
               className={styles.input}
-              style={{ fontSize: '13px', padding: '10px 12px' }}
-              placeholder="服务器地址 (如 http://192.168.0.109:8080)"
+              style={{ fontSize: '12px', padding: '8px 10px' }}
+              placeholder="服务器地址 (如 http://192.168.7.115:8080)"
               value={serverUrl}
               onChange={(e) => handleServerChange(e.target.value)}
             />
