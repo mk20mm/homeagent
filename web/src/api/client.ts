@@ -11,40 +11,48 @@ import type { components, paths } from './schema'
 /** 后端错误码枚举：唯一真相源是 openapi 契约（对齐 apperr.Code） */
 export type ApiErrorCode = components['schemas']['Error']['code']
 
+export function isNativeCapacitor(): boolean {
+  if (typeof window === 'undefined') return false
+  if (import.meta.env?.MODE === 'test') return false
+  return (
+    typeof (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor !== 'undefined' ||
+    window.location.protocol === 'capacitor:' ||
+    (window.location.hostname === 'localhost' && window.location.port !== '5173' && window.location.port !== '3000' && window.location.port !== '')
+  )
+}
+
 export function getApiBaseUrl(): string {
   if (typeof window === 'undefined') return '/api/v1'
+  if (import.meta.env?.MODE === 'test') {
+    return window.location?.origin ? `${window.location.origin}/api/v1` : '/api/v1'
+  }
   const custom = localStorage.getItem('homeagent_server_url')
   if (custom) return custom.replace(/\/+$/, '') + '/api/v1'
 
-  // 在 Capacitor 原生安卓环境中，页面 origin 是 https://localhost 或 http://localhost
-  // 非 5173 端口说明是在独立 APK 里运行，需连到局域网开发机
-  const isCapacitor =
-    (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost') &&
-    window.location.port !== '5173'
-  if (isCapacitor) {
+  // 在 Capacitor 原生安卓环境中运行时，连到局域网开发机
+  if (isNativeCapacitor()) {
     return 'http://192.168.7.115:8080/api/v1'
   }
-  return window.location.origin ? `${window.location.origin}/api/v1` : '/api/v1'
+  return window.location?.origin ? `${window.location.origin}/api/v1` : '/api/v1'
 }
 
 export const api = createClient<paths>({
-  // 绝对 baseUrl：openapi-fetch 内部 new Request() 需要完整来源，
-  // 相对路径在浏览器靠 document 兜底，但 SSR/测试环境会抛 Failed to parse URL
   baseUrl:
     typeof window !== 'undefined' && window.location?.origin
       ? `${window.location.origin}/api/v1`
       : '/api/v1',
-  // 延迟解析 fetch，同时在原生 WebView 环境将本地 localhost 替换为真实后端基址
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     let url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
     const base = getApiBaseUrl()
-    if (
-      (url.startsWith('https://localhost/api/v1') || url.startsWith('http://localhost/api/v1')) &&
-      !base.includes('localhost')
-    ) {
-      url = url.replace(/^https?:\/\/localhost\/api\/v1/, base)
+    if (url.startsWith('https://localhost/api/v1') && isNativeCapacitor()) {
+      url = url.replace('https://localhost/api/v1', base)
       if (input instanceof Request) {
-        return fetch(new Request(url, input), init)
+        return fetch(url, {
+          method: input.method,
+          headers: input.headers,
+          body: input.body,
+          ...init,
+        })
       }
       return fetch(url, init)
     }

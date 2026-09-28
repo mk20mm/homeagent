@@ -128,7 +128,7 @@ func main() {
 	})
 
 	r := gin.New()
-	r.Use(middleware.Recover(), middleware.TraceID(), middleware.CORS())
+	r.Use(gin.Logger(), middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
 	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo, storeRepo, expenseSvc, expenseSvc, storeRepo, expenseSvc)
 
