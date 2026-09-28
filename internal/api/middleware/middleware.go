@@ -3,7 +3,6 @@ package middleware
 
 import (
 	"log/slog"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -48,19 +47,18 @@ func Recover() gin.HandlerFunc {
 	}
 }
 
-// CORS 允许前端跨域（开发期）。
+// CORS 允许前端与原生应用跨域（单家庭私有中枢，支持 Capacitor 原生壳与局域网移动端）。
 func CORS() gin.HandlerFunc {
-	allow := []string{"http://localhost:5173", "http://localhost:3001"}
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-		for _, a := range allow {
-			if strings.EqualFold(origin, a) {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				break
-			}
+		if origin != "" {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Trace-ID")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
