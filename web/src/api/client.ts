@@ -44,8 +44,8 @@ export const api = createClient<paths>({
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     let url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
     const base = getApiBaseUrl()
-    if (url.startsWith('https://localhost/api/v1') && isNativeCapacitor()) {
-      url = url.replace('https://localhost/api/v1', base)
+    if (/^https?:\/\/localhost\/api\/v1/.test(url) && isNativeCapacitor()) {
+      url = url.replace(/^https?:\/\/localhost\/api\/v1/, base)
       if (input instanceof Request) {
         return fetch(url, {
           method: input.method,

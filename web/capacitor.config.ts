@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: '家事 Agent',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
     cleartext: true,
   },
   android: {
