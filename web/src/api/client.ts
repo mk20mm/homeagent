@@ -38,26 +38,10 @@ export function getApiBaseUrl(): string {
 
 export const api = createClient<paths>({
   baseUrl:
-    typeof window !== 'undefined' && window.location?.origin
-      ? `${window.location.origin}/api/v1`
+    typeof window !== 'undefined'
+      ? getApiBaseUrl()
       : '/api/v1',
-  fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-    let url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
-    const base = getApiBaseUrl()
-    if (/^https?:\/\/localhost\/api\/v1/.test(url) && isNativeCapacitor()) {
-      url = url.replace(/^https?:\/\/localhost\/api\/v1/, base)
-      if (input instanceof Request) {
-        return fetch(url, {
-          method: input.method,
-          headers: input.headers,
-          body: input.body,
-          ...init,
-        })
-      }
-      return fetch(url, init)
-    }
-    return fetch(input, init)
-  },
+  fetch: (...args) => fetch(...args),
 })
 
 // 认证中间件：每个请求带 JWT；401（令牌失效）立即清空登录态

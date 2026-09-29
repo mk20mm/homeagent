@@ -51,15 +51,25 @@ func Recover() gin.HandlerFunc {
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
+		reqHeaders := c.GetHeader("Access-Control-Request-Headers")
+		reqMethod := c.GetHeader("Access-Control-Request-Method")
+
 		if origin != "" {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		} else {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		}
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Trace-ID")
+		if reqHeaders != "" {
+			c.Writer.Header().Set("Access-Control-Allow-Headers", reqHeaders)
+		} else {
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "*")
+		}
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
+
 		if c.Request.Method == "OPTIONS" {
+			slog.Info("CORS preflight 204", "origin", origin, "req_headers", reqHeaders, "req_method", reqMethod)
 			c.AbortWithStatus(204)
 			return
 		}
