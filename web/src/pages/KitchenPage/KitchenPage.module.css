@@ -20,6 +20,104 @@
   padding-left: 4px;
 }
 
+/* 报饭汇总看板 */
+.mealCard {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  margin-bottom: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.mealHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.mealTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.mealDate {
+  font-size: 12px;
+  color: #8e8e93;
+  font-weight: 500;
+}
+
+.mealSummary {
+  margin-bottom: 14px;
+}
+
+.mealCountText {
+  font-size: 16px;
+  color: #1c1c1e;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.mealMembersRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.memberTagOn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #eafaf1;
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.memberTagOff {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f2f2f7;
+  color: #8e8e93;
+  font-weight: 500;
+}
+
+.mealActions {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid #f2f2f7;
+  padding-top: 14px;
+}
+
+.mealBtn {
+  flex: 1;
+  border: none;
+  border-radius: 14px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.mealBtn:active {
+  transform: scale(0.97);
+}
+
+.mealBtnOn {
+  background: #eafaf1;
+  color: #27ae60;
+}
+
+.mealBtnOff {
+  background: #f2f2f7;
+  color: #8e8e93;
+}
+
+
 /* 正在下厨卡片 */
 .activeCard {
   background: linear-gradient(135deg, #ff9500 0%, #ff5e3a 100%);

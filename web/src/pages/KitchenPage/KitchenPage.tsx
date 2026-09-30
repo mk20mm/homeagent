@@ -1,7 +1,9 @@
 /**
- * 厨房专区（KitchenPage）：家庭私房菜谱库 + 做饭分步流程卡片 + 免脏屏大字模式
+ * 厨房专区（KitchenPage）：家庭报饭汇总 + 灵感搭配 + 私房菜谱库 + 免脏屏大字模式
  */
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+import { api, unwrap } from '../../api/client'
 
 import styles from './KitchenPage.module.css'
 
@@ -20,6 +22,19 @@ interface Recipe {
   ingredients: string[]
   tips: string
   steps: Step[]
+}
+
+interface MealMember {
+  member_id: string
+  name: string
+  at_home: boolean
+}
+
+interface MealData {
+  date: string
+  at_home_count: number
+  not_at_home_count: number
+  members: MealMember[]
 }
 
 const DEFAULT_RECIPES: Recipe[] = [
@@ -71,9 +86,45 @@ const DEFAULT_RECIPES: Recipe[] = [
 export function KitchenPage() {
   const [recipes] = useState<Recipe[]>(DEFAULT_RECIPES)
   const [activeDish, setActiveDish] = useState<Recipe | null>(DEFAULT_RECIPES[0])
-  const [activeStepIndex, setActiveStepIndex] = useState(1) // 默认进行到第2步
+  const [activeStepIndex, setActiveStepIndex] = useState(1)
   const [isBigFontMode, setIsBigFontMode] = useState(false)
   const [suggestIndex, setSuggestIndex] = useState(0)
+
+  // 真实报饭数据
+  const [mealData, setMealData] = useState<MealData | null>(null)
+  const [mealLoading, setMealLoading] = useState(true)
+  const [mealSubmitting, setMealSubmitting] = useState(false)
+
+  const fetchMeals = useCallback(async () => {
+    try {
+      const res = await api.GET('/meals')
+      const d = unwrap(res)
+      setMealData(d)
+    } catch {
+      setMealData(null)
+    } finally {
+      setMealLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMeals()
+  }, [fetchMeals])
+
+  const handleReportMeal = async (atHome: boolean) => {
+    setMealSubmitting(true)
+    try {
+      await api.POST('/meals', {
+        body: { at_home: atHome },
+      })
+      await fetchMeals()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '报饭失败'
+      alert(msg)
+    } finally {
+      setMealSubmitting(false)
+    }
+  }
 
   const SUGGEST_COMBOS = [
     { main: '红烧肉', side: '酸辣土豆丝', soup: '紫菜蛋花汤' },
@@ -90,11 +141,68 @@ export function KitchenPage() {
     setIsBigFontMode(true)
   }
 
+  const atHomeCount = mealData?.at_home_count ?? 0
+  const notAtHomeCount = mealData?.not_at_home_count ?? 0
+  const members = mealData?.members ?? []
+  const atHomeMembers = members.filter((m) => m.at_home)
+  const notAtHomeMembers = members.filter((m) => !m.at_home)
+
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>厨房</h1>
+      <h1 className={styles.title}>厨房与用餐</h1>
 
-      {/* 正在下厨卡片 */}
+      {/* 模块 1：今晚就餐看板（实时接口数据） */}
+      <div className={styles.mealCard}>
+        <div className={styles.mealHeader}>
+          <span className={styles.mealTitle}>🍽️ 今晚用餐申报</span>
+          <span className={styles.mealDate}>{mealData?.date || '今日'}</span>
+        </div>
+        
+        <div className={styles.mealSummary}>
+          {mealLoading ? (
+            <span style={{ color: '#8e8e93', fontSize: 14 }}>加载中…</span>
+          ) : (
+            <>
+              <div className={styles.mealCountText}>
+                今晚 <strong style={{ color: '#34c759', fontSize: 20 }}>{atHomeCount}</strong> 人在家吃
+                {notAtHomeCount > 0 && <span style={{ color: '#8e8e93', fontSize: 14, marginLeft: 8 }}>· {notAtHomeCount} 人不在家</span>}
+              </div>
+              <div className={styles.mealMembersRow}>
+                {atHomeMembers.map((m) => (
+                  <span key={m.member_id} className={styles.memberTagOn}>✓ {m.name} 在家</span>
+                ))}
+                {notAtHomeMembers.map((m) => (
+                  <span key={m.member_id} className={styles.memberTagOff}>✗ {m.name} 外出</span>
+                ))}
+                {members.length === 0 && (
+                  <span style={{ fontSize: 13, color: '#8e8e93' }}>今日暂无申报，点击下方一键报饭</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className={styles.mealActions}>
+          <button
+            type="button"
+            className={`${styles.mealBtn} ${styles.mealBtnOn}`}
+            disabled={mealSubmitting}
+            onClick={() => handleReportMeal(true)}
+          >
+            🏠 我在家吃
+          </button>
+          <button
+            type="button"
+            className={`${styles.mealBtn} ${styles.mealBtnOff}`}
+            disabled={mealSubmitting}
+            onClick={() => handleReportMeal(false)}
+          >
+            🚪 我不在家吃
+          </button>
+        </div>
+      </div>
+
+      {/* 模块 2：正在下厨卡片 */}
       {activeDish && (
         <div className={styles.activeCard}>
           <div className={styles.activeHeader}>
@@ -127,7 +235,7 @@ export function KitchenPage() {
         </div>
       )}
 
-      {/* 今天吃啥灵感搭配 */}
+      {/* 模块 3：今天吃啥灵感搭配 */}
       <div className={styles.section}>今天吃啥 · 灵感搭配</div>
       <div className={styles.suggestCard}>
         <div className={styles.suggestRow}>
@@ -147,7 +255,7 @@ export function KitchenPage() {
         </div>
       </div>
 
-      {/* 家庭私房菜谱库 */}
+      {/* 模块 4：家庭私房菜谱库 */}
       <div className={styles.section}>家庭私房菜谱（{recipes.length}）</div>
       <div className={styles.recipeList}>
         {recipes.map((r) => (
@@ -164,10 +272,9 @@ export function KitchenPage() {
                 className={styles.cookNowBtn}
                 onClick={() => handleStartCooking(r)}
               >
-                开火做这道
+                开始做这道菜
               </button>
             </div>
-
             <div className={styles.recipeMeta}>
               {r.ingredients.map((ing) => (
                 <span key={ing} className={styles.ingredientTag}>
@@ -175,10 +282,10 @@ export function KitchenPage() {
                 </span>
               ))}
             </div>
-
             {r.tips && (
               <div className={styles.tipsBox}>
-                💡 <strong>独门秘诀：</strong>{r.tips}
+                <strong>秘诀：</strong>
+                {r.tips}
               </div>
             )}
           </div>
@@ -198,21 +305,17 @@ export function KitchenPage() {
               ✕
             </button>
           </div>
-
           <div className={styles.modalBody}>
             <div className={styles.stepNumber}>
               STEP {activeStepIndex + 1} OF {activeDish.steps.length}
             </div>
             <div className={styles.stepContent}>
-              {currentStep.detail}
+              {currentStep.title}：{currentStep.detail}
             </div>
             {currentStep.tips && (
-              <div className={styles.stepTip}>
-                ⚠️ {currentStep.tips}
-              </div>
+              <div className={styles.stepTip}>💡 提示：{currentStep.tips}</div>
             )}
           </div>
-
           <div className={styles.modalControls}>
             <button
               type="button"
@@ -231,11 +334,10 @@ export function KitchenPage() {
                 } else {
                   setIsBigFontMode(false)
                   setActiveDish(null)
-                  alert('🎉 恭喜！这道菜做完啦！')
                 }
               }}
             >
-              {activeStepIndex === activeDish.steps.length - 1 ? '🎉 做好了！' : '下一步 →'}
+              {activeStepIndex < activeDish.steps.length - 1 ? '下一步' : '大功告成'}
             </button>
           </div>
         </div>
