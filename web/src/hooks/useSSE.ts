@@ -47,6 +47,22 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
         targetUrl = targetUrl.replace(/^https?:\/\/localhost\/api\/v1/, base)
       }
 
+      // 看门狗定时器：防止大模型或网络挂起导致前端无限期停留在「正在思考」
+      let watchdogTimer: NodeJS.Timeout | null = setTimeout(() => {
+        ctrl.abort()
+        cbRef.current.onError?.(new Error('大模型响应超时（超过 45 秒未响应），请检查网络后重试'))
+        setStatus('error')
+      }, 45000)
+
+      const feedWatchdog = () => {
+        if (watchdogTimer) clearTimeout(watchdogTimer)
+        watchdogTimer = setTimeout(() => {
+          ctrl.abort()
+          cbRef.current.onError?.(new Error('数据传输中断（超过 25 秒无数据），已自动停止'))
+          setStatus('error')
+        }, 25000)
+      }
+
       fetch(targetUrl, {
         method: 'POST',
         headers,
@@ -67,6 +83,7 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
           for (;;) {
             const { done, value } = await reader.read()
             if (done) break
+            feedWatchdog() // 收到数据块，重置看门狗
             buffer += decoder.decode(value, { stream: true })
             const lines = buffer.split('\n')
             buffer = lines.pop() ?? ''
@@ -96,9 +113,18 @@ export function useSSE({ url, onEvent, onError }: UseSSEOptions) {
           }
         })
         .catch((err: Error) => {
-          if (err.name === 'AbortError') return // 客户端主动断开
+          if (err.name === 'AbortError') {
+            setStatus('idle')
+            return // 客户端主动断开或超时看门狗已处理
+          }
           setStatus('error')
           cbRef.current.onError?.(err)
+        })
+        .finally(() => {
+          if (watchdogTimer) {
+            clearTimeout(watchdogTimer)
+            watchdogTimer = null
+          }
         })
     },
     [url],

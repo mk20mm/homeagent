@@ -257,49 +257,57 @@ export function ChatPage() {
             </div>
           </div>
         )}
-        {messages.map((m: ChatMessage) => (
-          <div
-            key={m.id}
-            className={`${styles.bubble} ${m.role === 'user' ? styles.user : styles.ai}`}
-          >
-            {m.content}
-            {m.card &&
-              (m.card.type === 'expense' && !m.undone ? (
-                <ExpenseCard
-                  card={m.card as Extract<ChatMessage['card'], { type: 'expense' }>}
-                  undoable={Boolean(m.undoable) && !m.undone}
-                  onUndo={() => void handleUndo(m.undoId)}
-                  onUpdated={(next) => updateCard(m.id, next)}
-                />
-              ) : (
-                <ResultCard
-                  title="执行结果"
-                  undoable={Boolean(m.undoable) && !m.undone}
-                  onUndo={() => void handleUndo(m.undoId)}
-                >
-                  {m.undone ? (
-                    <span className={styles.undone}>已撤销</span>
-                  ) : m.card.duplicated ? (
-                    <span className={styles.undone}>今天已记过这笔，未重复记账</span>
-                  ) : (
-                    JSON.stringify(m.card)
-                  )}
-                </ResultCard>
-              ))}
-          </div>
-        ))}
-        {status === 'streaming' && (
-          <div className={styles.statusPill}>
-            <span className={styles.pulseDot} />
-            <span>正在思考…</span>
-          </div>
-        )}
-        {status === 'tool_running' && (
-          <div className={styles.statusPill}>
-            <span className={styles.gearIcon}>⚡</span>
-            <span>正在执行操作…</span>
-          </div>
-        )}
+        {messages.map((m: ChatMessage) => {
+          const isStreamingThis = m.id === useChatStore.getState().streamId
+          const isEmpty = !m.content && !m.card
+          if (isEmpty && !isStreamingThis) return null
+
+          return (
+            <div
+              key={m.id}
+              className={`${styles.bubble} ${m.role === 'user' ? styles.user : styles.ai}`}
+            >
+              {m.content ? (
+                m.content
+              ) : isStreamingThis ? (
+                <span className={styles.thinkingInline}>
+                  <span className={styles.pulseDot} />
+                  <span>{status === 'tool_running' ? '⚡ 正在处理操作…' : '正在思考…'}</span>
+                </span>
+              ) : null}
+              {m.card &&
+                (m.card.type === 'expense' && !m.undone ? (
+                  <ExpenseCard
+                    card={m.card as Extract<ChatMessage['card'], { type: 'expense' }>}
+                    undoable={Boolean(m.undoable) && !m.undone}
+                    onUndo={() => void handleUndo(m.undoId)}
+                    onUpdated={(next) => updateCard(m.id, next)}
+                  />
+                ) : (
+                  <ResultCard
+                    title="执行结果"
+                    undoable={Boolean(m.undoable) && !m.undone}
+                    onUndo={() => void handleUndo(m.undoId)}
+                  >
+                    {m.undone ? (
+                      <span className={styles.undone}>已撤销</span>
+                    ) : m.card.duplicated ? (
+                      <span className={styles.undone}>今天已记过这笔，未重复记账</span>
+                    ) : (
+                      JSON.stringify(m.card)
+                    )}
+                  </ResultCard>
+                ))}
+            </div>
+          )
+        })}
+        {status === 'tool_running' &&
+          !messages.some((m) => m.id === useChatStore.getState().streamId && !m.content) && (
+            <div className={styles.statusPill}>
+              <span className={styles.gearIcon}>⚡</span>
+              <span>正在执行操作…</span>
+            </div>
+          )}
         {error && <div className={styles.error}>{error}</div>}
       </div>
 

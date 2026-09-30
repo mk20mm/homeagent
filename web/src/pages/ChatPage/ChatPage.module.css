@@ -317,6 +317,14 @@
   }
 }
 
+.thinkingInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #8e8e93;
+  font-size: 14px;
+}
+
 .pulseDot {
   width: 8px;
   height: 8px;
