@@ -16,8 +16,12 @@ docs/
 ├── CONVENTIONS-backend.md     # 后端代码规范（Go）
 ├── CONVENTIONS-frontend.md    # 前端代码规范（React+TS，移动端+管理端）
 ├── agent-调度器设计.md         # Agent 运行时详细设计（核心，保留）
-├── agent-dispatch-center.md   # Agent 调度中心架构、状态机、多模型路由与异常容灾体系
-├── tech-debt.md               # 技术债登记（发现即偿还）
+├── homeagent-v1-architecture.md # 三域架构（财务/家务/厨房）完整设计真相源
+├── homeagent-v1-acceptance.md   # 验收规格（80项用例：A12/F12/C18/K15/X5/D18）
+├── agent-dispatch-center.md     # Agent 调度中心架构、状态机、多模型路由与异常容灾体系
+├── agent-harness-design.md      # Agent 驾驭工程与自动化验收设计
+├── gemini-v1-handoff.md         # Gemini 批次实施交接说明
+├── tech-debt.md                 # 技术债登记（发现即偿还）
 ├── e2e-issues.md              # E2E 测试轮次记录与问题清单
 ├── product/                   # 产品设计探索（UX 走查 + 机会分析）
 │   └── ux-exploration-01.md   #   第 1 轮：记账闭环与「对话—页面孤岛」

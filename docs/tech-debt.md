@@ -24,6 +24,23 @@
 
 ## 偿还记录
 
+## 2026-10-01 核心调度审阅新增
+
+以下为源码静态审阅发现，均待修复；实施顺序见 [agent-harness 计划](exec-plans/active/agent-harness.md)。
+
+| # | 债务与证据 | 影响 | 偿还时机 | 状态 |
+| --- | --- | --- | --- | --- |
+| T17 | runtime 用字符串 `RiskLevel > curRisk` 排序，风险执行后才累计，stopped 不退出同批内循环 | 分级上限可能失效，同批调用突破终止点 | H0 | ⏳ |
+| T18 | Executor 写业务后独立写 undo_log，保存错误及审计错误被忽略 | 成功记录可能无撤销凭据/审计，违背写操作不变量 | H0 原子提交 | ⏳ |
+| T19 | runtime 忽略 StreamEvent.Err，历史只在整轮末尾保存，Append 失败仍发 done | 流失败可能视为完成，副作用与对话成果失联 | H0/H1 | ⏳ |
+| T20 | runtime 固定 adult/空姓名；确认策略与真实权限/动作类型未对齐 | 角色行为和授权不一致；按新架构明确普通记账直接执行、歧义/规则变化预览 | B0 | ⏳ |
+| T21 | 历史全量加载，缺上下文/工具调用数/时间/成本硬预算 | 长会话成本与延时无法控制 | H1 | ⏳ |
+| T22 | record_expense 按成员+金额+内容+日期去重；出行先写费用再写行程 | 同日真实同内容消费被合并；跨记录故障一致性不足 | H0/H1 | ⏳ |
+
+### 历史偿还记录
+
+2026-10-01 用户修订后，T17–T22 的实现归 Gemini B0/B1；本轮只设计未偿还。设备命令新增未知结果/取消/补偿语义按 ADR-007，不能复用本地Undo掩盖物理不可逆性。旧H编号已由 [第一步架构](homeagent-v1-architecture.md) 的B批次替代。
+
 - **2026-09-16 · T1**：撤掉全部 noop 桩。`chat.go`（SSE 流式）、`undo.go`（24h 窗口 + member 隔离）、`router.go`（认证组）、`main.go` 完成 repo→registry→executor→session→provider→handler 全链路 DI。
 - **2026-09-16 · T6**：`internal/store/repo` 落地（Store 聚合 expense/conversation/undolog/audit/usage/task/meal/model），领域层只依赖接口，编译期 `var _` 断言。断开 `api/v1 → store/repo` 依赖边（v1 定义本地 DTO + 接口，repo 适配）。
 - **2026-09-16 · T5**：`internal/auth`（HS256 + Claims{member_id, role}，7 天有效期，空 secret fail-closed）+ `middleware.JWTAuth`（Bearer 解析、成员停用拦截）+ `POST /auth/token`（name+auth_token 换令牌，常量时间比对）。DevAuth 明文 header 下线。修掉 `v1.abortWith` 缺 401 映射导致的「body 正确但状态码 500」。

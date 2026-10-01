@@ -5,6 +5,10 @@
 
 ## 项目一句话
 
+**2026-10-01 核心方向（用户修订）**：本轮仅设计，实施交给 Gemini；第一步以财务、家务、厨房为核心。家务包含个人可接入的 HA/扫地机动作与执行结果，厨房包含真实家庭菜谱、步骤指导与多菜协同；报饭不作为核心。权威设计 `docs/homeagent-v1-architecture.md`，验收 `docs/homeagent-v1-acceptance.md`，交接 `docs/gemini-v1-handoff.md`。均未实现，实机能力需具体型号验证。进度入口 `docs/exec-plans/active/agent-harness.md`。
+
+**调度中心主设计**：`docs/agent-dispatch-center.md`。单Agent负责理解/规划/必要调整，代码负责事件推进/资源冲突/等待与完成判定；三域是中心能力。新增D01–D18，验收共80项；均为设计，尚未实现。
+
 单家庭自用的 AI 协作中枢：家人说一句话，Agent 调用后端工具把家务/用餐/账单/日程办到位。
 Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管理端）+ OpenAPI 契约驱动双端类型。
 
@@ -15,7 +19,7 @@ Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管�
 
 1. **契约先行**：改接口先改 `api/openapi.yaml` → `make generate` → Go 桩与 TS schema 同步生成。禁止手改生成文件（`*.gen.go`、`**/schema.d.ts`）。
 2. **主键全 UUID；金额一律 `int64` 分**。展示用 `packages/shared/money.ts` 的 `formatYuan*`，输入用 `yuanToCents`。禁止 float 存金额。
-3. **写操作全量可撤销**（ADR-004）：工具必须实现撤销接口，`undo_log` 记录，24h 窗口。
+3. **本地写操作全量可撤销**（ADR-004）：本地业务写工具必须实现撤销接口，`undo_log` 记录，24h 窗口。真实设备动作按 ADR-007 使用持久化命令、取消/补偿和状态协调；禁止将暂停/返航称为已发生清扫的撤销。ADR-007 为本轮设计，接口改造待 Gemini 实施。
 4. **权限双保险**（ADR-005）：工具注册表按成员角色源头过滤 + 运行时再校验。`GET /tools` 只返回该成员能调的。
 5. **禁止手写 fetch**：API 调用一律走 `src/api/client.ts`（openapi-fetch + `unwrap`）。SSE 流式走 `useSSE` hook。
 6. **边界处解析数据形状**：外部输入在进入领域层前必须被解析/校验（`unwrap`、ent schema 约束），领域层不防御。

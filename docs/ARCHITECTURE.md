@@ -1,5 +1,7 @@
 # 家事 Agent · 架构设计（ARCHITECTURE）
 
+> 2026-10-01 最新设计：[财务、家务、厨房第一步架构](homeagent-v1-architecture.md)；验收与 Gemini 交接由该文件链接。保留单 Agent 和确定性执行器，以真实设备结果与家庭菜谱协同为核心；个人可部署、不要求企业 API 资质。本文历史清单不代表当前全部实现；新的本地撤销/设备补偿边界见 ADR-007。新设计未实现。
+
 > 对齐 **AI-STD-003（智能体架构标准）** · 阶段：**Phase 03（Architecture）** · 版本：v0.1 · 日期：2026-09-15
 >
 > 原则：**组件必须为解决具体工程问题而存在**。禁止为画完整架构图而引入 RAG / 向量库 / MCP / Multi-Agent / Memory / Planner（详见 [AI-PRD.md §7](AI-PRD.md)）。

@@ -1,5 +1,7 @@
 # Agent 调度器设计
 
+> 2026-10-01 更新：本文保留初版 ReAct 说明。最新权威设计是 [财务、家务、厨房架构](homeagent-v1-architecture.md)。家务包括真实设备执行与观察，厨房包括家庭菜谱与多菜协同，报饭非核心；本地撤销与设备补偿按 ADR-007 分开。本文提及的恢复、确认与部分工具是规划，新协议未实现。
+
 核心模式：**工具调用循环（ReAct loop）**——LLM 输出若含 tool_call，执行工具并把结果回传，LLM 继续生成，直到无调用为止。这是行业标准模式（OpenAI Function Calling / Vercel AI SDK multi-step 均为此模式）。
 
 ## 核心架构
