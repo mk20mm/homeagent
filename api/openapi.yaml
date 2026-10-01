@@ -32,6 +32,8 @@ tags:
     description: 审计/用量（管理端）
   - name: travel
     description: 出行与爱车台账
+  - name: dispatch
+    description: 任务编排与调度中心
 
 paths:
   /auth/token:
@@ -838,6 +840,16 @@ paths:
           content:
             application/json:
               schema:
+                type: object
+                required: [member_id, at_home]
+                properties:
+                  member_id:
+                    type: string
+                    format: uuid
+                  at_home:
+                    type: boolean
+                  note:
+                    type: string
   /vehicles:
     get:
       tags: [travel]
@@ -1017,6 +1029,187 @@ paths:
                           type: number
                           format: double
 
+  /runs:
+    get:
+      tags: [dispatch]
+      summary: 列出当前成员获授权的任务编排列表
+      operationId: listRuns
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [running, awaiting_input, awaiting_confirmation, waiting_external, completed, partial, failed, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 编排列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runs]
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RunItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /runs/{runId}:
+    get:
+      tags: [dispatch]
+      summary: 获取任务编排详情与步骤树
+      operationId: getRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 编排详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /runs/{runId}/confirm:
+    post:
+      tags: [dispatch]
+      summary: 确认步骤或高风险操作
+      operationId: confirmRunStep
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step_id, choice]
+              properties:
+                step_id:
+                  type: string
+                  format: uuid
+                choice:
+                  type: string
+                confirmation_nonce:
+                  type: string
+      responses:
+        '200':
+          description: 确认成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /runs/{runId}/reply:
+    post:
+      tags: [dispatch]
+      summary: 续答缺失的关键参数
+      operationId: replyRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id, step_id, expected_version, answers]
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                step_id:
+                  type: string
+                  format: uuid
+                expected_version:
+                  type: integer
+                answers:
+                  type: object
+      responses:
+        '200':
+          description: 续答受理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /runs/{runId}/amend:
+    post:
+      tags: [dispatch]
+      summary: 修订未执行的步骤安排
+      operationId: amendRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expected_version, modifications]
+              properties:
+                expected_version:
+                  type: integer
+                modifications:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: 修订成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1082,6 +1275,12 @@ components:
         format: uuid
 
   responses:
+    BadRequest:
+      description: 参数无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Unauthorized:
       description: 未认证
       content:
@@ -1277,6 +1476,10 @@ components:
           type: string
           format: uuid
           description: 会话内切模型（为空沿用会话当前模型）
+        request_id:
+          type: string
+          format: uuid
+          description: 客户端幂等请求 ID（用于避免重试重复处理与状态恢复）
 
     Conversation:
       type: object
@@ -1668,6 +1871,105 @@ components:
         note:
           type: string
         occurred_at:
+          type: string
+          format: date-time
+
+    RunItem:
+      type: object
+      required: [id, goal, intent_kind, status, version, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        goal:
+          type: string
+        intent_kind:
+          type: string
+          enum: [query, act, plan, amend, control]
+        status:
+          type: string
+          enum: [running, awaiting_input, awaiting_confirmation, waiting_external, completed, partial, failed, cancelled]
+        version:
+          type: integer
+        request_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    RunDetail:
+      type: object
+      required: [id, goal, intent_kind, status, version, steps, events, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        goal:
+          type: string
+        intent_kind:
+          type: string
+          enum: [query, act, plan, amend, control]
+        status:
+          type: string
+          enum: [running, awaiting_input, awaiting_confirmation, waiting_external, completed, partial, failed, cancelled]
+        version:
+          type: integer
+        request_id:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunStepItem'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunEventItem'
+        created_at:
+          type: string
+          format: date-time
+
+    RunStepItem:
+      type: object
+      required: [id, position, tool_name, status, wait_for, completion_kind]
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        tool_name:
+          type: string
+        status:
+          type: string
+          enum: [pending, executing, committed, waiting_external, failed, unknown, skipped]
+        wait_for:
+          type: string
+          enum: [none, entity_completed, scheduled_at, user_confirm]
+        completion_kind:
+          type: string
+        operation_key:
+          type: string
+        result_card:
+          type: string
+        expected_version:
+          type: integer
+
+    RunEventItem:
+      type: object
+      required: [id, seq, event_type, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+        step_id:
+          type: string
+        event_type:
+          type: string
+        payload:
+          type: string
+        created_at:
           type: string
           format: date-time
 

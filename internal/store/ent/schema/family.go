@@ -23,5 +23,6 @@ func (Family) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("members", Member.Type),
 		edge.To("categories", Category.Type),
+		edge.To("runs", AgentRun.Type),
 	}
 }

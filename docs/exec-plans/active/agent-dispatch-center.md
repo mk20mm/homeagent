@@ -74,6 +74,11 @@
 | **P1-2** | T-DSP-07 | 执行计划与索引全面同步 | Spec Architect | `docs/exec-plans/active/agent-dispatch-center.md`, `README.md` | **已完成 ✅** |
 | **P1-3** | T-DSP-08 | 全仓编译与双端类型门禁自检 (`scripts/verify-all.ps1`) | QA Auditor | `go build`, `tsc --noEmit` | **已完成 ✅** |
 | **P1-4** | T-DSP-09 | 主项目与镜像仓库双端推送同步 | Lead Orchestrator | `D:\main\company_projects\sun\007\ai_agent` 同步 | **已完成 ✅** |
+| **P2-1** | T-DSP-10 | Run/RunStep/RunEvent 持久化建模与生命周期仓储 | Backend Dev | `internal/store/ent/schema/run.go`, `internal/store/repo/run.go` | **已完成 ✅** |
+| **P2-2** | T-DSP-11 | 编排契约与双端类型生成 (`/runs*`, `request_id`, 报饭响应修复) | Spec Architect | `api/openapi.yaml`, `scripts/codegen.ps1` | **已完成 ✅** |
+| **P2-3** | T-DSP-12 | 调度中心 REST API 与单向分层领域服务 (`run.Service`) | Fullstack Builder | `internal/api/v1/runs.go`, `internal/domain/run/` | **已完成 ✅** |
+| **P2-4** | T-DSP-13 | 复合任务规划工具 (`submit_task_plan`) 拓扑有向无环校验与撤销闭环 | Fullstack Builder | `internal/domain/run/plan_tool.go`, `plan_tool_test.go` | **已完成 ✅** |
+| **P2-5** | T-DSP-14 | SSE 保活心跳注释帧与事务追踪透传 | Backend Dev | `internal/api/v1/chat.go`, `internal/agent/runtime/` | **已完成 ✅** |
 
 ---
 
@@ -83,11 +88,14 @@
 2. **错误显式下发禁止静默吞错**：大模型调用异常时，必须以 `{ "type": "error", "error": "..." }` 直达前端，打破悬停黑盒，恢复输入交互。
 3. **空生成兜底保护**：若模型未产生 Token 与工具调用，注入默认友好回复，消除幽灵气泡。
 4. **两类循环职责划分**：决策循环调 LLM（低频）；代码执行循环推物理事件（高频、零 Token 消耗、无网络延迟）。
+5. **分层单向与防循环导入**：`api/v1` 仅依赖 `domain/run.Service`，`repo.Store` 向上实现仓储接口，规避 `api/v1` 与 `repo` 的循环依赖。
+6. **复合计划严格有向无环 (DAG)**：`submit_task_plan` 在系统边界强制依赖单向无环，上限 10 步，支持撤销为 `cancelled`。
 
 ---
 
 ## 六、 验收与质量门禁记录
 
-- `go test ./internal/agent/...`: 全部 8 项单测 100% 通过（含新增的 `TestRunStreamErrorEmitsErrorEvent` 与 `TestRunEmptyResponseFallback`）。
+- `go test ./...`: 全项目所有测试包（repo/agent/domain/api/auth/crypto）全部通过，包含新增的 `TestRunRepo_Lifecycle`, `TestSubmitTaskPlanTool_ExecuteAndDAG`, `TestRunsAPI_Endpoints`。
 - `pnpm -r run typecheck`: 全工作区（shared / web / admin）0 类型报错。
+- `pnpm -r run test`: 前端与共享包单元测试全部通过。
 - `go build ./cmd/homeagent`: 二进制编译成功。

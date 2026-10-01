@@ -1,4 +1,4 @@
-﻿package schema
+package schema
 
 import (
 	"entgo.io/ent"
@@ -25,6 +25,7 @@ func (Conversation) Edges() []ent.Edge {
 		edge.From("model", LLMModel.Type).Ref("conversations").Unique().Comment("当前模型，为空用默认"),
 		edge.To("messages", Message.Type),
 		edge.To("usage", LLMUsage.Type),
+		edge.To("runs", AgentRun.Type),
 	}
 }
 

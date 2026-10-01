@@ -61,6 +61,7 @@ func (Member) Edges() []ent.Edge {
 		edge.To("audit_logs", AuditLog.Type),
 		edge.To("usages", LLMUsage.Type),
 		edge.To("trips", TripRecord.Type),
+		edge.To("runs", AgentRun.Type),
 	}
 }
 

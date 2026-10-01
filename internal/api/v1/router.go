@@ -48,6 +48,7 @@ func Register(
 	incomeUndoWriter IncomeUndoWriter,
 	financeSummarizer FinanceSummarizer,
 	travelSvc TravelService,
+	runSvc RunService,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
 	rg.GET("/health", health)
@@ -82,6 +83,11 @@ func Register(
 	jwtGroup.POST("/vehicles", CreateVehicle(travelSvc, pl))
 	jwtGroup.GET("/trips", ListTrips(travelSvc))
 	jwtGroup.POST("/trips", CreateTrip(travelSvc, pl))
+	jwtGroup.GET("/runs", ListRuns(runSvc))
+	jwtGroup.GET("/runs/:runId", GetRun(runSvc))
+	jwtGroup.POST("/runs/:runId/confirm", ConfirmRunStep(runSvc))
+	jwtGroup.POST("/runs/:runId/reply", ReplyRun(runSvc))
+	jwtGroup.POST("/runs/:runId/amend", AmendRun(runSvc))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,11 +13,12 @@ import (
 	"github.com/mk20mm/homeagent/internal/apperr"
 )
 
-// chatRequest 对齐 openapi ChatRequest（手写绑定，P2 统一改 strict server）。
+// chatRequest 对齐 openapi ChatRequest。
 type chatRequest struct {
 	Content        string `json:"content" binding:"required"`
 	ConversationID string `json:"conversation_id,omitempty"`
 	ModelID        string `json:"model_id,omitempty"`
+	RequestID      string `json:"request_id,omitempty"`
 }
 
 // Chat POST /chat：SSE 流式回复（token/tool_call/done/error）。
@@ -41,8 +44,15 @@ func Chat(rt *runtime.Runtime) gin.HandlerFunc {
 		c.Writer.WriteHeader(http.StatusOK)
 
 		flusher, _ := c.Writer.(http.Flusher)
+		if flusher != nil {
+			flusher.Flush()
+		}
+
+		var mu sync.Mutex
 		hasError := false
 		writeEvent := func(e runtime.Event) {
+			mu.Lock()
+			defer mu.Unlock()
 			if e.Type == "error" {
 				hasError = true
 			}
@@ -53,11 +63,36 @@ func Chat(rt *runtime.Runtime) gin.HandlerFunc {
 			}
 		}
 
+		// 心跳保活协程：每 15 秒发送一次 SSE 注释 ping，防止中间代理因长耗时静默断流（根因 ③）
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		doneCh := make(chan struct{})
+		defer close(doneCh)
+
+		go func() {
+			for {
+				select {
+				case <-doneCh:
+					return
+				case <-c.Request.Context().Done():
+					return
+				case <-ticker.C:
+					mu.Lock()
+					_, _ = fmt.Fprint(c.Writer, ": ping\n\n")
+					if flusher != nil {
+						flusher.Flush()
+					}
+					mu.Unlock()
+				}
+			}
+		}()
+
 		// ctx 取消 = 客户端断开，runtime 内部停止推送
 		err := rt.Run(c.Request.Context(), runtime.RunRequest{
 			ConversationID: req.ConversationID,
 			MemberID:       memberID,
 			ModelID:        req.ModelID,
+			RequestID:      req.RequestID,
 			Content:        req.Content,
 			TraceID:        c.GetString("trace_id"),
 			OnEvent:        writeEvent,

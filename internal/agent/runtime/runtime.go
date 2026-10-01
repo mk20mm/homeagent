@@ -36,6 +36,7 @@ type RunRequest struct {
 	ModelID        string // 会话内指定的模型 id（可选）
 	Content        string
 	TraceID        string
+	RequestID      string // 客户端幂等与事务运行追踪 ID
 	OnEvent        func(Event) // 流式回调，禁止阻塞（handler 直接转发 SSE）
 }
 
