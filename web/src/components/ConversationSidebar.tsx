@@ -2,6 +2,7 @@
  * 会话侧边栏（豆包式抽屉）：新建对话 / 会话列表 / 删除 / 切换。
  * 移动端从左侧滑出，点遮罩或列表项后关闭。
  */
+import { useNavigate } from 'react-router'
 import type { MouseEvent } from 'react'
 
 import { useChatStore } from '../stores/chat'
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function ConversationSidebar({ open, onClose }: Props) {
+  const navigate = useNavigate()
   const {
     conversations,
     currentConversationId,
@@ -37,6 +39,11 @@ export function ConversationSidebar({ open, onClose }: Props) {
   const handleNew = async () => {
     await newConversation()
     onClose()
+  }
+
+  const handleGoSettings = () => {
+    onClose()
+    void navigate('/settings')
   }
 
   return (
@@ -73,6 +80,12 @@ export function ConversationSidebar({ open, onClose }: Props) {
             </div>
           ))}
           {conversations.length === 0 && <div className={styles.empty}>暂无会话，点上方新建</div>}
+        </div>
+        <div className={styles.sidebarFooter}>
+          <button type="button" className={styles.footerItem} onClick={handleGoSettings}>
+            <span className={styles.footerIcon}>⚙️</span>
+            <span>系统设置与模型管理</span>
+          </button>
         </div>
       </aside>
     </>

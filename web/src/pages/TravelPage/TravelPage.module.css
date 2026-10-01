@@ -1,0 +1,456 @@
+.container {
+  padding: 16px 16px 80px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1c1c1e;
+  letter-spacing: -0.4px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #8e8e93;
+}
+
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: none;
+  background: var(--ha-primary, #0a84ff);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.addBtn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* 爱车台账大卡片 */
+.vehicleCard {
+  background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+  border-radius: 20px;
+  padding: 20px;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.vehicleCard::after {
+  content: '🚗';
+  position: absolute;
+  right: -10px;
+  bottom: -15px;
+  font-size: 100px;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.vehicleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.vehicleName {
+  font-size: 19px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+.vehicleBadges {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.badgePlate {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+.badgeType {
+  background: rgba(52, 199, 89, 0.25);
+  color: #34c759;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.statVal {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.statUnit {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  margin-left: 2px;
+}
+
+/* 无车辆时的空卡片 */
+.noVehicleCard {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed #d1d1d6;
+  margin-bottom: 20px;
+}
+
+.noVehicleTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 6px;
+}
+
+.noVehicleDesc {
+  font-size: 13px;
+  color: #8e8e93;
+  margin-bottom: 14px;
+}
+
+.regBtn {
+  background: #f2f3f7;
+  color: #0a84ff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* 快捷动作胶囊栏 */
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 18px 0 10px;
+  padding-left: 2px;
+}
+
+.actionRow {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.actionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  padding: 12px 4px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.actionBtn:active {
+  transform: scale(0.94);
+  background: #ebeef5;
+}
+
+.actionIcon {
+  font-size: 22px;
+}
+
+.actionText {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+/* 出行记录列表 */
+.tripList {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 6px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.tripItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #f2f3f7;
+}
+
+.tripItem:last-child {
+  border-bottom: none;
+}
+
+.tripLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tripIconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #f2f3f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.tripDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tripTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1c1c1e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tripSub {
+  font-size: 12px;
+  color: #8e8e93;
+  display: flex;
+  gap: 8px;
+}
+
+.tripRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tripAmount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff3b30;
+}
+
+.linkedBadge {
+  font-size: 10px;
+  background: rgba(10, 132, 255, 0.1);
+  color: #0a84ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.emptyTrips {
+  padding: 36px 16px;
+  text-align: center;
+  color: #8e8e93;
+  font-size: 13px;
+}
+
+/* 浮层弹窗 Modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+.modalSheet {
+  background: #ffffff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 24px;
+  padding: 24px 20px;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.closeBtn {
+  background: #f2f3f7;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  color: #8e8e93;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a3a3c;
+  margin-bottom: 6px;
+}
+
+.typeSelector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.typeBtn {
+  padding: 10px 4px;
+  border-radius: 12px;
+  border: 1px solid #e5e5ea;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c1e;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.typeBtnActive {
+  border-color: #0a84ff;
+  background: rgba(10, 132, 255, 0.08);
+  color: #0a84ff;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e5ea;
+  font-size: 15px;
+  color: #1c1c1e;
+  background: #f8f9fa;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus {
+  border-color: #0a84ff;
+  background: #ffffff;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: #0a84ff;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  touch-action: manipulation;
+}
+
+.submitBtn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}

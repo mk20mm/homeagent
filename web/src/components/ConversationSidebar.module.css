@@ -141,3 +141,40 @@
   color: #8e8e93;
   font-size: 13px;
 }
+
+.sidebarFooter {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footerItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: none;
+  background: #f8f9fa;
+  color: #1c1c1e;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.footerItem:active {
+  background: #ebeef5;
+  transform: scale(0.98);
+}
+
+.footerIcon {
+  font-size: 17px;
+}
+

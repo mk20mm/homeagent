@@ -26,6 +26,7 @@ import (
 	"github.com/mk20mm/homeagent/internal/domain/meal"
 	"github.com/mk20mm/homeagent/internal/domain/model"
 	"github.com/mk20mm/homeagent/internal/domain/task"
+	"github.com/mk20mm/homeagent/internal/domain/travel"
 	"github.com/mk20mm/homeagent/internal/infra/config"
 	"github.com/mk20mm/homeagent/internal/store"
 	"github.com/mk20mm/homeagent/internal/store/repo"
@@ -77,6 +78,7 @@ func main() {
 	expenseSvc := expense.NewService(storeRepo, storeRepo)
 	taskSvc := task.NewService(storeRepo)
 	mealSvc := meal.NewService(storeRepo)
+	travelSvc := travel.NewService(storeRepo, expenseSvc)
 	modelSvc := model.NewService(storeRepo, provRepo)
 	for _, t := range []tool.Tool{
 		expense.NewRecordExpenseTool(expenseSvc),
@@ -89,6 +91,7 @@ func main() {
 		task.NewListMyTasksTool(taskSvc),
 		meal.NewReportMealTool(mealSvc),
 		meal.NewSuggestDinnerTool(mealSvc),
+		travel.NewRecordTripTool(travelSvc),
 		model.NewListModelsTool(modelSvc),
 		model.NewSwitchModelTool(modelSvc),
 	} {
@@ -97,7 +100,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	slog.Info("tools registered", "count", 12)
+	slog.Info("tools registered", "count", 13)
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
@@ -130,7 +133,8 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Logger(), middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo, storeRepo, expenseSvc, expenseSvc, storeRepo, expenseSvc)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo, storeRepo, expenseSvc, expenseSvc, storeRepo, expenseSvc, travelSvc)
+
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}
 	go func() {

@@ -30,6 +30,8 @@ tags:
     description: 撤销
   - name: admin
     description: 审计/用量（管理端）
+  - name: travel
+    description: 出行与爱车台账
 
 paths:
   /auth/token:
@@ -836,7 +838,88 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MealReport'
+  /vehicles:
+    get:
+      tags: [travel]
+      summary: 家庭爱车列表
+      operationId: listVehicles
+      responses:
+        '200':
+          description: 车辆列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vehicle'
+    post:
+      tags: [travel]
+      summary: 登记爱车
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+
+  /trips:
+    get:
+      tags: [travel]
+      summary: 出行与用车记录流水
+      operationId: listTrips
+      parameters:
+        - in: query
+          name: vehicle_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 出行记录列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trip'
+    post:
+      tags: [travel]
+      summary: 记录出行或用车费用（自动联动记账）
+      operationId: createTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCreate'
+      responses:
+        '201':
+          description: 记录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
 
   /undo/{undoId}:
     post:
@@ -1485,3 +1568,106 @@ components:
         created_at:
           type: string
           format: date-time
+
+    Vehicle:
+      type: object
+      required: [id, name, plate_number, vehicle_type, current_mileage, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: 车辆名称
+        plate_number:
+          type: string
+          description: 车牌号
+        vehicle_type:
+          type: string
+          enum: [ev, gas, hybrid]
+          description: 能源类型（纯电/燃油/混动）
+        current_mileage:
+          type: integer
+          description: 当前总里程（公里）
+        last_maintenance_mileage:
+          type: integer
+          description: 上次保养里程（公里）
+        next_maintenance_mileage:
+          type: integer
+          description: 下次建议保养里程（公里）
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    VehicleCreate:
+      type: object
+      required: [name, plate_number, vehicle_type]
+      properties:
+        name:
+          type: string
+        plate_number:
+          type: string
+        vehicle_type:
+          type: string
+          enum: [ev, gas, hybrid]
+        current_mileage:
+          type: integer
+          default: 0
+
+    Trip:
+      type: object
+      required: [id, trip_type, amount_cents, occurred_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        vehicle_name:
+          type: string
+        trip_type:
+          type: string
+          enum: [gas, charging, parking, toll, maintenance, ride]
+          description: 类型（加油/充电/停车/高速费/保养/打车）
+        amount_cents:
+          type: integer
+          format: int64
+          description: 费用（分）
+        mileage:
+          type: integer
+          description: 发生时总里程数（公里）
+        note:
+          type: string
+          description: 备注说明
+        occurred_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    TripCreate:
+      type: object
+      required: [trip_type, amount_cents]
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
+        trip_type:
+          type: string
+          enum: [gas, charging, parking, toll, maintenance, ride]
+        amount_cents:
+          type: integer
+          format: int64
+        mileage:
+          type: integer
+        note:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+

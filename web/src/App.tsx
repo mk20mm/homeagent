@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage'
 import { KitchenPage } from './pages/KitchenPage'
 import { MoneyPage } from './pages/MoneyPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { TravelPage } from './pages/TravelPage'
 
 const router = createBrowserRouter([
   {
@@ -65,6 +66,17 @@ const router = createBrowserRouter([
       <RequireAuth>
         <AppLayout>
           <KitchenPage />
+          <TabBar />
+        </AppLayout>
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/travel',
+    element: (
+      <RequireAuth>
+        <AppLayout>
+          <TravelPage />
           <TabBar />
         </AppLayout>
       </RequireAuth>
