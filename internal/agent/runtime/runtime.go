@@ -156,7 +156,12 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 		var text strings.Builder
 		var toolCalls []gateway.ToolCall
 		var usage *gateway.Usage
+		var streamErr error
 		for e := range ch {
+			if e.Err != nil {
+				streamErr = e.Err
+				break
+			}
 			if e.Delta != "" {
 				text.WriteString(e.Delta)
 				emit(Event{Type: "token", Content: e.Delta})
@@ -168,11 +173,21 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 				usage = e.Usage
 			}
 		}
+		if streamErr != nil {
+			return fail("大模型响应异常: "+streamErr.Error(), streamErr)
+		}
 		latency := rt.now().Sub(start).Milliseconds()
 
 		// 用量埋点（网关出口，ARCHITECTURE §10）
 		if usage != nil {
 			_ = rt.usage.Record(ctx, conv.ModelID, chatReq.Model, rt.provider.Name(), *usage, latency)
+		}
+
+		// 若大模型既无文本回复也无工具调用（如触发内容审查或空生成），注入友好兜底回复，防止前端挂死在思考中
+		if text.Len() == 0 && len(toolCalls) == 0 {
+			fallbackMsg := "未能生成有效回复，请重试或更换模型。"
+			text.WriteString(fallbackMsg)
+			emit(Event{Type: "token", Content: fallbackMsg})
 		}
 
 		assistant := session.Message{

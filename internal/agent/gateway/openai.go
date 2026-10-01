@@ -13,7 +13,9 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -30,6 +32,9 @@ func NewOpenAIProvider(apiKey, baseURL, model, providerName string) *OpenAIProvi
 	cfg := openai.DefaultConfig(apiKey)
 	if baseURL != "" {
 		cfg.BaseURL = baseURL
+	}
+	cfg.HTTPClient = &http.Client{
+		Timeout: 60 * time.Second, // 防止远程连接挂起导致协程与通道死锁
 	}
 	return &OpenAIProvider{
 		client:   openai.NewClientWithConfig(cfg),

@@ -547,3 +547,47 @@ func TestRunCancelStopsLoop(t *testing.T) {
 		OnEvent:  func(Event) {},
 	})
 }
+
+func TestRunStreamErrorEmitsErrorEvent(t *testing.T) {
+	rt, _, _, _, _ := newTestRuntime(t, map[string]bool{"expense.write": true})
+	rt.provider = gateway.NewScriptedProvider(func(round int, _ gateway.ChatRequest) []gateway.StreamEvent {
+		return []gateway.StreamEvent{
+			{Err: apperr.New(apperr.CodeInternal, "远程端点返回 500", nil)},
+		}
+	})
+
+	events := collectEvents(context.Background(), rt, RunRequest{
+		MemberID: "m1",
+		Content:  "异常测试",
+	})
+
+	if !hasEvent(events, "error") {
+		t.Fatal("流异常时应抛出 error 事件，防止前端一直卡在思考中")
+	}
+}
+
+func TestRunEmptyResponseFallback(t *testing.T) {
+	rt, _, _, _, _ := newTestRuntime(t, map[string]bool{"expense.write": true})
+	rt.provider = gateway.NewScriptedProvider(func(round int, _ gateway.ChatRequest) []gateway.StreamEvent {
+		// 返回完全空的 token 和工具
+		return []gateway.StreamEvent{
+			{Done: true},
+		}
+	})
+
+	events := collectEvents(context.Background(), rt, RunRequest{
+		MemberID: "m1",
+		Content:  "空回复测试",
+	})
+
+	tokenFound := false
+	for _, e := range events {
+		if e.Type == "token" && e.Content != "" {
+			tokenFound = true
+			break
+		}
+	}
+	if !tokenFound {
+		t.Fatal("大模型返回空时应自动注入兜底回复，防止出现空泡泡或死锁")
+	}
+}

@@ -41,7 +41,11 @@ func Chat(rt *runtime.Runtime) gin.HandlerFunc {
 		c.Writer.WriteHeader(http.StatusOK)
 
 		flusher, _ := c.Writer.(http.Flusher)
+		hasError := false
 		writeEvent := func(e runtime.Event) {
+			if e.Type == "error" {
+				hasError = true
+			}
 			b, _ := json.Marshal(e)
 			_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", b)
 			if flusher != nil {
@@ -58,8 +62,8 @@ func Chat(rt *runtime.Runtime) gin.HandlerFunc {
 			TraceID:        c.GetString("trace_id"),
 			OnEvent:        writeEvent,
 		})
-		if err != nil {
-			writeEvent(runtime.Event{Type: "error", Error: "服务暂时不可用，请稍后重试"})
+		if err != nil && !hasError {
+			writeEvent(runtime.Event{Type: "error", Error: err.Error()})
 		}
 	}
 }

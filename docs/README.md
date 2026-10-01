@@ -16,6 +16,7 @@ docs/
 ├── CONVENTIONS-backend.md     # 后端代码规范（Go）
 ├── CONVENTIONS-frontend.md    # 前端代码规范（React+TS，移动端+管理端）
 ├── agent-调度器设计.md         # Agent 运行时详细设计（核心，保留）
+├── agent-dispatch-center.md   # Agent 调度中心架构、状态机、多模型路由与异常容灾体系
 ├── tech-debt.md               # 技术债登记（发现即偿还）
 ├── e2e-issues.md              # E2E 测试轮次记录与问题清单
 ├── product/                   # 产品设计探索（UX 走查 + 机会分析）
@@ -55,6 +56,7 @@ docs/
 | **CONVENTIONS-backend.md**    | Go 目录结构、分层依赖、工具层接口约束（WriteTool 编译期强制撤销）、错误三段式、测试与评测命令                     | AI-STD-006     |
 | **CONVENTIONS-frontend.md**   | 移动端+管理端 monorepo 结构、组件/状态/样式规范、对话状态机、撤销交互、设计令牌                                   | AI-STD-006     |
 | **agent-调度器设计.md**       | Agent 核心实现设计：六组件、工具注册表、危险分级控制、撤销机制、Go 实现要点                                       | AI-STD-003/004 |
+| **agent-dispatch-center.md**  | Agent 调度中心架构、状态机、多模型路由与异常容灾体系（执行计划与根因闭环）                                         | AI-STD-003/005 |
 | **ADR/**                      | 「为什么这么选」：Go、自建调度器、SQLite、全量可撤销、权限双保险                                                  | AI-STD-003/006 |
 | **DOMAIN/家庭领域模型.md**    | 限界上下文、统一语言、核心实体、跨模块联动不变量、Eval 真实任务样本                                               | AI-STD-002/005 |
 | **ui/design-system.md**       | 苹果简约风 UI 规范：色彩、字体、圆角间距、关键视觉元素、一期页面清单                                              | —              |
