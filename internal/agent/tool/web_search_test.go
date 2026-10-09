@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -165,5 +166,95 @@ func TestReRankCandidatesFallbackWhenKeyFails(t *testing.T) {
 	// 启发式重排依然能将官方结果置顶于第 1 名
 	if ranked[0].Title != "西门子官方客服：洗碗机进水水龙头指示灯亮起自检排查步骤" {
 		t.Fatalf("expected graceful fallback to rank official first, got %s", ranked[0].Title)
+	}
+}
+
+func TestLiveComparisonJevVsOriginal(t *testing.T) {
+	// 读取本地 .env 密钥
+	apiKey := os.Getenv("TYPESAFE_API_KEY")
+	if apiKey == "" {
+		envBytes, err := os.ReadFile("../../../.env")
+		if err == nil {
+			for _, line := range strings.Split(string(envBytes), "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "TYPESAFE_API_KEY=") {
+					apiKey = strings.TrimPrefix(line, "TYPESAFE_API_KEY=")
+					break
+				}
+			}
+		}
+	}
+
+	if apiKey == "" {
+		t.Skip("跳过在线对比：未找到 TYPESAFE_API_KEY")
+	}
+
+	query := "西门子洗碗机水龙头亮红灯排查"
+
+	// 模拟真实搜索返回的候选池（含官方实操指南、电商导购广告、通用说明书主页、论坛闲聊灌水）
+	candidates := []SearchCitationItem{
+		{
+			Title:      "【京东精选】2026 最新款洗碗机大促活动",
+			URL:        "https://item.jd.com/dishwasher-sale",
+			SourceName: "jd.com",
+			Snippet:    "大容量嵌入式洗碗机限时直降 1000 元，支持多重清洗模式，免费上门安装售后无忧。",
+			IsOfficial: false,
+		},
+		{
+			Title:      "百度贴吧：家里的洗碗机红灯闪烁是坏了吗",
+			URL:        "https://tieba.baidu.com/p/dishwasher-help",
+			SourceName: "tieba.baidu.com",
+			Snippet:    "求助各位大佬，昨天用还好好的，今天突然水龙头图标变红了，有遇到过相同情况的吗？在线等挺急的。",
+			IsOfficial: false,
+		},
+		{
+			Title:      "西门子家电官方客户支持：洗碗机进水受阻/水龙头指示灯亮起排查指引",
+			URL:        "https://www.siemens-home.bsh-group.cn/service/support/dishwasher-water-tap",
+			SourceName: "siemens-home.bsh-group.cn",
+			Snippet:    "水龙头亮红灯表示进水流量异常。官方排查步骤：1. 确认角阀完全开启；2. 检查进水管无弯折受压；3. 拆下进水滤网清洗水垢与杂质。",
+			IsOfficial: true,
+		},
+		{
+			Title:      "西门子家电官网首页 · 探索德系精工厨房与全套智能家电",
+			URL:        "https://www.siemens-home.bsh-group.cn/",
+			SourceName: "siemens-home.bsh-group.cn",
+			Snippet:    "欢迎访问西门子家电中国官方网站，探索冰箱、洗衣机、洗碗机、烤箱等全系高端厨房电器产品。",
+			IsOfficial: true,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	// 1. 调用真实 Jev System One 重排，并度量耗时
+	t0 := time.Now()
+	jevRanked := reRankWithJev(ctx, apiKey, query, candidates)
+	jevDuration := time.Since(t0)
+
+	// 2. 调用启发式重排
+	t1 := time.Now()
+	heuristicRanked := reRankHeuristic(query, candidates)
+	heuristicDuration := time.Since(t1)
+
+	t.Logf("\n================ 【搜索排序能力实测对比报告】 ================")
+	t.Logf("检索问题：%s", query)
+	t.Logf("\n--- [1] 原始初筛自然顺序 (Raw Search Pool): ---")
+	for i, c := range candidates {
+		t.Logf("  #%d [%s] %s (摘要: %s...)", i+1, c.SourceName, c.Title, c.Snippet[:30])
+	}
+
+	t.Logf("\n--- [2] TypeSafe Jev System One 决策重排 (Jev Re-ranked, 耗时: %v): ---", jevDuration)
+	for i, c := range jevRanked {
+		t.Logf("  Top %d: [%s] %s", i+1, c.SourceName, c.Title)
+	}
+
+	t.Logf("\n--- [3] 本地启发式多因子降级重排 (Heuristic Re-ranked, 耗时: %v): ---", heuristicDuration)
+	for i, c := range heuristicRanked {
+		t.Logf("  Top %d: [%s] %s", i+1, c.SourceName, c.Title)
+	}
+	t.Logf("==============================================================\n")
+
+	if len(jevRanked) > 0 && jevRanked[0].Title != "西门子家电官方客户支持：洗碗机进水受阻/水龙头指示灯亮起排查指引" {
+		t.Errorf("Jev 应该将具体实操步骤排在第 1 名，但实际是: %s", jevRanked[0].Title)
 	}
 }
