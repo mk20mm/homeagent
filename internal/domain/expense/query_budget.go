@@ -36,6 +36,7 @@ func (t *QueryBudgetTool) Spec() tool.Spec {
 		Risk:       tool.RiskLow,
 		Permission: "expense.read",
 		Module:     "expense",
+		Replayable: true,
 	}
 }
 

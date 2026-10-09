@@ -20,12 +20,14 @@ type Message = gateway.Message
 
 // Conversation 会话视图。
 type Conversation struct {
-	ID             string
-	MemberID       string
-	Title          string
-	ModelID        string
-	LastMessageAt  time.Time
-	CreatedAt      time.Time
+	ID                string
+	MemberID          string
+	Title             string
+	ModelID           string
+	ForkedFromID      string
+	ForkedAtMessageID string
+	LastMessageAt     time.Time
+	CreatedAt         time.Time
 }
 
 // MessageView 消息列表视图（API 层用，比 Message 多 id/时间；runtime 仍用 Message 发 LLM）。
@@ -42,6 +44,8 @@ type MessageView struct {
 type Repository interface {
 	// CreateConversation 新建会话，返回 id；modelID 空则不绑定模型
 	CreateConversation(ctx context.Context, memberID, title, modelID string) (convID string, err error)
+	// ForkConversation 从某条消息处分叉创建新分支（Feature 3）
+	ForkConversation(ctx context.Context, convID, memberID, forkAtMessageID, title string) (Conversation, error)
 	// LoadConversation 取会话（含 member 隔离校验）
 	LoadConversation(ctx context.Context, convID, memberID string) (Conversation, error)
 	// ListConversations 成员的会话列表（游标分页，按最后消息时间倒序）
@@ -66,6 +70,8 @@ type Service interface {
 	Ensure(ctx context.Context, convID, memberID string) (conv Conversation, history []Message, err error)
 	// Create 显式新建会话（可指定标题与模型）
 	Create(ctx context.Context, memberID, title, modelID string) (convID string, err error)
+	// Fork 分叉会话（Feature 3 时光机）
+	Fork(ctx context.Context, convID, memberID, forkAtMessageID, title string) (Conversation, error)
 	// List 成员的会话列表（游标分页）
 	List(ctx context.Context, memberID string, limit int, cursor string) (convs []Conversation, nextCursor string, err error)
 	// Load 取会话详情 + 历史消息（切换会话时用）
@@ -122,6 +128,20 @@ func (s *service) Create(ctx context.Context, memberID, title, modelID string) (
 		return "", apperr.New(apperr.CodePermission, "缺少成员身份", nil)
 	}
 	return s.repo.CreateConversation(ctx, memberID, title, modelID)
+}
+
+// Fork 分叉会话（Feature 3 时光机分支探索）。
+func (s *service) Fork(ctx context.Context, convID, memberID, forkAtMessageID, title string) (Conversation, error) {
+	if memberID == "" {
+		return Conversation{}, apperr.New(apperr.CodePermission, "缺少成员身份", nil)
+	}
+	if convID == "" {
+		return Conversation{}, apperr.New(apperr.CodeInvalidInput, "原会话 id 不能为空", nil)
+	}
+	if forkAtMessageID == "" {
+		return Conversation{}, apperr.New(apperr.CodeInvalidInput, "分叉节点消息 id 不能为空", nil)
+	}
+	return s.repo.ForkConversation(ctx, convID, memberID, forkAtMessageID, title)
 }
 
 // List 成员的会话列表。

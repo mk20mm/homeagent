@@ -29,6 +29,7 @@ func (t *ListMyTasksTool) Spec() tool.Spec {
 		Risk:       tool.RiskLow,
 		Permission: "task.read",
 		Module:     "task",
+		Replayable: true,
 	}
 }
 

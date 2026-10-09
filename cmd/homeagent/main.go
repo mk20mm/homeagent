@@ -97,13 +97,14 @@ func main() {
 		model.NewListModelsTool(modelSvc),
 		model.NewSwitchModelTool(modelSvc),
 		domrun.NewSubmitTaskPlanTool(runSvc),
+		tool.NewWebSearchTool(),
 	} {
 		if err := registry.Register(t); err != nil {
 			slog.Error("register tool failed", "tool", t.Spec().Name, "err", err)
 			os.Exit(1)
 		}
 	}
-	slog.Info("tools registered", "count", 14)
+	slog.Info("tools registered", "count", 15)
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
@@ -127,10 +128,11 @@ func main() {
 	gw := gateway.NewDynamicGateway(provRepo, fallbackProvider)
 
 	rt := runtime.New(runtime.Options{
-		Provider: gw,
-		Executor: executor,
-		Sessions: sessions,
-		Usage:    storeRepo, // 用量埋点写 llm_usage
+		Provider:   gw,
+		Executor:   executor,
+		Sessions:   sessions,
+		Usage:      storeRepo, // 用量埋点写 llm_usage
+		RunService: runSvc,
 	})
 
 	r := gin.New()
@@ -145,6 +147,19 @@ func main() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server failed", "err", err)
 			os.Exit(1)
+		}
+	}()
+
+	// 进程启动自动扫描并恢复崩溃中断的运行（T-DRC-14）
+	go func() {
+		time.Sleep(500 * time.Millisecond) // 等待监听就绪
+		recoverCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		recovered, err := rt.RecoverInterruptedRuns(recoverCtx, 60*time.Second)
+		if err != nil {
+			slog.Error("recover interrupted runs error", "err", err)
+		} else if recovered > 0 {
+			slog.Info("recovered interrupted runs", "count", recovered)
 		}
 	}()
 

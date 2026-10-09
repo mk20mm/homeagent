@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/mk20mm/homeagent/internal/apperr"
 	domrun "github.com/mk20mm/homeagent/internal/domain/run"
@@ -44,27 +45,36 @@ func toRunEventItem(e *ent.RunEvent) domrun.RunEventItem {
 
 func toRunItem(r *ent.AgentRun) domrun.RunItem {
 	return domrun.RunItem{
-		ID:         r.ID.String(),
-		Goal:       r.Goal,
-		IntentKind: string(r.IntentKind),
-		Status:     string(r.Status),
-		Version:    r.Version,
-		RequestID:  r.RequestID,
-		CreatedAt:  r.CreatedAt,
+		ID:          r.ID.String(),
+		Goal:        r.Goal,
+		IntentKind:  string(r.IntentKind),
+		Status:      string(r.Status),
+		Version:     r.Version,
+		ParentRunID: r.ParentRunID,
+		RootRunID:   r.RootRunID,
+		CreatedAt:   r.CreatedAt,
 	}
 }
 
 func toRunDetail(r *ent.AgentRun) domrun.RunDetail {
 	d := domrun.RunDetail{
-		ID:         r.ID.String(),
-		Goal:       r.Goal,
-		IntentKind: string(r.IntentKind),
-		Status:     string(r.Status),
-		Version:    r.Version,
-		RequestID:  r.RequestID,
-		CreatedAt:  r.CreatedAt,
-		Steps:      make([]domrun.RunStepItem, 0, len(r.Edges.Steps)),
-		Events:     make([]domrun.RunEventItem, 0, len(r.Edges.Events)),
+		ID:          r.ID.String(),
+		Goal:        r.Goal,
+		IntentKind:  string(r.IntentKind),
+		Status:      string(r.Status),
+		Version:     r.Version,
+		RequestID:   r.RequestID,
+		ParentRunID: r.ParentRunID,
+		RootRunID:   r.RootRunID,
+		CreatedAt:   r.CreatedAt,
+		Steps:       make([]domrun.RunStepItem, 0, len(r.Edges.Steps)),
+		Events:      make([]domrun.RunEventItem, 0, len(r.Edges.Events)),
+	}
+	if r.Edges.Member != nil {
+		d.MemberID = r.Edges.Member.ID.String()
+	}
+	if r.Edges.Conversation != nil {
+		d.ConversationID = r.Edges.Conversation.ID.String()
 	}
 	for _, s := range r.Edges.Steps {
 		d.Steps = append(d.Steps, toRunStepItem(s))
@@ -130,6 +140,8 @@ func (s *Store) GetRun(ctx context.Context, memberID string, runID string) (domr
 
 	r, err := s.db.AgentRun.Query().
 		Where(agentrun.IDEQ(runUUID), agentrun.HasMemberWith(member.IDEQ(memUUID))).
+		WithMember().
+		WithConversation().
 		WithSteps(func(q *ent.RunStepQuery) { q.Order(ent.Asc(runstep.FieldPosition)) }).
 		WithEvents(func(q *ent.RunEventQuery) { q.Order(ent.Asc(runevent.FieldSeq)) }).
 		Only(ctx)
@@ -139,10 +151,13 @@ func (s *Store) GetRun(ctx context.Context, memberID string, runID string) (domr
 	return toRunDetail(r), nil
 }
 
-func (s *Store) getRunByID(ctx context.Context, runID string) (domrun.RunDetail, error) {
+// GetRunByID 根据 ID 直接获取运行详情（系统恢复使用）。
+func (s *Store) GetRunByID(ctx context.Context, runID string) (domrun.RunDetail, error) {
 	runUUID := toUUID(runID)
 	r, err := s.db.AgentRun.Query().
 		Where(agentrun.IDEQ(runUUID)).
+		WithMember().
+		WithConversation().
 		WithSteps(func(q *ent.RunStepQuery) { q.Order(ent.Asc(runstep.FieldPosition)) }).
 		WithEvents(func(q *ent.RunEventQuery) { q.Order(ent.Asc(runevent.FieldSeq)) }).
 		Only(ctx)
@@ -150,6 +165,35 @@ func (s *Store) getRunByID(ctx context.Context, runID string) (domrun.RunDetail,
 		return domrun.RunDetail{}, apperr.New(apperr.CodeNotFound, "任务编排不存在", err)
 	}
 	return toRunDetail(r), nil
+}
+
+// FindInterruptedRuns 扫描异常中断的运行（用于进程重启崩溃恢复）。
+func (s *Store) FindInterruptedRuns(ctx context.Context, updatedBefore time.Time, limit int) ([]domrun.RunDetail, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	runs, err := s.db.AgentRun.Query().
+		Where(
+			agentrun.StatusIn(agentrun.StatusRunning, agentrun.StatusAwaitingInput),
+			agentrun.UpdatedAtLT(updatedBefore),
+			agentrun.DeletedAtIsNil(),
+		).
+		WithMember().
+		WithConversation().
+		WithSteps(func(q *ent.RunStepQuery) { q.Order(ent.Asc(runstep.FieldPosition)) }).
+		WithEvents(func(q *ent.RunEventQuery) { q.Order(ent.Asc(runevent.FieldSeq)) }).
+		Order(ent.Asc(agentrun.FieldUpdatedAt)).
+		Limit(limit).
+		All(ctx)
+	if err != nil {
+		return nil, apperr.New(apperr.CodeInternal, "查询中断任务失败", err)
+	}
+
+	out := make([]domrun.RunDetail, 0, len(runs))
+	for _, r := range runs {
+		out = append(out, toRunDetail(r))
+	}
+	return out, nil
 }
 
 // ListRuns 列出当前成员获授权的编排列表。
@@ -201,7 +245,7 @@ func (s *Store) UpdateRunStatus(ctx context.Context, runID string, expectedVersi
 	}
 
 	_, _ = s.RecordRunEvent(ctx, runID, "", "run_status_changed", fmt.Sprintf(`{"from":%q,"to":%q,"version":%d}`, r.Status, nextStatus, updated.Version))
-	return s.getRunByID(ctx, runID)
+	return s.GetRunByID(ctx, runID)
 }
 
 // AddRunStep 向编排中添加步骤。
@@ -312,3 +356,57 @@ func (s *Store) RecordRunEvent(ctx context.Context, runID string, stepID string,
 	}
 	return toRunEventItem(saved), nil
 }
+
+// CreateChildRun 创建子任务编排运行记录（Feature 4）。
+func (s *Store) CreateChildRun(ctx context.Context, memberID string, parentRunID string, goal string, intentKind schema.IntentKind) (domrun.RunDetail, error) {
+	memUUID := toUUID(memberID)
+	m, err := s.db.Member.Query().Where(member.IDEQ(memUUID)).WithFamily().Only(ctx)
+	if err != nil {
+		return domrun.RunDetail{}, apperr.New(apperr.CodeNotFound, "成员不存在", err)
+	}
+
+	parent, err := s.db.AgentRun.Get(ctx, toUUID(parentRunID))
+	if err != nil {
+		return domrun.RunDetail{}, apperr.New(apperr.CodeNotFound, "父级任务不存在", err)
+	}
+	rootRunID := parent.RootRunID
+	if rootRunID == "" {
+		rootRunID = parent.ID.String()
+	}
+
+	builder := s.db.AgentRun.Create().
+		SetMember(m).
+		SetFamily(m.Edges.Family).
+		SetGoal(goal).
+		SetIntentKind(agentrun.IntentKind(intentKind)).
+		SetStatus(agentrun.StatusRunning).
+		SetParentRunID(parentRunID).
+		SetRootRunID(rootRunID)
+
+	created, err := builder.Save(ctx)
+	if err != nil {
+		return domrun.RunDetail{}, apperr.New(apperr.CodeInternal, "创建子任务编排失败", err)
+	}
+
+	_, _ = s.RecordRunEvent(ctx, created.ID.String(), "", "run_created", fmt.Sprintf(`{"goal":%q,"parent_run_id":%q}`, goal, parentRunID))
+	return s.GetRunByID(ctx, created.ID.String())
+}
+
+// FindChildRuns 查找指定父任务的所有子任务（Feature 4）。
+func (s *Store) FindChildRuns(ctx context.Context, parentRunID string) ([]domrun.RunDetail, error) {
+	runs, err := s.db.AgentRun.Query().
+		Where(agentrun.ParentRunIDEQ(parentRunID)).
+		WithMember().
+		WithSteps(func(q *ent.RunStepQuery) { q.Order(ent.Asc(runstep.FieldPosition)) }).
+		WithEvents(func(q *ent.RunEventQuery) { q.Order(ent.Asc(runevent.FieldSeq)) }).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domrun.RunDetail, 0, len(runs))
+	for _, r := range runs {
+		out = append(out, toRunDetail(r))
+	}
+	return out, nil
+}
+

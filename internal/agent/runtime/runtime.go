@@ -7,6 +7,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -16,12 +17,14 @@ import (
 	"github.com/mk20mm/homeagent/internal/agent/session"
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/apperr"
+	domrun "github.com/mk20mm/homeagent/internal/domain/run"
 	"github.com/mk20mm/homeagent/internal/store/ent/schema"
 )
 
-// Event 是推给 SSE handler 的事件（对齐前端 useSSE：token/tool_call/done/error）。
+// Event 是推给 SSE handler 的事件（对齐前端 useSSE：token/tool_call/done/error/run_started）。
 type Event struct {
-	Type    string          `json:"type"` // token | tool_call | done | error
+	Type    string          `json:"type"` // token | tool_call | done | error | run_started
+	RunID   string          `json:"run_id,omitempty"` // 真实执行运行唯一标识 (AgentRun.ID)
 	Content string          `json:"content,omitempty"`
 	Tool    string          `json:"tool,omitempty"`
 	Card    json.RawMessage `json:"card,omitempty"`
@@ -40,12 +43,24 @@ type RunRequest struct {
 	OnEvent        func(Event) // 流式回调，禁止阻塞（handler 直接转发 SSE）
 }
 
+// RunFromCheckpointRequest 从检查点恢复执行请求（T-DRC-13）。
+type RunFromCheckpointRequest struct {
+	RunID           string
+	ConversationID  string
+	MemberID        string
+	ModelID         string
+	StartTurn       int
+	RebuiltMessages []gateway.Message
+	OnEvent         func(Event)
+}
+
 // Options Runtime 依赖，由 main 装配。
 type Options struct {
-	Provider gateway.Provider
-	Executor *tool.Executor
-	Sessions session.Service
-	Usage    gateway.UsageRecorder
+	Provider   gateway.Provider
+	Executor   *tool.Executor
+	Sessions   session.Service
+	Usage      gateway.UsageRecorder
+	RunService domrun.Service
 }
 
 // Runtime 持有全部依赖。
@@ -54,6 +69,8 @@ type Runtime struct {
 	executor *tool.Executor
 	sessions session.Service
 	usage    gateway.UsageRecorder
+	runSvc   domrun.Service
+	hub      *Hub
 	now      func() time.Time
 }
 
@@ -63,6 +80,8 @@ func New(o Options) *Runtime {
 		executor: o.Executor,
 		sessions: o.Sessions,
 		usage:    o.Usage,
+		runSvc:   o.RunService,
+		hub:      NewHub(),
 		now:      time.Now,
 	}
 	if rt.usage == nil {
@@ -71,15 +90,56 @@ func New(o Options) *Runtime {
 	return rt
 }
 
+// Hub 返回内部并发事件控制中心。
+func (rt *Runtime) Hub() *Hub {
+	return rt.hub
+}
+
+// Steer 向活跃中的 Run 发送实时人类干预指令。
+func (rt *Runtime) Steer(runID string, instruction string) bool {
+	if rt.hub == nil {
+		return false
+	}
+	return rt.hub.Steer(runID, instruction)
+}
+
+// Cancel 紧急中断正在活跃执行中的 Run。
+func (rt *Runtime) Cancel(runID string) bool {
+	if rt.hub == nil {
+		return false
+	}
+	return rt.hub.Cancel(runID)
+}
+
+// Subscribe 订阅指定 Run 的事件广播。
+func (rt *Runtime) Subscribe(runID string) (<-chan domrun.RunEventItem, func()) {
+	if rt.hub == nil {
+		ch := make(chan domrun.RunEventItem)
+		close(ch)
+		return ch, func() {}
+	}
+	return rt.hub.Subscribe(runID)
+}
+
+type loopInput struct {
+	RunID          string
+	MemberID       string
+	ConversationID string
+	ModelID        string
+	TraceID        string
+	History        []session.Message
+	InitialMsgs    []session.Message
+	StartTurn      int
+	Perms          map[string]bool
+	OnEvent        func(Event)
+}
+
 // Run 执行一次完整 ReAct 循环。业务错误通过 Event(error) 推出，不中断持久化。
 func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
-	emit := func(e Event) {
-		if req.OnEvent != nil {
-			req.OnEvent(e)
-		}
-	}
 	fail := func(msg string, err error) error {
-		emit(Event{Type: "error", Error: msg})
+		if req.OnEvent != nil {
+			req.OnEvent(Event{Type: "error", Error: msg})
+		}
 		if err != nil {
 			return apperr.New(apperr.CodeInternal, msg, err)
 		}
@@ -95,6 +155,43 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 		return fail("会话初始化失败", err)
 	}
 
+	// 历史消息超出阈值时自动触发 Compaction 摘要压缩（T-DRC-19）
+	effectiveHistory := session.EffectiveHistory(history)
+	if len(effectiveHistory) > session.CompactThreshold {
+		if compacted, err := session.Compact(ctx, rt.provider, conv.ModelID, effectiveHistory); err == nil && len(compacted) > 0 {
+			history = compacted
+			// 压缩结果持久化回 conversation（不变量 4：原始消息永久保留，仅持久化摘要供后续会话使用）
+			if len(compacted) > 0 && strings.HasPrefix(compacted[0].Content, session.SummaryPrefix) {
+				_ = rt.sessions.Append(ctx, conv.ID, req.MemberID, []session.Message{compacted[0]})
+			}
+		} else {
+			history = effectiveHistory
+		}
+	} else {
+		history = effectiveHistory
+	}
+
+	var currentRunID string
+	// 幂等防重与创建 AgentRun（T-DRC-06）
+	if rt.runSvc != nil {
+		runDetail, err := rt.runSvc.CreateRun(ctx, req.MemberID, req.Content, schema.IntentAct, req.RequestID, conv.ID, nil)
+		if err != nil {
+			slog.Error("create agent run failed", "err", err, "request_id", req.RequestID)
+		} else {
+			currentRunID = runDetail.ID
+			if runDetail.Status == string(schema.RunStatusCompleted) {
+				if req.OnEvent != nil {
+					req.OnEvent(Event{Type: "done", RunID: currentRunID})
+				}
+				return nil
+			}
+		}
+	}
+
+	if currentRunID != "" && req.OnEvent != nil {
+		req.OnEvent(Event{Type: "run_started", RunID: currentRunID})
+	}
+
 	// 指定了模型且与会话当前不同：更新会话绑定
 	if req.ModelID != "" && req.ModelID != conv.ModelID {
 		_ = rt.sessions.SetModel(ctx, conv.ID, req.MemberID, req.ModelID)
@@ -106,50 +203,174 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 		return fail("权限加载失败", err)
 	}
 
-	// 权限源头过滤后的工具清单（ADR-005）
-	specs := rt.executor.Registry().SpecsWithPermission(perms)
+	return rt.executeLoop(ctx, loopInput{
+		RunID:          currentRunID,
+		MemberID:       req.MemberID,
+		ConversationID: conv.ID,
+		ModelID:        conv.ModelID,
+		TraceID:        req.TraceID,
+		History:        history,
+		InitialMsgs:    []session.Message{{Role: gateway.RoleUser, Content: req.Content}},
+		StartTurn:      1,
+		Perms:          perms,
+		OnEvent:        req.OnEvent,
+	})
+}
+
+// RunFromCheckpoint 从已有检查点继续执行 ReAct 循环（T-DRC-13）。
+func (rt *Runtime) RunFromCheckpoint(ctx context.Context, req RunFromCheckpointRequest) error {
+	conv, history, err := rt.sessions.Ensure(ctx, req.ConversationID, req.MemberID)
+	if err != nil {
+		return err
+	}
+	history = session.EffectiveHistory(history)
+	modelID := conv.ModelID
+	if req.ModelID != "" {
+		modelID = req.ModelID
+	}
+	perms, err := rt.sessions.Permissions(ctx, req.MemberID)
+	if err != nil {
+		return err
+	}
+	startTurn := req.StartTurn
+	if startTurn <= 0 {
+		startTurn = 1
+	}
+
+	return rt.executeLoop(ctx, loopInput{
+		RunID:          req.RunID,
+		MemberID:       req.MemberID,
+		ConversationID: conv.ID,
+		ModelID:        modelID,
+		History:        history,
+		InitialMsgs:    req.RebuiltMessages,
+		StartTurn:      startTurn,
+		Perms:          perms,
+		OnEvent:        req.OnEvent,
+	})
+}
+
+func (rt *Runtime) executeLoop(ctx context.Context, in loopInput) error {
+	emit := func(e Event) {
+		if in.OnEvent != nil {
+			in.OnEvent(e)
+		}
+	}
+	var isFailed bool
+
+	updateStatus := func(status schema.RunStatus) {
+		if rt.runSvc != nil && in.RunID != "" {
+			if _, err := rt.runSvc.UpdateRunStatus(ctx, in.RunID, 0, status); err != nil {
+				slog.Error("update run status failed", "run_id", in.RunID, "status", status, "err", err)
+			}
+			if rt.hub != nil {
+				rt.hub.Broadcast(in.RunID, domrun.RunEventItem{
+					EventType: "run_status_changed",
+					Payload:   fmt.Sprintf(`{"status":%q}`, status),
+				})
+			}
+		}
+	}
+
+	fail := func(msg string, err error) error {
+		isFailed = true
+		updateStatus(schema.RunStatusFailed)
+		emit(Event{Type: "error", Error: msg})
+		if err != nil {
+			return apperr.New(apperr.CodeInternal, msg, err)
+		}
+		return apperr.New(apperr.CodeInternal, msg, nil)
+	}
+
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+
+	steerChan := make(chan string, 16)
+	if rt.hub != nil && in.RunID != "" {
+		rt.hub.Register(in.RunID, runCancel, steerChan)
+		defer rt.hub.Unregister(in.RunID)
+	}
+
+	specs := rt.executor.Registry().SpecsWithPermission(in.Perms)
 	toolDefs := gateway.ToolsFromSpecs(specs)
 	toolByName := make(map[string]tool.Spec, len(specs))
 	for _, s := range specs {
 		toolByName[s.Name] = s
 	}
 
-	ctx = tool.WithTraceID(ctx, req.TraceID)
-	// 会话上下文注入：switch_model 等工具从 ctx 取当前会话 id
-	ctx = tool.WithConversationID(ctx, conv.ID)
-	ctx = tool.WithMemberID(ctx, req.MemberID)
+	if in.TraceID != "" {
+		ctx = tool.WithTraceID(ctx, in.TraceID)
+	}
+	ctx = tool.WithConversationID(ctx, in.ConversationID)
+	ctx = tool.WithMemberID(ctx, in.MemberID)
 
-	// 待持久化的本轮消息（user + assistant + tool results）
-	persist := []session.Message{{Role: gateway.RoleUser, Content: req.Content}}
-	msgs := append(make([]session.Message, 0, len(history)+8), history...)
-	msgs = append(msgs, gateway.Message{Role: gateway.RoleUser, Content: req.Content})
+	persist := make([]session.Message, len(in.InitialMsgs))
+	copy(persist, in.InitialMsgs)
 
 	system := prompt.Build(prompt.Options{
-		MemberName: "", // P1 接成员服务后补名字
+		MemberName: "",
 		Role:       schema.RoleAdult,
 		Now:        rt.now(),
 	})
-	reqMsgs := append([]gateway.Message{{Role: gateway.RoleSystem, Content: system}}, msgs...)
+	reqMsgs := make([]gateway.Message, 0, 1+len(in.History)+len(in.InitialMsgs)+8)
+	reqMsgs = append(reqMsgs, gateway.Message{Role: gateway.RoleSystem, Content: system})
+	reqMsgs = append(reqMsgs, in.History...)
+	reqMsgs = append(reqMsgs, in.InitialMsgs...)
 
-	// 危险分级：按本循环累计最高风险降步数上限（ARCHITECTURE §8 工具表）
 	curRisk := tool.RiskLow
 	maxTurns := tool.MaxTurns[tool.RiskLow]
 	highRiskExecuted := 0
 
 	stopped := false
-	for turn := 1; !stopped; turn++ {
+	for turn := in.StartTurn; !stopped; turn++ {
+		// 检查人类紧急取消（T-PI-03）
+		if runCtx.Err() != nil {
+			isFailed = true
+			updateStatus(schema.RunStatusCancelled)
+			_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, "", EventRunCancelled, map[string]any{
+				"turn":   turn,
+				"reason": "cancelled_by_user",
+			})
+			emit(Event{Type: "error", Error: "任务已由用户手动取消"})
+			break
+		}
+
+		// 检查人类干预指令（T-PI-03 Steering）
+		select {
+		case instruction := <-steerChan:
+			_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, "", EventHumanSteered, map[string]any{
+				"turn":        turn,
+				"instruction": instruction,
+			})
+			steerMsg := session.Message{
+				Role:    gateway.RoleUser,
+				Content: "[用户实时干预指令] " + instruction,
+			}
+			persist = append(persist, steerMsg)
+			reqMsgs = append(reqMsgs, steerMsg)
+			emit(Event{Type: "token", Content: "\n[已接收实时干预: " + instruction + "]\n"})
+		default:
+		}
+
 		if turn > maxTurns {
+			isFailed = true
+			updateStatus(schema.RunStatusFailed)
 			emit(Event{Type: "error", Error: "已达本次操作步数上限，已停止以防失控"})
 			break
 		}
 
+		_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, "", EventLLMRequestSent, map[string]any{
+			"turn":           turn,
+			"messages_count": len(reqMsgs),
+		})
+
 		chatReq := gateway.ChatRequest{
-			Model:    conv.ModelID,
+			Model:    in.ModelID,
 			Messages: reqMsgs,
 			Tools:    toolDefs,
 		}
 		start := rt.now()
-		ch, err := rt.provider.StreamChat(ctx, chatReq)
+		ch, err := rt.provider.StreamChat(runCtx, chatReq)
 		if err != nil {
 			return fail("LLM 网关连接失败", err)
 		}
@@ -179,17 +400,21 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 		}
 		latency := rt.now().Sub(start).Milliseconds()
 
-		// 用量埋点（网关出口，ARCHITECTURE §10）
 		if usage != nil {
-			_ = rt.usage.Record(ctx, conv.ModelID, chatReq.Model, rt.provider.Name(), *usage, latency)
+			_ = rt.usage.Record(ctx, in.ModelID, chatReq.Model, rt.provider.Name(), *usage, latency)
 		}
 
-		// 若大模型既无文本回复也无工具调用（如触发内容审查或空生成），注入友好兜底回复，防止前端挂死在思考中
 		if text.Len() == 0 && len(toolCalls) == 0 {
 			fallbackMsg := "未能生成有效回复，请重试或更换模型。"
 			text.WriteString(fallbackMsg)
 			emit(Event{Type: "token", Content: fallbackMsg})
 		}
+
+		_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, "", EventLLMResponseReceived, map[string]any{
+			"turn":       turn,
+			"content":    text.String(),
+			"tool_calls": toolCalls,
+		})
 
 		assistant := session.Message{
 			Role:      gateway.RoleAssistant,
@@ -199,18 +424,48 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 		persist = append(persist, assistant)
 		reqMsgs = append(reqMsgs, assistant)
 
-		// 无工具调用：循环正常终止
 		if len(toolCalls) == 0 {
+			_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, "", EventTurnCompleted, map[string]any{
+				"turn": turn,
+			})
 			break
 		}
 
-		// 执行工具（Executor 统一包办权限/参数校验/undo_log/审计）
+		stepIdx := 0
 		for _, tc := range toolCalls {
-			res, err := rt.executor.Execute(ctx, tc.Name, tc.Args, req.MemberID, perms)
+			stepIdx++
+			var stepItem domrun.RunStepItem
+			if rt.runSvc != nil && in.RunID != "" {
+				stepItem, _ = rt.runSvc.AddRunStep(ctx, in.RunID, domrun.RunStepInput{
+					Position:        turn*10 + stepIdx,
+					ToolName:        tc.Name,
+					InputJSON:       string(tc.Args),
+					WaitFor:         schema.WaitForNone,
+					CompletionKind:  "auto",
+					ExpectedVersion: 0,
+				})
+			}
+
+			_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, tc.ID, EventToolIntent, map[string]any{
+				"tool":         tc.Name,
+				"args":         string(tc.Args),
+				"tool_call_id": tc.ID,
+				"step_id":      stepItem.ID,
+			})
+
+			res, err := rt.executor.Execute(runCtx, tc.Name, tc.Args, in.MemberID, in.Perms)
 			if err != nil {
-				// 失败回退（NFR）：错误回传 LLM 重试，不静默吞错
 				errMsg := err.Error()
-				emit(Event{Type: "tool_call", Tool: tc.Name, Error: errMsg})
+				if rt.runSvc != nil && in.RunID != "" && stepItem.ID != "" {
+					_, _ = rt.runSvc.UpdateRunStep(ctx, stepItem.ID, 0, schema.StepStatusFailed, errMsg)
+				}
+				_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, tc.ID, EventToolResult, map[string]any{
+					"tool":         tc.Name,
+					"tool_call_id": tc.ID,
+					"error":        errMsg,
+					"step_id":      stepItem.ID,
+				})
+				emit(Event{Type: "tool_call", Tool: tc.Name, Error: errMsg, RunID: in.RunID})
 				m := session.Message{
 					Role:       gateway.RoleTool,
 					Content:    "执行失败: " + errMsg,
@@ -222,11 +477,22 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 				continue
 			}
 
-		card := res.Card
-		if len(card) == 0 {
-			card = []byte("{}")
-		}
-		emit(Event{Type: "tool_call", Tool: tc.Name, Card: card, UndoID: res.UndoID})
+			card := res.Card
+			if len(card) == 0 {
+				card = []byte("{}")
+			}
+			if rt.runSvc != nil && in.RunID != "" && stepItem.ID != "" {
+				_, _ = rt.runSvc.UpdateRunStep(ctx, stepItem.ID, 0, schema.StepStatusCommitted, string(card))
+			}
+			_ = checkpoint(ctx, rt.runSvc, rt.hub, in.RunID, tc.ID, EventToolResult, map[string]any{
+				"tool":         tc.Name,
+				"tool_call_id": tc.ID,
+				"summary":      res.Summary,
+				"undo_id":      res.UndoID,
+				"card":         string(card),
+				"step_id":      stepItem.ID,
+			})
+			emit(Event{Type: "tool_call", Tool: tc.Name, Card: card, UndoID: res.UndoID, RunID: in.RunID})
 
 			m := session.Message{
 				Role:       gateway.RoleTool,
@@ -237,7 +503,6 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 			reqMsgs = append(reqMsgs, m)
 			persist = append(persist, m)
 
-			// 危险分级：累计最高风险降上限；高风险连续执行 → 终止提示人工确认
 			if spec, ok := toolByName[tc.Name]; ok {
 				if spec.Risk > curRisk {
 					curRisk = spec.Risk
@@ -246,9 +511,12 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 				if spec.Risk == tool.RiskHigh {
 					highRiskExecuted++
 					if highRiskExecuted >= 2 {
+						isFailed = true
+						updateStatus(schema.RunStatusFailed)
 						emit(Event{
 							Type:  "error",
 							Error: "涉及金额操作较多，建议人工确认，已停止本次操作",
+							RunID: in.RunID,
 						})
 						stopped = true
 					}
@@ -257,10 +525,13 @@ func (rt *Runtime) Run(ctx context.Context, req RunRequest) error {
 		}
 	}
 
-	// 先持久化，再回复（ARCHITECTURE §3：说出口即已落地）
-	if err := rt.sessions.Append(ctx, conv.ID, req.MemberID, persist); err != nil {
-		slog.Error("persist messages failed", "err", err, "conv", conv.ID)
+	if !isFailed {
+		updateStatus(schema.RunStatusCompleted)
 	}
-	emit(Event{Type: "done"})
+
+	if err := rt.sessions.Append(ctx, in.ConversationID, in.MemberID, persist); err != nil {
+		slog.Error("persist messages failed", "err", err, "conv", in.ConversationID)
+	}
+	emit(Event{Type: "done", RunID: in.RunID})
 	return nil
 }

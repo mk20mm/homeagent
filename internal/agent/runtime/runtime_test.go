@@ -17,6 +17,8 @@ import (
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/apperr"
 	"github.com/mk20mm/homeagent/internal/domain/expense"
+	domrun "github.com/mk20mm/homeagent/internal/domain/run"
+	"github.com/mk20mm/homeagent/internal/store/ent/schema"
 )
 
 // ---- 测试替件 ----
@@ -254,10 +256,22 @@ func (s *memSession) Ensure(ctx context.Context, convID, memberID string) (sessi
 	return conv, msgs, nil
 }
 
-// Service 接口补齐（会话管理 API 层方法，测试场景给最小实现）
-
 func (s *memSession) Create(ctx context.Context, memberID, title, modelID string) (string, error) {
 	return s.CreateConversation(ctx, memberID, title, modelID)
+}
+
+func (s *memSession) Fork(_ context.Context, convID, memberID, forkAtMessageID, title string) (session.Conversation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id := uuid.NewString()
+	s.convs[id] = &memConv{id: id, memberID: memberID}
+	return session.Conversation{
+		ID:                id,
+		MemberID:          memberID,
+		Title:             title,
+		ForkedFromID:      convID,
+		ForkedAtMessageID: forkAtMessageID,
+	}, nil
 }
 
 func (s *memSession) List(_ context.Context, memberID string, limit int, cursor string) ([]session.Conversation, string, error) {
@@ -591,3 +605,156 @@ func TestRunEmptyResponseFallback(t *testing.T) {
 		t.Fatal("大模型返回空时应自动注入兜底回复，防止出现空泡泡或死锁")
 	}
 }
+
+type mockCheckpointRunService struct {
+	mu             sync.Mutex
+	createdRun     domrun.RunDetail
+	recordedEvents []string
+	recordedSeq    []domrun.RunEventItem
+	statuses       []schema.RunStatus
+}
+
+func (m *mockCheckpointRunService) CreateRun(ctx context.Context, memberID string, goal string, intentKind schema.IntentKind, requestID string, conversationID string, requestedEffects []string) (domrun.RunDetail, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.createdRun = domrun.RunDetail{
+		ID:         "run-test-seq",
+		Goal:       goal,
+		IntentKind: string(intentKind),
+		Status:     "running",
+		Version:    1,
+		RequestID:  requestID,
+	}
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) GetRun(ctx context.Context, memberID string, runID string) (domrun.RunDetail, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) ListRuns(ctx context.Context, memberID string, status string, limit int) ([]domrun.RunItem, error) {
+	return nil, nil
+}
+
+func (m *mockCheckpointRunService) UpdateRunStatus(ctx context.Context, runID string, expectedVersion int, nextStatus schema.RunStatus) (domrun.RunDetail, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.statuses = append(m.statuses, nextStatus)
+	m.createdRun.Status = string(nextStatus)
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) GetRunByID(ctx context.Context, runID string) (domrun.RunDetail, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) FindInterruptedRuns(ctx context.Context, updatedBefore time.Time, limit int) ([]domrun.RunDetail, error) {
+	return nil, nil
+}
+
+func (m *mockCheckpointRunService) UpdateRunStep(ctx context.Context, stepID string, expectedVersion int, status schema.StepStatus, resultCard string) (domrun.RunStepItem, error) {
+	return domrun.RunStepItem{ID: stepID, Status: string(status), ResultCard: resultCard}, nil
+}
+
+func (m *mockCheckpointRunService) AddRunStep(ctx context.Context, runID string, step domrun.RunStepInput) (domrun.RunStepItem, error) {
+	return domrun.RunStepItem{}, nil
+}
+
+func (m *mockCheckpointRunService) ConfirmRunStep(ctx context.Context, memberID string, runID string, stepID string, choice string, nonce string) (domrun.RunDetail, error) {
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) ReplyRun(ctx context.Context, memberID string, runID string, stepID string, expectedVersion int, answers map[string]any) (domrun.RunDetail, error) {
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) AmendRun(ctx context.Context, memberID string, runID string, expectedVersion int, modifications []map[string]any) (domrun.RunDetail, error) {
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) CreateChildRun(ctx context.Context, memberID string, parentRunID string, goal string, intentKind schema.IntentKind) (domrun.RunDetail, error) {
+	return domrun.RunDetail{ID: "child-id", Goal: goal, ParentRunID: parentRunID}, nil
+}
+
+func (m *mockCheckpointRunService) CancelRun(ctx context.Context, memberID string, runID string, reason string) (domrun.RunDetail, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.createdRun.Status = "cancelled"
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) SteerRun(ctx context.Context, memberID string, runID string, instruction string) (domrun.RunDetail, error) {
+	return m.createdRun, nil
+}
+
+func (m *mockCheckpointRunService) RecordRunEvent(ctx context.Context, runID string, stepID string, eventType string, payload string) (domrun.RunEventItem, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.recordedEvents = append(m.recordedEvents, eventType)
+	item := domrun.RunEventItem{
+		ID:        uuid.NewString(),
+		Seq:       len(m.recordedEvents),
+		StepID:    stepID,
+		EventType: eventType,
+		Payload:   payload,
+		CreatedAt: time.Now(),
+	}
+	m.recordedSeq = append(m.recordedSeq, item)
+	return item, nil
+}
+
+func TestCheckpointSequenceFullTurn(t *testing.T) {
+	rt, _, _, _, _ := newTestRuntime(t, map[string]bool{"expense.write": true})
+	rt.provider = gateway.NewScriptedProvider(gateway.RecordExpenseScript())
+
+	mockRunSvc := &mockCheckpointRunService{}
+	rt.runSvc = mockRunSvc
+
+	events := collectEvents(context.Background(), rt, RunRequest{
+		MemberID:  "m1",
+		Content:   "今天买菜花了 120",
+		RequestID: "req-checkpoint-test",
+	})
+
+	if !hasEvent(events, "done") {
+		t.Fatal("对话应正常完成并以 done 结束")
+	}
+
+	expectedSequence := []string{
+		EventLLMRequestSent,
+		EventLLMResponseReceived,
+		EventToolIntent,
+		EventToolResult,
+		EventLLMRequestSent,
+		EventLLMResponseReceived,
+		EventTurnCompleted,
+	}
+
+	mockRunSvc.mu.Lock()
+	actualSequence := make([]string, len(mockRunSvc.recordedEvents))
+	copy(actualSequence, mockRunSvc.recordedEvents)
+	mockRunSvc.mu.Unlock()
+
+	if len(actualSequence) != len(expectedSequence) {
+		t.Fatalf("检查点数量不匹配: 期望 %d, 实际 %d\n期望序列: %v\n实际序列: %v",
+			len(expectedSequence), len(actualSequence), expectedSequence, actualSequence)
+	}
+
+	for i, expected := range expectedSequence {
+		if actualSequence[i] != expected {
+			t.Errorf("第 %d 个检查点不匹配: 期望 %s, 实际 %s", i+1, expected, actualSequence[i])
+		}
+	}
+
+	// 验证最终状态已更新为 completed
+	mockRunSvc.mu.Lock()
+	defer mockRunSvc.mu.Unlock()
+	if len(mockRunSvc.statuses) == 0 || mockRunSvc.statuses[len(mockRunSvc.statuses)-1] != schema.RunStatusCompleted {
+		t.Fatalf("运行状态未更新为 completed: %v", mockRunSvc.statuses)
+	}
+}
+

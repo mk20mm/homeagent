@@ -10,6 +10,9 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      'dist/**',
+      'web/dist/**',
+      'admin/dist/**',
       '**/node_modules/**',
       '**/coverage/**',
       '**/schema.d.ts',

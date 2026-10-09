@@ -16,6 +16,8 @@ func (Conversation) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("title").Optional().Comment("为空时用首条消息截断"),
 		field.Time("last_message_at").Optional().Nillable(),
+		field.String("forked_from_id").Optional().Comment("分叉来源会话 ID"),
+		field.String("forked_at_message_id").Optional().Comment("分叉节点消息 ID"),
 	}
 }
 

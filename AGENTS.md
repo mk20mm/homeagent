@@ -12,7 +12,7 @@
 单家庭自用的 AI 协作中枢：家人说一句话，Agent 调用后端工具把家务/用餐/账单/日程办到位。
 Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管理端）+ OpenAPI 契约驱动双端类型。
 
-**当前阶段**：A/B 骨架已完成；C 阶段 **P0 关键路径 ✅ 9/9**、**P1 工具集+JWT+观测 ✅ 11/11**（9 工具 + JWT 认证 + 权限双保险 + 幂等 + go-openai 适配器 + GET /models·/audit·/usage）、**P2 前端双端联调 ✅**（JWT 登录守卫 + ChatPage 真实 SSE + undo_id 撤销闭环 + admin Debug/仪表盘/审计），进入 **D 阶段**（财务模块深化：收入记录+周期账单+收支总览；出行模块骨架已落地；Tab 栏 5 入口 [💬对话][✅家务][💰财务][🍳厨房][🚗出行]）。
+**当前阶段**：A/B 骨架已完成；C 阶段 **P0/P1/P2 全线落地**；D 阶段（财务模块深化+出行模块骨架+Durable 运行时检查点与双向 Ack 无线画布 ✅），进入 **E 阶段**（核心能力扩充：智能搜索 + 语音转文字 + 个人与家庭知识库 + Skills 扩展体系 + MCP 协议网关，详见 `docs/exec-plans/active/capabilities-expansion.md`）。
 进度与决策日志见 `docs/exec-plans/active/`，技术债见 `docs/tech-debt.md`。
 
 ## 不可违反的不变量（改任何代码前先读）

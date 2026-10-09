@@ -25,6 +25,10 @@ export interface ChatMessage {
   undoId?: string
   /** 撤销已生效（前端乐观回滚） */
   undone?: boolean
+  /** 关联的用户意图 prompt（用于生成上下文感知的执行轨迹 DAG） */
+  prompt?: string
+  /** 真实运行事务 ID（关联 AgentRun，用于拉取真实执行步骤与检查点 DAG） */
+  runId?: string
 }
 
 export interface ConversationItem {
@@ -46,8 +50,9 @@ interface ChatState {
 
   /** 发送前调用：追加上用户消息 + 空的 assistant 占位，进入 streaming */
   beginStream: (userContent: string) => void
+  setRunId: (runId: string) => void
   appendToken: (token: string) => void
-  appendCard: (card: ChatMessage['card'], undoable: boolean, undoId?: string) => void
+  appendCard: (card: ChatMessage['card'], undoable: boolean, undoId?: string, toolName?: string) => void
   updateCard: (messageId: string, next: Partial<ChatMessage['card']>) => void
   markUndone: (undoId: string) => void
   setStatus: (s: ChatStatus) => void
@@ -86,10 +91,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: [
           ...s.messages,
           { id: newId(), role: 'user', content: userContent },
-          { id: streamId, role: 'assistant', content: '' },
+          { id: streamId, role: 'assistant', content: '', prompt: userContent },
         ],
       }
     }),
+
+  setRunId: (runId) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === s.streamId ? { ...m, runId } : m,
+      ),
+    })),
 
   appendToken: (token) =>
     set((s) => ({
@@ -98,10 +110,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ),
     })),
 
-  appendCard: (card, undoable, undoId) =>
+  appendCard: (card, undoable, undoId, toolName) =>
     set((s) => ({
       messages: s.messages.map((m) =>
-        m.id === s.streamId ? { ...m, card, undoable, undoId } : m,
+        m.id === s.streamId
+          ? { ...m, card, undoable, undoId, toolName: toolName || m.toolName }
+          : m,
       ),
     })),
 

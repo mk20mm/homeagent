@@ -73,6 +73,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
 
+  /voice/transcribe:
+    post:
+      tags: [voice]
+      summary: 语音转文字接口（本地/离线/浏览器多协议转写）
+      description: 接收音频文件（支持 webm, wav, m4a, mp3, ogg），转写为高精度文本返回
+      operationId: transcribeVoice
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 音频文件二进制
+                language:
+                  type: string
+                  default: "zh"
+                  description: 语言（默认中文 zh）
+                prompt:
+                  type: string
+                  description: 提示词/热词引导
+      responses:
+        '200':
+          description: 转写成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscribeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /tools:
     get:
       tags: [system]
@@ -370,6 +409,42 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Message'
+
+  /conversations/{conversationId}/fork:
+    post:
+      tags: [chat]
+      summary: 分叉会话（从指定消息创建分支会话，实现时光机探索）
+      operationId: forkConversation
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fork_at_message_id]
+              properties:
+                fork_at_message_id:
+                  type: string
+                  format: uuid
+                  description: 从哪条消息处截断并分叉
+                title:
+                  type: string
+                  description: 新分支标题（可选）
+      responses:
+        '200':
+          description: 分叉成功，返回新分支会话
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /expenses:
     get:
@@ -1210,6 +1285,102 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /runs/{runId}/steer:
+    post:
+      tags: [dispatch]
+      summary: 人类实时干预运行中任务（注入新指令或纠偏）
+      operationId: steerRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instruction]
+              properties:
+                instruction:
+                  type: string
+                  description: 人类干预或补充指令
+      responses:
+        '200':
+          description: 干预指令已接收并将在下一检查点生效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /runs/{runId}/cancel:
+    post:
+      tags: [dispatch]
+      summary: 紧急取消任务编排
+      operationId: cancelRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: 取消原因
+      responses:
+        '200':
+          description: 任务已成功取消
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /runs/{runId}/events:
+    get:
+      tags: [dispatch]
+      summary: 实时监听任务事件流（Live Watchers SSE 协议）
+      operationId: watchRunEvents
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SSE 事件流，持续广播检查点事件（text/event-stream）
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1502,6 +1673,14 @@ components:
         created_at:
           type: string
           format: date-time
+        forked_from_id:
+          type: string
+          format: uuid
+          nullable: true
+        forked_at_message_id:
+          type: string
+          format: uuid
+          nullable: true
 
     Message:
       type: object
@@ -1896,6 +2075,14 @@ components:
         created_at:
           type: string
           format: date-time
+        parent_run_id:
+          type: string
+          format: uuid
+          nullable: true
+        root_run_id:
+          type: string
+          format: uuid
+          nullable: true
 
     RunDetail:
       type: object
@@ -1916,6 +2103,14 @@ components:
           type: integer
         request_id:
           type: string
+        parent_run_id:
+          type: string
+          format: uuid
+          nullable: true
+        root_run_id:
+          type: string
+          format: uuid
+          nullable: true
         steps:
           type: array
           items:
@@ -1972,4 +2167,49 @@ components:
         created_at:
           type: string
           format: date-time
+
+    TranscribeResponse:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          description: 识别出的文字内容
+          example: 刚才买排骨花了68元，记一下账
+        duration_sec:
+          type: number
+          description: 音频时长（秒）
+          example: 3.5
+        provider:
+          type: string
+          description: 转写提供者
+          example: local_whisper
+
+    SearchCitationCard:
+      type: object
+      required: [type, query, results]
+      properties:
+        type:
+          type: string
+          enum: [search_citation]
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            type: object
+            required: [title, url, source_name, snippet]
+            properties:
+              title:
+                type: string
+              url:
+                type: string
+              source_name:
+                type: string
+              snippet:
+                type: string
+              published_date:
+                type: string
+              is_official:
+                type: boolean
 

@@ -1,5 +1,6 @@
 /**
- * 对话主页：AI 交互入口，底部悬浮胶囊输入框 + 苹果毛玻璃模型切换胶囊（Grok Bot × Apple Style）。
+ * 对话主页：AI 交互入口，苹果极简设计系统（Apple Minimalist + Grok 毛玻璃胶囊）。
+ * 保持全站色调与视觉语言绝对统一（浅灰底 #F2F3F7 + 纯白卡片 + 苹果蓝 + 毛玻璃悬浮胶囊）。
  * 消息先乐观渲染，工具结果以服务器回执为准（CONVENTIONS-frontend §4）。
  */
 import { useEffect, useRef, useState } from 'react'
@@ -7,12 +8,14 @@ import { useEffect, useRef, useState } from 'react'
 import { ERROR_MESSAGE, type ErrorCode } from '@homeagent/shared'
 
 import { api, ApiError, unwrap } from '../../api/client'
+import { SearchCitationCard } from '../../components/Cards/SearchCitationCard'
 import { ConversationSidebar } from '../../components/ConversationSidebar'
 import { ExpenseCard } from '../../components/ExpenseCard'
 import { ResultCard } from '../../components/ResultCard'
+import { ThoughtProcess } from '../../components/ThoughtProcess'
+import { VoiceRecorderModal } from '../../components/VoiceRecorder/VoiceRecorderModal'
 import { useSSE, type SSEEvent } from '../../hooks/useSSE'
 import { useChatStore, type ChatMessage } from '../../stores/chat'
-import { tokens } from '../../styles/tokens'
 
 import styles from './ChatPage.module.css'
 
@@ -29,6 +32,7 @@ export function ChatPage() {
     currentModelId,
     currentConversationId,
     beginStream,
+    setRunId,
     appendToken,
     appendCard,
     updateCard,
@@ -39,22 +43,31 @@ export function ChatPage() {
     selectConversation,
     newConversation,
   } = useChatStore()
+
   const [input, setInput] = useState('')
   const [error, setError] = useState<string>()
   const [models, setModels] = useState<ModelOption[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false)
+  const [webSearchActive, setWebSearchActive] = useState(false)
+
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const { connect } = useSSE({
+  const { connect, abort } = useSSE({
     url: '/api/v1/chat',
     onEvent: (e: SSEEvent) => {
-      if (e.type === 'token') {
+      if (e.type === 'run_started') {
+        setRunId(e.run_id)
+      } else if (e.type === 'token') {
         appendToken(e.content)
       } else if (e.type === 'tool_call') {
+        if (e.run_id) setRunId(e.run_id)
         setStatus('tool_running')
-        appendCard(e.card as ChatMessage['card'], Boolean(e.undo_id), e.undo_id)
+        appendCard(e.card as ChatMessage['card'], Boolean(e.undo_id), e.undo_id, e.tool)
       } else if (e.type === 'done') {
+        if (e.run_id) setRunId(e.run_id)
         setStatus('idle')
         void loadConversations() // 刷新侧边栏标题/时间
       }
@@ -114,8 +127,12 @@ export function ChatPage() {
   }
 
   const handleSend = async () => {
-    const content = input.trim()
+    let content = input.trim()
     if (!content || status !== 'idle') return
+
+    if (webSearchActive && !content.startsWith('帮我查') && !content.startsWith('搜索') && !content.startsWith('查一下')) {
+      content = `帮我联网查一下：${content}`
+    }
 
     setError(undefined)
     setInput('')
@@ -149,27 +166,35 @@ export function ChatPage() {
     setInput('')
   }
 
+  const handleCopyMessage = (msgId: string, text: string) => {
+    if (!text) return
+    void navigator.clipboard.writeText(text)
+    setCopiedId(msgId)
+    setTimeout(() => setCopiedId(null), 1500)
+  }
+
   const currentModel = models.find((m) => m.id === currentModelId)
 
   return (
     <div className={styles.page}>
       <ConversationSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* 顶部应用导航栏（单行排布，保证在移动端绝不拥挤折行） */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button
             type="button"
             className={styles.menuBtn}
             aria-label="会话列表"
+            title="会话列表"
             onClick={() => setSidebarOpen(true)}
           >
             ☰
           </button>
-          <h1 className={styles.title} style={{ fontSize: tokens.fontSize.title }}>
-            家事助手
-          </h1>
+          <h1 className={styles.title}>家事助手</h1>
         </div>
 
-        {/* Grok Bot 风格苹果毛玻璃胶囊模型切换器 */}
+        {/* 苹果毛玻璃胶囊模型选择器 */}
         <div className={styles.modelPillContainer} ref={dropdownRef}>
           <button
             type="button"
@@ -183,8 +208,10 @@ export function ChatPage() {
             <span className={styles.modelLabel}>
               {currentModel ? currentModel.display_name : '默认模型'}
             </span>
-            <span className={`${styles.chevron} ${modelDropdownOpen ? styles.chevronOpen : ''}`}>
-              ▼
+            <span
+              className={`${styles.chevron} ${modelDropdownOpen ? styles.chevronOpen : ''}`}
+            >
+              ▾
             </span>
           </button>
 
@@ -219,6 +246,7 @@ export function ChatPage() {
         </div>
       </header>
 
+      {/* 消息流主视口 */}
       <div className={styles.messages}>
         {messages.length === 0 && (
           <div className={styles.empty}>
@@ -257,24 +285,61 @@ export function ChatPage() {
             </div>
           </div>
         )}
-        {messages.map((m: ChatMessage) => {
+
+        {messages.map((m: ChatMessage, idx: number) => {
           const isStreamingThis = m.id === useChatStore.getState().streamId
           const isEmpty = !m.content && !m.card
           if (isEmpty && !isStreamingThis) return null
 
+          if (m.role === 'user') {
+            return (
+              <div key={m.id} className={`${styles.bubble} ${styles.user}`}>
+                {m.content}
+              </div>
+            )
+          }
+
+          // Assistant 消息卡片
           return (
-            <div
-              key={m.id}
-              className={`${styles.bubble} ${m.role === 'user' ? styles.user : styles.ai}`}
-            >
-              {m.content ? (
-                m.content
-              ) : isStreamingThis ? (
-                <span className={styles.thinkingInline}>
-                  <span className={styles.pulseDot} />
-                  <span>{status === 'tool_running' ? '⚡ 正在处理操作…' : '正在思考…'}</span>
-                </span>
-              ) : null}
+            <div key={m.id} className={`${styles.bubble} ${styles.ai}`}>
+              {/* 助手消息头部 */}
+              <div className={styles.aiHeader}>
+                <div className={styles.aiBrand}>
+                  <span className={styles.aiIcon}>✦</span>
+                  <span className={styles.aiName}>AI 助手</span>
+                  <span className={styles.aiModel}>
+                    {currentModel ? currentModel.display_name : '默认'}
+                  </span>
+                </div>
+                {isStreamingThis && (
+                  <div className={styles.thinkingInline}>
+                    <span className={styles.pulseDot} />
+                    <span>{status === 'tool_running' ? '正在执行操作…' : '正在思考…'}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 思考过程与执行轨迹组件：展示真实推演链路，支持一键打开无限画布 */}
+              {(isStreamingThis || m.content || m.card) && (
+                <ThoughtProcess
+                  prompt={m.prompt || (idx > 0 && messages[idx - 1]?.role === 'user' ? messages[idx - 1].content : '')}
+                  toolName={m.toolName}
+                  card={m.card}
+                  runId={m.runId}
+                  isStreaming={isStreamingThis && (status === 'streaming' || status === 'tool_running')}
+                  status={status}
+                  defaultOpen={isStreamingThis}
+                  onCancel={abort}
+                  onSteer={(instruction) => {
+                    appendToken(`\n\n[人类实时干预指令: ${instruction}]\n`)
+                  }}
+                />
+              )}
+
+              {/* 消息正文 */}
+              {m.content && <div className={styles.aiContent}>{m.content}</div>}
+
+              {/* 工具结果卡片 */}
               {m.card &&
                 (m.card.type === 'expense' && !m.undone ? (
                   <ExpenseCard
@@ -282,6 +347,12 @@ export function ChatPage() {
                     undoable={Boolean(m.undoable) && !m.undone}
                     onUndo={() => void handleUndo(m.undoId)}
                     onUpdated={(next) => updateCard(m.id, next)}
+                  />
+                ) : m.card.type === 'search_citation' ? (
+                  <SearchCitationCard
+                    card={
+                      m.card as React.ComponentProps<typeof SearchCitationCard>['card']
+                    }
                   />
                 ) : (
                   <ResultCard
@@ -298,9 +369,35 @@ export function ChatPage() {
                     )}
                   </ResultCard>
                 ))}
+
+              {/* 回复底部快捷操作栏 */}
+              {m.content && !isStreamingThis && (
+                <div className={styles.actionToolbar}>
+                  <div className={styles.toolbarActions}>
+                    <button
+                      type="button"
+                      className={styles.toolbarBtn}
+                      onClick={() => handleCopyMessage(m.id, m.content)}
+                      title="复制回复"
+                    >
+                      {copiedId === m.id ? '✓ 已复制' : '复制'}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.toolbarBtn}
+                      onClick={() => void handlePromptClick(m.content)}
+                      title="重新生成"
+                    >
+                      重新提问
+                    </button>
+                  </div>
+                  <span className={styles.toolbarTag}>✦ 家事中枢</span>
+                </div>
+              )}
             </div>
           )
         })}
+
         {status === 'tool_running' &&
           !messages.some((m) => m.id === useChatStore.getState().streamId && !m.content) && (
             <div className={styles.statusPill}>
@@ -308,16 +405,26 @@ export function ChatPage() {
               <span>正在执行操作…</span>
             </div>
           )}
+
         {error && <div className={styles.error}>{error}</div>}
       </div>
 
-      {/* 底部悬浮毛玻璃胶囊输入区（Grok + Apple 风格） */}
+      {/* 底部悬浮毛玻璃胶囊输入区（与 TabBar 完美贴合，绝不遮挡） */}
       <footer className={styles.inputContainer}>
         <div className={styles.inputCapsule}>
+          <button
+            type="button"
+            className={`${styles.webSearchBadge} ${webSearchActive ? styles.webSearchBadgeActive : ''}`}
+            onClick={() => setWebSearchActive((v) => !v)}
+            title="切换智能联网搜索"
+          >
+            <span>🌐</span>
+            <span>{webSearchActive ? '联网开启' : '智能联网'}</span>
+          </button>
           <input
             className={styles.input}
             value={input}
-            placeholder="输入消息…"
+            placeholder={webSearchActive ? '输入联网检索问题…' : '输入消息…'}
             enterKeyHint="send"
             autoCapitalize="off"
             autoCorrect="off"
@@ -326,6 +433,15 @@ export function ChatPage() {
               if (e.key === 'Enter') void handleSend()
             }}
           />
+          <button
+            type="button"
+            className={styles.micBtn}
+            onClick={() => setVoiceModalOpen(true)}
+            title="按住/点击语音录音（100% 本地免费识别）"
+            aria-label="语音录音输入"
+          >
+            🎙️
+          </button>
           <button
             type="button"
             className={styles.sendBtn}
@@ -339,6 +455,15 @@ export function ChatPage() {
           </button>
         </div>
       </footer>
+
+      {/* 100% 本地免费语音转文字录音抽屉（对齐 Stitch iOS 18 拟态磨砂设计） */}
+      <VoiceRecorderModal
+        isOpen={voiceModalOpen}
+        onClose={() => setVoiceModalOpen(false)}
+        onFinish={(text) => {
+          setInput((prev) => (prev ? prev + ' ' + text : text))
+        }}
+      />
     </div>
   )
 }

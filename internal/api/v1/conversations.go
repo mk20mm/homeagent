@@ -12,12 +12,14 @@ import (
 
 // conversationItem 会话列表项（对齐 openapi Conversation schema）。
 type conversationItem struct {
-	ID            string  `json:"id"`
-	MemberID      string  `json:"member_id"`
-	Title         string  `json:"title"`
-	ModelID       *string `json:"model_id"`
-	LastMessageAt *string `json:"last_message_at"`
-	CreatedAt     string  `json:"created_at"`
+	ID                string  `json:"id"`
+	MemberID          string  `json:"member_id"`
+	Title             string  `json:"title"`
+	ModelID           *string `json:"model_id"`
+	ForkedFromID      *string `json:"forked_from_id,omitempty"`
+	ForkedAtMessageID *string `json:"forked_at_message_id,omitempty"`
+	LastMessageAt     *string `json:"last_message_at"`
+	CreatedAt         string  `json:"created_at"`
 }
 
 func toConversationItem(c session.Conversation) conversationItem {
@@ -29,6 +31,14 @@ func toConversationItem(c session.Conversation) conversationItem {
 	if c.ModelID != "" {
 		m := c.ModelID
 		out.ModelID = &m
+	}
+	if c.ForkedFromID != "" {
+		f := c.ForkedFromID
+		out.ForkedFromID = &f
+	}
+	if c.ForkedAtMessageID != "" {
+		f := c.ForkedAtMessageID
+		out.ForkedAtMessageID = &f
 	}
 	if !c.LastMessageAt.IsZero() {
 		t := c.LastMessageAt.Format(time.RFC3339)
@@ -148,5 +158,39 @@ func DeleteConversation(svc session.Service) gin.HandlerFunc {
 			return
 		}
 		c.Status(204)
+	}
+}
+
+// ForkConversation POST /conversations/:conversationId/fork —— 从指定消息分叉创建分支会话（时光机探索）。
+func ForkConversation(svc session.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		memberID, ok := memberIDFrom(c)
+		if !ok {
+			abortWith(c, apperr.New(apperr.CodePermission, "缺少成员身份", nil))
+			return
+		}
+		convID := c.Param("conversationId")
+		if convID == "" {
+			abortWith(c, apperr.New(apperr.CodeInvalidInput, "会话 id 不能为空", nil))
+			return
+		}
+		var req struct {
+			ForkAtMessageID string `json:"fork_at_message_id"`
+			Title           string `json:"title"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			abortWith(c, apperr.New(apperr.CodeInvalidInput, "请求格式错误", err))
+			return
+		}
+		if req.ForkAtMessageID == "" {
+			abortWith(c, apperr.New(apperr.CodeInvalidInput, "分叉节点消息 id 不能为空", nil))
+			return
+		}
+		forkedConv, err := svc.Fork(c.Request.Context(), convID, memberID, req.ForkAtMessageID, req.Title)
+		if err != nil {
+			abortWith(c, asAppErr(err))
+			return
+		}
+		c.JSON(200, toConversationItem(forkedConv))
 	}
 }

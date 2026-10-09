@@ -27,8 +27,9 @@ type RunItem struct {
 	IntentKind string    `json:"intent_kind"`
 	Status     string    `json:"status"`
 	Version    int       `json:"version"`
-	RequestID  string    `json:"request_id,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	ParentRunID string    `json:"parent_run_id,omitempty"`
+	RootRunID   string    `json:"root_run_id,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // RunStepItem 步骤详情。
@@ -56,25 +57,36 @@ type RunEventItem struct {
 
 // RunDetail 编排完整详情。
 type RunDetail struct {
-	ID         string         `json:"id"`
-	Goal       string         `json:"goal"`
-	IntentKind string         `json:"intent_kind"`
-	Status     string         `json:"status"`
-	Version    int            `json:"version"`
-	RequestID  string         `json:"request_id,omitempty"`
-	Steps      []RunStepItem  `json:"steps"`
-	Events     []RunEventItem `json:"events"`
-	CreatedAt  time.Time      `json:"created_at"`
+	ID             string         `json:"id"`
+	Goal           string         `json:"goal"`
+	IntentKind     string         `json:"intent_kind"`
+	Status         string         `json:"status"`
+	Version        int            `json:"version"`
+	RequestID      string         `json:"request_id,omitempty"`
+	ParentRunID    string         `json:"parent_run_id,omitempty"`
+	RootRunID      string         `json:"root_run_id,omitempty"`
+	MemberID       string         `json:"member_id,omitempty"`
+	ConversationID string         `json:"conversation_id,omitempty"`
+	Steps          []RunStepItem  `json:"steps"`
+	Events         []RunEventItem `json:"events"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 // Service 调度中心运行领域服务接口。
 type Service interface {
 	CreateRun(ctx context.Context, memberID string, goal string, intentKind schema.IntentKind, requestID string, conversationID string, requestedEffects []string) (RunDetail, error)
+	CreateChildRun(ctx context.Context, memberID string, parentRunID string, goal string, intentKind schema.IntentKind) (RunDetail, error)
 	GetRun(ctx context.Context, memberID string, runID string) (RunDetail, error)
+	GetRunByID(ctx context.Context, runID string) (RunDetail, error)
 	ListRuns(ctx context.Context, memberID string, status string, limit int) ([]RunItem, error)
+	FindInterruptedRuns(ctx context.Context, updatedBefore time.Time, limit int) ([]RunDetail, error)
 	UpdateRunStatus(ctx context.Context, runID string, expectedVersion int, nextStatus schema.RunStatus) (RunDetail, error)
 	AddRunStep(ctx context.Context, runID string, step RunStepInput) (RunStepItem, error)
+	UpdateRunStep(ctx context.Context, stepID string, expectedVersion int, status schema.StepStatus, resultCard string) (RunStepItem, error)
 	ConfirmRunStep(ctx context.Context, memberID string, runID string, stepID string, choice string, nonce string) (RunDetail, error)
 	ReplyRun(ctx context.Context, memberID string, runID string, stepID string, expectedVersion int, answers map[string]any) (RunDetail, error)
 	AmendRun(ctx context.Context, memberID string, runID string, expectedVersion int, modifications []map[string]any) (RunDetail, error)
+	CancelRun(ctx context.Context, memberID string, runID string, reason string) (RunDetail, error)
+	SteerRun(ctx context.Context, memberID string, runID string, instruction string) (RunDetail, error)
+	RecordRunEvent(ctx context.Context, runID string, stepID string, eventType string, payload string) (RunEventItem, error)
 }

@@ -41,6 +41,7 @@ func (t *SuggestDinnerTool) Spec() tool.Spec {
 		Risk:       tool.RiskLow,
 		Permission: "", // 无需权限，全员可用
 		Module:     "meal",
+		Replayable: true,
 	}
 }
 

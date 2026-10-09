@@ -4,15 +4,25 @@
   min-height: calc(100vh - 76px - env(safe-area-inset-bottom));
   min-height: calc(100dvh - 76px - env(safe-area-inset-bottom));
   position: relative;
+  background: #f2f3f7;
+  color: #1c1c1e;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* 顶部状态与导航栏（苹果简约毛玻璃） */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0 16px;
-  position: relative;
-  z-index: 20;
+  padding: 10px 0 14px;
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: rgba(242, 243, 247, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
 }
 
 .headerLeft {
@@ -25,8 +35,8 @@
   flex-shrink: 0;
   width: 38px;
   height: 38px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -51,13 +61,63 @@
 }
 
 .title {
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.4px;
   margin: 0;
   color: #1c1c1e;
+  white-space: nowrap;
 }
 
-/* Grok Bot 风格苹果毛玻璃胶囊模型切换器 */
+.micBtn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 122, 255, 0.08);
+  color: #007aff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.micBtn:hover {
+  background: rgba(0, 122, 255, 0.16);
+  transform: scale(1.06);
+}
+
+.micBtn:active {
+  transform: scale(0.92);
+}
+
+.webSearchBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 122, 255, 0.08);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+  color: #007aff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.webSearchBadgeActive {
+  background: #007aff;
+  color: #ffffff;
+  border-color: #007aff;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+/* 苹果毛玻璃胶囊模型切换器 */
 .modelPillContainer {
   position: relative;
 }
@@ -67,7 +127,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -76,14 +136,14 @@
   font-weight: 500;
   color: #1c1c1e;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modelPill:hover {
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   transform: scale(1.02);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
 }
 
 .modelPill:active {
@@ -105,7 +165,6 @@
 .chevron {
   font-size: 9px;
   color: #8e8e93;
-  margin-left: 2px;
   transition: transform 0.2s ease;
 }
 
@@ -118,7 +177,7 @@
   right: 0;
   top: calc(100% + 8px);
   min-width: 210px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-radius: 16px;
@@ -187,16 +246,18 @@
   font-weight: 700;
 }
 
+/* 消息流主视口 */
 .messages {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding-bottom: 96px; /* 给悬浮胶囊留足空间 */
+  padding: 10px 0 96px; /* 为底部悬浮胶囊留足呼吸空间 */
 }
 
+/* 空状态欢迎页 */
 .empty {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -270,34 +331,120 @@
   padding: 12px 16px;
   border-radius: 20px;
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   overflow-wrap: anywhere;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
+/* 用户气泡：苹果经典蓝 */
 .user {
   align-self: flex-end;
-  background: #007aff; /* 苹果蓝 */
+  background: #007aff;
   color: #ffffff;
   border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
 }
 
+/* 助手回复卡片：纯白圆角轻阴影卡片 */
 .ai {
   align-self: flex-start;
   background: #ffffff;
   color: #1c1c1e;
   border: 0.5px solid rgba(0, 0, 0, 0.07);
   border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
-/* Grok 风格动态思考/操作状态胶囊 */
+.aiHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.aiBrand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aiIcon {
+  font-size: 13px;
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+.aiName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.aiModel {
+  font-size: 11px;
+  color: #8e8e93;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.aiContent {
+  color: #1c1c1e;
+  line-height: 1.6;
+}
+
+/* 助手回复底部微操作栏 */
+.actionToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.05);
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarBtn {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #8e8e93;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarBtn:hover {
+  color: #1c1c1e;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.toolbarBtn:active {
+  transform: scale(0.95);
+}
+
+.toolbarTag {
+  font-size: 11px;
+  color: #8e8e93;
+}
+
+/* 动态思考/操作状态胶囊 */
 .statusPill {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 9999px;
@@ -322,7 +469,7 @@
   align-items: center;
   gap: 8px;
   color: #8e8e93;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .pulseDot {
@@ -364,7 +511,7 @@
   border-radius: 9999px;
 }
 
-/* 底部悬浮毛玻璃大胶囊输入区（Grok + Apple 风格） */
+/* 底部悬浮毛玻璃大胶囊输入区（与 TabBar 完美贴合） */
 .inputContainer {
   position: fixed;
   bottom: calc(64px + env(safe-area-inset-bottom));
@@ -374,7 +521,7 @@
   margin: 0 auto;
   padding: 0 16px;
   pointer-events: none;
-  z-index: 30;
+  z-index: 50;
 }
 
 .inputCapsule {
@@ -382,7 +529,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -450,7 +597,6 @@
   margin-top: -2px;
 }
 
-/* 供屏幕阅读器与测试断言使用的隐藏文本 */
 .srOnly {
   position: absolute;
   width: 1px;

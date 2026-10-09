@@ -51,6 +51,8 @@ func (AgentRun) Fields() []ent.Field {
 		field.Int("version").Default(1).Comment("乐观并发版本"),
 		field.String("request_id").Optional().Comment("客户端幂等请求 ID"),
 		field.JSON("requested_effects", []string{}).Optional().Comment("用户明确授权的作用域边界"),
+		field.String("parent_run_id").Optional().Comment("父任务编排 ID，用于子智能体树状派生"),
+		field.String("root_run_id").Optional().Comment("根任务编排 ID"),
 	}
 }
 

@@ -9,9 +9,10 @@ import { getApiBaseUrl } from '../api/client'
 
 export type SSEEvent =
   | { type: 'token'; content: string }
-  | { type: 'tool_call'; tool: string; card: unknown; undo_id?: string }
+  | { type: 'tool_call'; tool: string; card: unknown; undo_id?: string; run_id?: string }
+  | { type: 'run_started'; run_id: string }
   | { type: 'error'; error: string }
-  | { type: 'done' }
+  | { type: 'done'; run_id?: string }
 
 interface UseSSEOptions {
   url: string

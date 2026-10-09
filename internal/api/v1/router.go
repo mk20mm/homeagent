@@ -58,11 +58,13 @@ func Register(
 	jwtGroup.GET("/tools", listTools(executor, pl))
 	jwtGroup.POST("/chat", Chat(rt))
 	jwtGroup.POST("/undo/:id", Undo(executor, undoStore))
+	jwtGroup.POST("/voice/transcribe", TranscribeVoice())
 	jwtGroup.GET("/models", ListModels(modelLister))
 	jwtGroup.GET("/audit", ListAudit(auditLister))
 	jwtGroup.GET("/usage", ListUsage(usageLister))
 	jwtGroup.GET("/conversations", ListConversations(convSvc))
 	jwtGroup.POST("/conversations", CreateConversation(convSvc))
+	jwtGroup.POST("/conversations/:conversationId/fork", ForkConversation(convSvc))
 	jwtGroup.GET("/conversations/:conversationId/messages", ListMessages(convSvc))
 	jwtGroup.DELETE("/conversations/:conversationId", DeleteConversation(convSvc))
 	jwtGroup.GET("/expenses", ListExpenses(expLister))
@@ -88,6 +90,9 @@ func Register(
 	jwtGroup.POST("/runs/:runId/confirm", ConfirmRunStep(runSvc))
 	jwtGroup.POST("/runs/:runId/reply", ReplyRun(runSvc))
 	jwtGroup.POST("/runs/:runId/amend", AmendRun(runSvc))
+	jwtGroup.POST("/runs/:runId/steer", SteerRun(runSvc, rt))
+	jwtGroup.POST("/runs/:runId/cancel", CancelRun(runSvc, rt))
+	jwtGroup.GET("/runs/:runId/events", WatchRunEvents(runSvc, rt))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")

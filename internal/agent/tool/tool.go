@@ -36,6 +36,7 @@ type Spec struct {
 	Permission  string // 所需权限键，与权限矩阵联动（如 "expense.write"）
 	Module      string // 所属业务模块：chore/expense/meal/system...
 	Idempotency string // 幂等维度说明（写工具必填，如 "user+amount+hint+day"）
+	Replayable  bool   // 重放安全性：查询类工具崩溃恢复时可自动重放；写操作为 false
 	Hidden      bool   // 内部工具：不进提示词/GET /tools，仅用于撤销派发（如 update_expense）
 }
 

@@ -31,6 +31,108 @@ func (s *Store) CreateConversation(ctx context.Context, memberID, title, modelID
 	return c.ID.String(), nil
 }
 
+// ForkConversation 从某条消息处分叉创建新分支（Feature 3）。
+func (s *Store) ForkConversation(ctx context.Context, convID, memberID, forkAtMessageID, title string) (session.Conversation, error) {
+	origConv, err := s.LoadConversation(ctx, convID, memberID)
+	if err != nil {
+		return session.Conversation{}, err
+	}
+
+	messages, err := s.db.Message.Query().
+		Where(message.HasConversationWith(conversation.IDEQ(toUUID(convID)))).
+		Order(ent.Asc(message.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return session.Conversation{}, apperr.New(apperr.CodeInternal, "查询历史消息失败", err)
+	}
+
+	cutIndex := -1
+	for i, m := range messages {
+		if m.ID.String() == forkAtMessageID {
+			cutIndex = i
+			break
+		}
+	}
+	if cutIndex == -1 {
+		return session.Conversation{}, apperr.New(apperr.CodeNotFound, "指定的分叉节点消息不存在", nil)
+	}
+	messagesToCopy := messages[:cutIndex+1]
+
+	branchTitle := title
+	if branchTitle == "" {
+		if origConv.Title != "" {
+			branchTitle = origConv.Title + " (分支)"
+		} else {
+			branchTitle = "新分支对话"
+		}
+	}
+
+	tx, err := s.db.Tx(ctx)
+	if err != nil {
+		return session.Conversation{}, apperr.New(apperr.CodeInternal, "开启事务失败", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	createBuilder := tx.Conversation.Create().
+		SetMemberID(toUUID(memberID)).
+		SetTitle(branchTitle).
+		SetForkedFromID(convID).
+		SetForkedAtMessageID(forkAtMessageID)
+	if origConv.ModelID != "" {
+		createBuilder.SetModelID(toUUID(origConv.ModelID))
+	}
+
+	newConv, err := createBuilder.Save(ctx)
+	if err != nil {
+		return session.Conversation{}, apperr.New(apperr.CodeInternal, "创建分叉会话失败", err)
+	}
+
+	var lastMsgTime time.Time
+	for _, m := range messagesToCopy {
+		b := tx.Message.Create().
+			SetConversationID(newConv.ID).
+			SetRole(m.Role).
+			SetContent(m.Content)
+		if m.ToolName != "" {
+			b.SetToolName(m.ToolName)
+		}
+		if m.TraceID != "" {
+			b.SetTraceID(m.TraceID)
+		}
+		if err := b.Exec(ctx); err != nil {
+			return session.Conversation{}, apperr.New(apperr.CodeInternal, "复制分叉历史消息失败", err)
+		}
+		lastMsgTime = m.CreatedAt
+	}
+
+	if !lastMsgTime.IsZero() {
+		if err := tx.Conversation.UpdateOneID(newConv.ID).SetLastMessageAt(lastMsgTime).Exec(ctx); err != nil {
+			return session.Conversation{}, apperr.New(apperr.CodeInternal, "更新分叉会话时间失败", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return session.Conversation{}, apperr.New(apperr.CodeInternal, "提交分叉事务失败", err)
+	}
+	committed = true
+
+	return session.Conversation{
+		ID:                newConv.ID.String(),
+		MemberID:          memberID,
+		Title:             newConv.Title,
+		ModelID:           origConv.ModelID,
+		ForkedFromID:      convID,
+		ForkedAtMessageID: forkAtMessageID,
+		CreatedAt:         newConv.CreatedAt,
+		LastMessageAt:     lastMsgTime,
+	}, nil
+}
+
 // ListConversations 成员的会话列表（软删除过滤 + member 隔离，游标分页）。
 // 排序：最后消息时间倒序（SQLite 下 NULL 天然在末尾，新建空会话排最后）。
 func (s *Store) ListConversations(ctx context.Context, memberID string, limit int, cursor string) ([]session.Conversation, string, error) {
@@ -66,10 +168,12 @@ func (s *Store) ListConversations(ctx context.Context, memberID string, limit in
 	out := make([]session.Conversation, 0, len(list))
 	for _, c := range list {
 		conv := session.Conversation{
-			ID:        c.ID.String(),
-			MemberID:  memberID,
-			Title:     c.Title,
-			CreatedAt: c.CreatedAt,
+			ID:                c.ID.String(),
+			MemberID:          memberID,
+			Title:             c.Title,
+			ForkedFromID:      c.ForkedFromID,
+			ForkedAtMessageID: c.ForkedAtMessageID,
+			CreatedAt:         c.CreatedAt,
 		}
 		if c.LastMessageAt != nil {
 			conv.LastMessageAt = *c.LastMessageAt
@@ -149,10 +253,12 @@ func (s *Store) LoadConversation(ctx context.Context, convID, memberID string) (
 	}
 
 	out := session.Conversation{
-		ID:        c.ID.String(),
-		MemberID:  memberID,
-		Title:     c.Title,
-		CreatedAt: c.CreatedAt,
+		ID:                c.ID.String(),
+		MemberID:          memberID,
+		Title:             c.Title,
+		ForkedFromID:      c.ForkedFromID,
+		ForkedAtMessageID: c.ForkedAtMessageID,
+		CreatedAt:         c.CreatedAt,
 	}
 	if c.LastMessageAt != nil {
 		out.LastMessageAt = *c.LastMessageAt

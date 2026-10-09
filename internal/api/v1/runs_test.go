@@ -52,6 +52,29 @@ func (s *stubRunService) AmendRun(_ context.Context, _ string, runID string, _ i
 	return d, nil
 }
 
+func (s *stubRunService) CancelRun(_ context.Context, _ string, runID string, reason string) (domrun.RunDetail, error) {
+	d := s.detail
+	d.ID = runID
+	d.Status = "cancelled"
+	d.Events = append(d.Events, domrun.RunEventItem{
+		EventType: "run_cancelled",
+		Payload:   reason,
+		CreatedAt: time.Now(),
+	})
+	return d, nil
+}
+
+func (s *stubRunService) SteerRun(_ context.Context, _ string, runID string, instruction string) (domrun.RunDetail, error) {
+	d := s.detail
+	d.ID = runID
+	d.Events = append(d.Events, domrun.RunEventItem{
+		EventType: "human_steered",
+		Payload:   instruction,
+		CreatedAt: time.Now(),
+	})
+	return d, nil
+}
+
 func setupRunRouter(svc RunService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -67,6 +90,9 @@ func setupRunRouter(svc RunService) *gin.Engine {
 	api.POST("/runs/:runId/confirm", ConfirmRunStep(svc))
 	api.POST("/runs/:runId/reply", ReplyRun(svc))
 	api.POST("/runs/:runId/amend", AmendRun(svc))
+	api.POST("/runs/:runId/steer", SteerRun(svc, nil))
+	api.POST("/runs/:runId/cancel", CancelRun(svc, nil))
+	api.GET("/runs/:runId/events", WatchRunEvents(svc, nil))
 	return r
 }
 
@@ -147,5 +173,51 @@ func TestRunsAPI_Endpoints(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("POST /runs/r1/amend failed with code: %d", w.Code)
+	}
+
+	// 6. POST /runs/:runId/steer (Feature 1)
+	bodySteer := `{"instruction":"先停一下，帮我改成去洗衣服"}`
+	req, _ = http.NewRequest(http.MethodPost, "/runs/r1/steer", strings.NewReader(bodySteer))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /runs/r1/steer failed with code: %d", w.Code)
+	}
+	var steerResp domrun.RunDetail
+	if err := json.Unmarshal(w.Body.Bytes(), &steerResp); err != nil || len(steerResp.Events) == 0 {
+		t.Fatalf("unexpected steer response: %s", w.Body.String())
+	}
+
+	// 7. POST /runs/:runId/cancel (Feature 1 & 4)
+	bodyCancel := `{"reason":"临时出门不需要做了"}`
+	req, _ = http.NewRequest(http.MethodPost, "/runs/r1/cancel", strings.NewReader(bodyCancel))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /runs/r1/cancel failed with code: %d", w.Code)
+	}
+	var cancelResp domrun.RunDetail
+	if err := json.Unmarshal(w.Body.Bytes(), &cancelResp); err != nil || cancelResp.Status != "cancelled" {
+		t.Fatalf("unexpected cancel response: %s", w.Body.String())
+	}
+
+	// 8. GET /runs/:runId/events (Feature 2 Live Watchers SSE)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reqEvents, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/runs/r1/events", nil)
+	wEvents := httptest.NewRecorder()
+	go func() {
+		// 取消 context 避免 SSE 死循环
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+	r.ServeHTTP(wEvents, reqEvents)
+	if wEvents.Code != http.StatusOK {
+		t.Fatalf("GET /runs/r1/events failed with code: %d", wEvents.Code)
+	}
+	if !strings.Contains(wEvents.Body.String(), "event: run_created") {
+		t.Fatalf("events stream should contain replayed run_created event: %s", wEvents.Body.String())
 	}
 }

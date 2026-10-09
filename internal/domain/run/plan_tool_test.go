@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mk20mm/homeagent/internal/agent/tool"
 	"github.com/mk20mm/homeagent/internal/apperr"
@@ -73,6 +74,37 @@ func (m *mockRunService) ReplyRun(ctx context.Context, memberID string, runID st
 func (m *mockRunService) AmendRun(ctx context.Context, memberID string, runID string, expectedVersion int, modifications []map[string]any) (RunDetail, error) {
 	return m.createdRun, nil
 }
+
+func (m *mockRunService) RecordRunEvent(ctx context.Context, runID string, stepID string, eventType string, payload string) (RunEventItem, error) {
+	return RunEventItem{StepID: stepID, EventType: eventType, Payload: payload}, nil
+}
+
+func (m *mockRunService) GetRunByID(ctx context.Context, runID string) (RunDetail, error) {
+	return m.createdRun, nil
+}
+
+func (m *mockRunService) FindInterruptedRuns(ctx context.Context, updatedBefore time.Time, limit int) ([]RunDetail, error) {
+	return nil, nil
+}
+
+func (m *mockRunService) UpdateRunStep(ctx context.Context, stepID string, expectedVersion int, status schema.StepStatus, resultCard string) (RunStepItem, error) {
+	return RunStepItem{ID: stepID, Status: string(status), ResultCard: resultCard}, nil
+}
+
+func (m *mockRunService) CreateChildRun(ctx context.Context, memberID string, parentRunID string, goal string, intentKind schema.IntentKind) (RunDetail, error) {
+	return RunDetail{ID: "child-run-id", Goal: goal, ParentRunID: parentRunID}, nil
+}
+
+func (m *mockRunService) CancelRun(ctx context.Context, memberID string, runID string, reason string) (RunDetail, error) {
+	m.createdRun.Status = "cancelled"
+	return m.createdRun, nil
+}
+
+func (m *mockRunService) SteerRun(ctx context.Context, memberID string, runID string, instruction string) (RunDetail, error) {
+	return m.createdRun, nil
+}
+
+
 
 func TestSubmitTaskPlanTool_ExecuteAndDAG(t *testing.T) {
 	mockSvc := &mockRunService{}

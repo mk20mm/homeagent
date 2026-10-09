@@ -38,6 +38,12 @@ docs/
 │   └── ADR-005-权限双保险.md
 ├── DOMAIN/                    # 领域知识（家庭领域模型）
 │   └── 家庭领域模型.md
+├── specs/                     # 深化功能技术规格书（Phase E 五大能力）
+│   ├── 01-voice-stt-design.md #   M8 语音输入与转文字深化设计
+│   ├── 02-smart-search-design.md # M7 智能搜索与联网检索深化设计
+│   ├── 03-knowledge-base-design.md # M9 个人与家庭知识库深化设计
+│   ├── 04-agent-skills-design.md # M10 Agent Skills 扩展体系深化设计
+│   └── 05-mcp-integration-design.md # M11 MCP 协议集成体系深化设计
 └── ui/                        # 可视化图表（mermaid 源码 + 渲染 PNG）
     ├── design-system.md       #   UI 设计系统
     ├── architecture-system.md #   系统分层架构图  (.png)
@@ -71,6 +77,7 @@ docs/
 | **exec-plans/**               | 执行计划：任务状态 + **决策日志**（含被否方案）。智能体推进任务的唯一入口                                         | AI-STD-006     |
 | **tech-debt.md**              | 技术债登记：影响 + 偿还时机。发现坏模式立即登记，定期清偿                                                         | AI-STD-006     |
 | **e2e-issues.md**             | E2E 测试轮次记录：每轮通过率、暴露的真实 bug、已修/待修清单                                                       | AI-STD-006     |
+| **specs/**                    | 五大扩展能力详细技术规格书（语音STT、智能搜索、家庭知识库、Skills、MCP集成）                                       | AI-STD-003/006 |
 | **product/**                  | UX 设计探索：真实用户视角端到端走查 → 体验断点 → 产品机会（A/B/C 三方案）。**改产品前先读**                        | AI-STD-002     |
 
 ---

@@ -28,6 +28,7 @@ func (t *ListModelsTool) Spec() tool.Spec {
 		Risk:       tool.RiskLow,
 		Permission: "", // 全员可用
 		Module:     "model",
+		Replayable: true,
 	}
 }
 
