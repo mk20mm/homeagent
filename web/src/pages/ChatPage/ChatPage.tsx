@@ -13,6 +13,7 @@ import { ConversationSidebar } from '../../components/ConversationSidebar'
 import { ExpenseCard } from '../../components/ExpenseCard'
 import { ResultCard } from '../../components/ResultCard'
 import { ThoughtProcess } from '../../components/ThoughtProcess'
+import { StructuredContent } from '../../components/StructuredContent/StructuredContent'
 import { VoiceRecorderModal } from '../../components/VoiceRecorder/VoiceRecorderModal'
 import { useSSE, type SSEEvent } from '../../hooks/useSSE'
 import { useChatStore, type ChatMessage } from '../../stores/chat'
@@ -336,8 +337,15 @@ export function ChatPage() {
                 />
               )}
 
-              {/* 消息正文 */}
-              {m.content && <div className={styles.aiContent}>{m.content}</div>}
+              {/* 消息正文：支持 Markdown、步骤卡片化、结论高亮与快捷闭环动作 */}
+              {m.content && (
+                <div className={styles.aiContent}>
+                  <StructuredContent
+                    content={m.content}
+                    onQuickAction={(actionText) => void handlePromptClick(actionText)}
+                  />
+                </div>
+              )}
 
               {/* 工具结果卡片 */}
               {m.card &&

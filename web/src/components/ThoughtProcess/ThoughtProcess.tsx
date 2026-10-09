@@ -35,7 +35,7 @@ export function ThoughtProcess({
   const [isCanvasOpen, setIsCanvasOpen] = useState(false)
   const [realRunDetail, setRealRunDetail] = useState<RunDetail | null>(null)
 
-  // 若关联真实 runId，拉取持久化 AgentRun 记录（包含真实步骤、工具参数与事件日志）
+  // 若关联真实 runId，拉取持久化 AgentRun 记录
   useEffect(() => {
     if (!runId) return
 
@@ -55,7 +55,6 @@ export function ThoughtProcess({
 
     void fetchRun()
 
-    // 若当前正在流式交互或无限画布正处于打开状态，以 1.2 秒节流轮询最新步骤与事件
     if (isStreaming || isCanvasOpen) {
       const timer = setInterval(() => {
         void fetchRun()
@@ -71,7 +70,6 @@ export function ThoughtProcess({
     }
   }, [runId, isStreaming, isCanvasOpen])
 
-  // 动态生成符合当前具体 prompt 与工具执行的真实轨迹与拓扑（优先使用后端持久化真数据）
   const trajectory = useMemo(() => {
     if (realRunDetail) {
       return buildTrajectoryFromRun(realRunDetail, isStreaming)
@@ -85,27 +83,17 @@ export function ThoughtProcess({
 
   return (
     <>
-      <div className={`${styles.container} ${isOpen ? styles.open : ''}`}>
-        <div
-          className={styles.header}
-          onClick={() => setIsOpen((prev) => !prev)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              setIsOpen((prev) => !prev)
-            }
-          }}
-          aria-expanded={isOpen}
-        >
-          <div className={styles.headerLeft}>
-            <span className={`${styles.boltIcon} ${isStreaming ? styles.pulsing : ''}`}>⚡</span>
-            <span className={styles.title}>
-              {isStreaming ? '正在多维推理与调度分析…' : `深度思考过程 · 耗时 ${trajectory.duration}`}
+      <div className={`${styles.doubaoContainer} ${isOpen ? styles.open : ''}`}>
+        {/* 顶部耗时与操作栏（对齐豆包“已处理 X 秒 + 虚线分隔”） */}
+        <div className={styles.doubaoHeader}>
+          <div className={styles.durationBox} onClick={() => setIsOpen((prev) => !prev)}>
+            <span className={styles.durationText}>
+              {isStreaming ? '正在思考与协同调度…' : `已处理 ${trajectory.duration}`}
             </span>
+            {isStreaming && <span className={styles.livePulseDot} />}
           </div>
 
-          <div className={styles.headerRight}>
+          <div className={styles.topRightActions}>
             <button
               type="button"
               className={styles.canvasBtn}
@@ -113,46 +101,58 @@ export function ThoughtProcess({
                 e.stopPropagation()
                 setIsCanvasOpen(true)
               }}
-              title="打开全屏无限画布，查看执行 DAG 与节点"
+              title="打开全屏无线画布，查看完整 DAG 与节点"
             >
               <span>🌐</span>
               <span>无线画布</span>
             </button>
-            <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}>▾</span>
-          </div>
-        </div>
-
-        {isOpen && (
-          <div className={styles.body}>
-            {trajectory.traces.map((trace, idx) => (
-              <div key={idx} className={styles.traceRow}>
-                <span className={styles.traceDot}>◆</span>
-                <span className={styles.traceText}>{trace}</span>
-              </div>
-            ))}
-            {isStreaming && (
-              <div className={styles.liveIndicator}>
-                <span className={styles.liveDot} />
-                <span>协同调度与意图推演中…</span>
-              </div>
-            )}
 
             <button
               type="button"
-              className={styles.openCanvasBanner}
-              onClick={() => setIsCanvasOpen(true)}
+              className={styles.toggleCollapseBtn}
+              onClick={() => setIsOpen((prev) => !prev)}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className={styles.canvasIcon}>🌐</span>
-                <span>展开至无线画布拓扑视图 · 自由缩放平移探索 Agent 决策流</span>
-              </span>
-              <span className={styles.canvasArrow}>➔</span>
+              <span>{isOpen ? '收起' : '展开过程'}</span>
+              <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}>▾</span>
             </button>
+          </div>
+        </div>
+
+        <div className={styles.dashedDivider} />
+
+        {/* 展开的交错思维流与动作小药丸（对齐豆包“思维断句 + 📖/🌐 动作小徽章”） */}
+        {isOpen && (
+          <div className={styles.doubaoBody}>
+            {trajectory.traces.map((trace, idx) => {
+              // 匹配包含 Emoji 的动作小胶囊行
+              const isActionPill = /^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(trace)
+              if (isActionPill) {
+                return (
+                  <div key={idx} className={styles.actionPillRow}>
+                    <div className={styles.actionPill}>
+                      <span className={styles.actionPillText}>{trace}</span>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div key={idx} className={styles.thoughtSentence}>
+                  {trace}
+                </div>
+              )
+            })}
+
+            {isStreaming && (
+              <div className={styles.streamingIndicator}>
+                <span className={styles.streamingDot} />
+                <span>正在执行与推演下一步…</span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* 弹出式全屏无限画布 */}
+      {/* 弹出式全屏无线画布 */}
       <InfiniteCanvas
         isOpen={isCanvasOpen}
         onClose={() => setIsCanvasOpen(false)}

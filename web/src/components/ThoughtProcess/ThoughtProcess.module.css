@@ -1,193 +1,170 @@
-.container {
-  margin: 8px 0 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(124, 58, 237, 0.16);
-  background: rgba(124, 58, 237, 0.04);
-  overflow: hidden;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+.doubaoContainer {
+  margin: 8px 0 12px;
+  border-radius: 14px;
+  background: #1c1c1f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 14px 12px;
+  color: #e5e5ea;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'SF Pro Text', sans-serif;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .open {
-  border-color: rgba(124, 58, 237, 0.3);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-.header {
-  width: 100%;
+.doubaoHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
   user-select: none;
-  color: #7c3aed;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+.durationBox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.durationText {
   font-size: 12.5px;
-  font-weight: 500;
-  transition: background 0.15s ease;
-}
-
-.header:hover {
-  background: rgba(124, 58, 237, 0.06);
-}
-
-.headerLeft {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.boltIcon {
-  font-size: 13px;
-  color: #7c3aed;
-}
-
-.pulsing {
-  animation: pulseBolt 1.2s infinite ease-in-out;
-}
-
-@keyframes pulseBolt {
-  0%, 100% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-}
-
-.title {
-  letter-spacing: -0.2px;
-}
-
-.chevron {
-  font-size: 12px;
   color: #8e8e93;
-  transition: transform 0.2s ease;
-}
-
-.chevronOpen {
-  transform: rotate(180deg);
-  color: #7c3aed;
-}
-
-.body {
-  padding: 8px 14px 10px;
-  border-top: 1px solid rgba(124, 58, 237, 0.1);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 12px;
-  color: #636366;
-  line-height: 1.6;
-  background: rgba(255, 255, 255, 0.6);
-}
-
-.traceRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.traceDot {
-  color: #7c3aed;
-  font-size: 10px;
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.traceText {
-  flex: 1;
-}
-
-.liveIndicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  color: #7c3aed;
-  font-size: 11.5px;
   font-weight: 500;
+  letter-spacing: -0.1px;
 }
 
-.liveDot {
+.livePulseDot {
   width: 6px;
   height: 6px;
+  background: #30d158;
   border-radius: 50%;
-  background: #7c3aed;
-  animation: livePing 1.4s infinite ease-in-out;
+  animation: pulseDot 1.4s infinite ease-in-out;
 }
 
-@keyframes livePing {
+@keyframes pulseDot {
   0%, 100% {
-    transform: scale(0.8);
-    opacity: 0.4;
+    transform: scale(0.85);
+    opacity: 0.5;
   }
   50% {
-    transform: scale(1.3);
+    transform: scale(1.25);
     opacity: 1;
   }
 }
 
-.headerRight {
+.topRightActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .canvasBtn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 9999px;
-  background: rgba(124, 58, 237, 0.12);
-  border: 1px solid rgba(124, 58, 237, 0.35);
-  color: #7c3aed;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.canvasBtn:hover {
-  background: rgba(124, 58, 237, 0.22);
-  border-color: #7c3aed;
-  transform: scale(1.04);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
-}
-
-.openCanvasBanner {
-  width: 100%;
-  margin-top: 10px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px dashed rgba(124, 58, 237, 0.35);
-  background: rgba(124, 58, 237, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a1a1a6;
+  border-radius: 12px;
+  padding: 2px 8px;
   font-size: 11.5px;
-  color: #6d28d9;
-  font-weight: 500;
+  cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.openCanvasBanner:hover {
-  background: rgba(124, 58, 237, 0.12);
-  border-color: #7c3aed;
-  transform: translateY(-1px);
+.canvasBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
-.canvasIcon {
-  font-size: 13px;
+.toggleCollapseBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s ease;
 }
 
-.canvasArrow {
-  font-size: 11px;
-  opacity: 0.7;
+.toggleCollapseBtn:hover {
+  color: #d1d1d6;
+}
+
+.chevron {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.dashedDivider {
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+  margin: 8px 0 12px;
+}
+
+.doubaoBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.thoughtSentence {
+  color: #d1d1d6;
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.actionPillRow {
+  margin: 3px 0 6px;
+}
+
+.actionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 4px 10px;
+  color: #a1a1a8;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.actionPill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #f2f2f7;
+}
+
+.actionPillText {
+  letter-spacing: -0.1px;
+}
+
+.streamingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 6px;
+}
+
+.streamingDot {
+  width: 6px;
+  height: 6px;
+  background: #0a84ff;
+  border-radius: 50%;
+  animation: pulseDot 1s infinite ease-in-out;
 }

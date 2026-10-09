@@ -35,7 +35,7 @@ describe('SearchCitationCard', () => {
     expect(screen.getByText('西门子家电服务中心')).toBeInTheDocument()
     expect(screen.getByText('家电维修实录')).toBeInTheDocument()
 
-    expect(screen.getByText('⚡ Jev 智能精排')).toBeInTheDocument()
+    expect(screen.getByText('Jev 智能精排')).toBeInTheDocument()
 
     // Citation links should open in new tab with security attributes
     const link = screen.getByRole('link', { name: /西门子官方家电故障代码表/ })
@@ -62,6 +62,6 @@ describe('SearchCitationCard', () => {
     }
 
     render(<SearchCitationCard card={cardData} />)
-    expect(screen.getByText('⚡ Jev 智能精排')).toBeInTheDocument()
+    expect(screen.getByText('Jev 智能精排')).toBeInTheDocument()
   })
 })

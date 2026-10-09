@@ -1,0 +1,201 @@
+.structuredContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'SF Pro Text', sans-serif;
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.paragraph {
+  margin: 0;
+  color: #2c2c2e;
+}
+
+.strongText {
+  color: #1c1c1e;
+  font-weight: 600;
+}
+
+.inlineCode {
+  font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: rgba(0, 0, 0, 0.05);
+  color: #d1245e;
+  padding: 2px 5px;
+  border-radius: 5px;
+}
+
+/* 步骤清单卡片容器 */
+.stepListCard {
+  background: #fbfbfd;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  margin: 4px 0;
+}
+
+.stepListHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
+}
+
+.stepListIcon {
+  font-size: 14px;
+}
+
+.stepListTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #48484a;
+  letter-spacing: -0.2px;
+}
+
+.stepsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stepItemRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stepNumBadge {
+  width: 22px;
+  height: 22px;
+  background: #007aff;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 2px 5px rgba(0, 122, 255, 0.25);
+}
+
+.stepContentBox {
+  flex: 1;
+}
+
+.stepItemTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c1c1e;
+  margin-bottom: 2px;
+}
+
+.stepItemDetail {
+  font-size: 13.5px;
+  color: #3a3a3c;
+  line-height: 1.5;
+}
+
+.stepActionHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  background: rgba(0, 122, 255, 0.08);
+  color: #007aff;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  line-height: 1.35;
+}
+
+.actionArrow {
+  font-weight: 700;
+}
+
+/* 核心建议 / 重点提示 Callout */
+.calloutCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fdf6ec;
+  border: 1px solid rgba(230, 162, 60, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 4px 0;
+}
+
+.calloutIcon {
+  font-size: 15px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.calloutBody {
+  font-size: 13.5px;
+  color: #7d5218;
+  line-height: 1.55;
+}
+
+.calloutLabel {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* 提问收尾行 */
+.promptClosingRow {
+  margin-top: 2px;
+  font-size: 13.5px;
+  color: #636366;
+  font-style: normal;
+}
+
+.promptText {
+  color: #1d1d1f;
+  font-weight: 500;
+}
+
+/* 快捷动作胶囊（闭环行动） */
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.actionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  color: #007aff;
+  border: 1px solid rgba(0, 122, 255, 0.3);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 4px rgba(0, 122, 255, 0.08);
+}
+
+.actionChip:hover {
+  background: #007aff;
+  color: #ffffff;
+  border-color: #007aff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 122, 255, 0.25);
+}
+
+.chipPlus {
+  font-size: 13px;
+  font-weight: 700;
+}

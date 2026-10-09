@@ -83,6 +83,11 @@ export function generateExecutionTrajectory(
     card?.type === 'trip' ||
     /(车|出行|加油|充电|公里|驾驶|里程)/.test(cleanPrompt)
 
+  const isSearch =
+    toolName?.includes('search') ||
+    card?.type === 'search_citation' ||
+    /(搜|查|为什么|怎么|如何|故障|排查|洗碗机|红灯|代码|手册|指南)/.test(cleanPrompt)
+
   let traces: string[] = []
   let nodes: CanvasNode[] = []
   let connections: CanvasConnection[] = []
@@ -96,16 +101,81 @@ export function generateExecutionTrajectory(
     return 'pending'
   }
 
-  // 1. 财务记账场景真实轨迹
-  if (isExpense) {
+  // 0. 联网搜索与事实排查场景（豆包交错风格：思维短句 + 微动作胶囊）
+  if (isSearch) {
     traces = [
-      '意图解析：识别家庭收支记账诉求，提取场景与金额信息。',
-      '权限双保险：校验家长角色 (Parent)，确认具备 expense.write 权限。',
-      toolName
-        ? `工具调度：执行领域服务 ${toolName}，生成幂等键与金额规格化（分制）。`
-        : '参数装配：完成收支类目归集，核验无浮点精度丢失（int64 分）。',
-      '状态机检查点：落库 SQLite 事务，生成 24h 可逆 undo_log 凭证。',
-      card ? '凭证渲染：已生成收支明细卡片与预算联动提示。' : '意图闭环：准备最终结构化账单响应。',
+      `我先检索关于【${cleanPrompt.slice(0, 16) || '洗碗机故障'}】的官方售后库与排查指引。`,
+      `🌐 联网检索: ${cleanPrompt.slice(0, 22) || '西门子洗碗机水龙头红灯排查'}`,
+      '检索到候选信源，调用 TypeSafe Jev System One 进行常识性概率打分。',
+      '⚡ Jev System One: 语义概率打分与广告降权',
+      '已锁定官方指南与社区真实排查经验，提炼结构化故障解决清单。',
+      '📖 提炼核心排查步骤与 Checklist',
+    ]
+
+    nodes = [
+      {
+        id: 'node-input',
+        title: '用户搜索提问',
+        subtitle: 'Natural Language Search',
+        kind: 'input',
+        status: 'completed',
+        icon: '🔍',
+        details: cleanPrompt || '故障排查检索',
+        meta: { 消息类型: '搜索查询', 领域: '家电排查' },
+        x: 60,
+        y: 180,
+      },
+      {
+        id: 'node-action-search',
+        title: '联网事实检索',
+        subtitle: 'web_search',
+        kind: 'action',
+        status: stepStatus('action'),
+        icon: '🌐',
+        details: '从官方支持库与网络抓取多源排查资料，组建候选池。',
+        meta: { 工具名: 'web_search', 协议: 'DuckDuckGo / Tavily' },
+        x: 360,
+        y: 180,
+      },
+      {
+        id: 'node-reasoning-jev',
+        title: 'TypeSafe Jev 决策重排',
+        subtitle: 'System One Rerank',
+        kind: 'reasoning',
+        status: stepStatus('reasoning'),
+        icon: '⚡',
+        details: '调用 Jev System One 模型，识别促销广告并降权，置顶高可信实操方案。',
+        meta: { 模型: 'Jev System One', 模式: '按需精排' },
+        x: 660,
+        y: 180,
+      },
+      {
+        id: 'node-output',
+        title: '结构化排查响应',
+        subtitle: 'Structured Checklist',
+        kind: 'output',
+        status: !isStreaming ? 'completed' : 'pending',
+        icon: '📋',
+        details: '输出分步排查指引卡片，提供快捷待办创建闭环。',
+        meta: { 卡片: 'SearchCitationCard', 交互: '步骤卡片' },
+        x: 960,
+        y: 180,
+      },
+    ]
+
+    connections = [
+      { from: 'node-input', to: 'node-action-search', label: '发起检索' },
+      { from: 'node-action-search', to: 'node-reasoning-jev', label: '候选池回传' },
+      { from: 'node-reasoning-jev', to: 'node-output', label: '结构化综合' },
+    ]
+  } else if (isExpense) {
+    traces = [
+      '我先解析收支记账意图，核对交易场景与消费金额。',
+      '✏️ 核算金额规格化 (int64 分制)',
+      '核验家长角色 (Parent)，确认具备账单写入权限。',
+      '🔒 校验角色权限双保险',
+      '写入 SQLite 事务并生成 24h 可逆撤销凭证。',
+      '💾 写入 undo_log 检查点',
     ]
 
     nodes = [
