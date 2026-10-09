@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -95,18 +96,24 @@ func (t *WebSearchTool) Execute(ctx context.Context, input json.RawMessage) (Res
 		in.MaxResults = 3
 	}
 
-	// 1. 尝试调用配置的外部搜索引擎 (Tavily AI Search)
-	results := fetchTavilySearch(ctx, query, in.MaxResults)
-
-	// 2. 若未配置外部 Key，使用 100% 免费真实网络搜索（DuckDuckGo / Wikipedia）
-	if len(results) == 0 {
-		results = fetchLiveFreeSearch(ctx, query, in.MaxResults)
+	// 1. 阶段一：初筛候选池（Fast Retrieve，拉取 2 倍候选池，至少 6 条）
+	candidatePoolSize := in.MaxResults * 2
+	if candidatePoolSize < 6 {
+		candidatePoolSize = 6
 	}
 
-	// 3. 若网络波动或离线，使用经过核验的高可信真实链接（百度/必应/知乎与家庭知识库）
-	if len(results) == 0 {
-		results = fallbackDomesticSearch(query, in.MaxResults)
+	var candidates []SearchCitationItem
+	candidates = fetchTavilySearch(ctx, query, candidatePoolSize)
+	if len(candidates) == 0 {
+		candidates = fetchLiveFreeSearch(ctx, query, candidatePoolSize)
 	}
+	if len(candidates) == 0 {
+		candidates = fallbackDomesticSearch(query, candidatePoolSize)
+	}
+
+	// 2. 阶段二：两阶段智能重排（Re-ranking）
+	// 优先调用 TypeSafe Jev System One 决策模型打分；未配置 Key 时平滑降级为多因子启发式打分
+	results := reRankCandidates(ctx, query, candidates, in.MaxResults)
 
 	cardData := SearchCitationCard{
 		Type:    "search_citation",
@@ -438,4 +445,209 @@ func cleanSnippet(content string, maxLen int) string {
 		return string([]rune(c)[:maxLen]) + "..."
 	}
 	return c
+}
+
+// reRankCandidates 对初筛候选池执行两阶段智能重排：优先调用 TypeSafe Jev System One，无 Key 时启发式降级。
+func reRankCandidates(ctx context.Context, query string, candidates []SearchCitationItem, maxResults int) []SearchCitationItem {
+	if len(candidates) <= 1 {
+		return candidates
+	}
+
+	// 1. 尝试 TypeSafe Jev System One 决策模型打分重排
+	if apiKey := os.Getenv("TYPESAFE_API_KEY"); apiKey != "" {
+		if ranked := reRankWithJev(ctx, apiKey, query, candidates); len(ranked) > 0 {
+			if len(ranked) > maxResults {
+				return ranked[:maxResults]
+			}
+			return ranked
+		}
+	}
+
+	// 2. 平滑降级：多因子语义启发式重排（官方权威域名加权 + 关键词匹配密度）
+	ranked := reRankHeuristic(query, candidates)
+	if len(ranked) > maxResults {
+		return ranked[:maxResults]
+	}
+	return ranked
+}
+
+type typeSafeQuestion struct {
+	Type         string `json:"type"`
+	Instructions string `json:"instructions"`
+	Criteria     struct {
+		True  string `json:"true"`
+		False string `json:"false"`
+	} `json:"criteria"`
+}
+
+type typeSafeCandidateState struct {
+	ID      int    `json:"id"`
+	Title   string `json:"title"`
+	Snippet string `json:"snippet"`
+	Source  string `json:"source"`
+}
+
+type typeSafeRequest struct {
+	Model     string                      `json:"model"`
+	State     map[string]any              `json:"state"`
+	Questions map[string]typeSafeQuestion `json:"questions"`
+}
+
+type typeSafeAnswer struct {
+	Noul       float64 `json:"noul"`
+	Confidence float64 `json:"confidence,omitempty"`
+}
+
+type typeSafeResponse struct {
+	Answers map[string]typeSafeAnswer `json:"answers"`
+}
+
+// reRankWithJev 调用 TypeSafe Jev System One API，针对候选条目批处理评估 Noul 概率打分。
+func reRankWithJev(ctx context.Context, apiKey, query string, candidates []SearchCitationItem) []SearchCitationItem {
+	endpoint := os.Getenv("TYPESAFE_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "https://api.typesafe.ai/v1/systemone"
+	}
+
+	model := os.Getenv("TYPESAFE_MODEL")
+	if model == "" {
+		model = "jev-latest"
+	}
+
+	cStates := make([]typeSafeCandidateState, len(candidates))
+	questions := make(map[string]typeSafeQuestion, len(candidates))
+
+	for i, c := range candidates {
+		cStates[i] = typeSafeCandidateState{
+			ID:      i,
+			Title:   c.Title,
+			Snippet: c.Snippet,
+			Source:  c.SourceName,
+		}
+		qID := fmt.Sprintf("c_%d", i)
+		var tq typeSafeQuestion
+		tq.Type = "noul"
+		tq.Instructions = fmt.Sprintf("Does candidate %d provide direct, accurate, and actionable facts to address `user_query`?", i)
+		tq.Criteria.True = "The candidate has high relevance, providing concrete solutions, answers, or official facts for the query."
+		tq.Criteria.False = "The candidate is off-topic, purely promotional, vague, or generic fluff."
+		questions[qID] = tq
+	}
+
+	reqPayload := typeSafeRequest{
+		Model: model,
+		State: map[string]any{
+			"user_query": query,
+			"candidates": cStates,
+		},
+		Questions: questions,
+	}
+
+	bodyBytes, err := json.Marshal(reqPayload)
+	if err != nil {
+		return nil
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var tsResp typeSafeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tsResp); err != nil {
+		return nil
+	}
+
+	type scoredItem struct {
+		item  SearchCitationItem
+		score float64
+	}
+
+	scoredList := make([]scoredItem, len(candidates))
+	for i, c := range candidates {
+		qID := fmt.Sprintf("c_%d", i)
+		score := 0.5
+		if ans, ok := tsResp.Answers[qID]; ok {
+			score = ans.Noul
+		}
+		scoredList[i] = scoredItem{item: c, score: score}
+	}
+
+	// 稳定排序：按 noul 得分从高到低倒序排序
+	sort.SliceStable(scoredList, func(i, j int) bool {
+		return scoredList[i].score > scoredList[j].score
+	})
+
+	result := make([]SearchCitationItem, len(scoredList))
+	for i, s := range scoredList {
+		result[i] = s.item
+	}
+	return result
+}
+
+// reRankHeuristic 多因子启发式排序：基于权威域名权重、关键词匹配密度及信息量评分。
+func reRankHeuristic(query string, candidates []SearchCitationItem) []SearchCitationItem {
+	qTokens := strings.Fields(strings.ToLower(query))
+
+	type scoredItem struct {
+		item  SearchCitationItem
+		score float64
+	}
+
+	scoredList := make([]scoredItem, len(candidates))
+	for i, c := range candidates {
+		score := 0.0
+		// 1. 官方权威性基础分
+		if c.IsOfficial {
+			score += 0.35
+		}
+		domain := strings.ToLower(c.SourceName)
+		if strings.Contains(domain, "gov.cn") || strings.Contains(domain, "edu.cn") || strings.Contains(domain, "wikipedia.org") {
+			score += 0.25
+		}
+
+		// 2. 标题和摘要关键词重合度加权
+		titleLower := strings.ToLower(c.Title)
+		snippetLower := strings.ToLower(c.Snippet)
+
+		for _, tok := range qTokens {
+			if len([]rune(tok)) < 2 {
+				continue
+			}
+			if strings.Contains(titleLower, tok) {
+				score += 0.2
+			}
+			if strings.Contains(snippetLower, tok) {
+				score += 0.1
+			}
+		}
+
+		// 3. 摘要信息丰富度加权
+		if len([]rune(c.Snippet)) > 40 {
+			score += 0.1
+		}
+
+		scoredList[i] = scoredItem{item: c, score: score}
+	}
+
+	sort.SliceStable(scoredList, func(i, j int) bool {
+		return scoredList[i].score > scoredList[j].score
+	})
+
+	result := make([]SearchCitationItem, len(scoredList))
+	for i, s := range scoredList {
+		result[i] = s.item
+	}
+	return result
 }

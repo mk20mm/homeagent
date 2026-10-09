@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -19,7 +20,29 @@ type Config struct {
 	LLMModel    string
 }
 
+func loadDotEnv() {
+	content, err := os.ReadFile(".env")
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			k := strings.TrimSpace(parts[0])
+			v := strings.TrimSpace(parts[1])
+			if os.Getenv(k) == "" {
+				_ = os.Setenv(k, v)
+			}
+		}
+	}
+}
+
 func Load() Config {
+	loadDotEnv()
 	return Config{
 		Port:          getenv("PORT", "8080"),
 		DBPath:        getenv("DB_PATH", "./data/homeagent.db"),
