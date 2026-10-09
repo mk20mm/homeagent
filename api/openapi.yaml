@@ -112,6 +112,47 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /search/rerank:
+    post:
+      tags: [search]
+      summary: 按需调用 TypeSafe Jev 对信源候选集执行智能决策重排
+      description: 接收检索关键词与候选信源列表，由 TypeSafe Jev System One 进行常识与针对性打分并返回重排结果
+      operationId: rerankSearch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query, candidates]
+              properties:
+                query:
+                  type: string
+                  description: 检索关键词
+                candidates:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SearchCitationItem'
+      responses:
+        '200':
+          description: 重排成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchCitationItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /tools:
     get:
       tags: [system]
@@ -2185,6 +2226,31 @@ components:
           description: 转写提供者
           example: local_whisper
 
+    SearchCitationItem:
+      type: object
+      required: [title, url, source_name, snippet]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+        source_name:
+          type: string
+        snippet:
+          type: string
+        published_date:
+          type: string
+        is_official:
+          type: boolean
+        jev_score:
+          type: number
+          description: TypeSafe Jev Noul 决策打分 (0.0 ~ 1.0)
+          example: 0.96
+        jev_label:
+          type: string
+          description: Jev 智能研判标签 (推荐/参考/降权)
+          example: 高可信推荐
+
     SearchCitationCard:
       type: object
       required: [type, query, results]
@@ -2197,19 +2263,6 @@ components:
         results:
           type: array
           items:
-            type: object
-            required: [title, url, source_name, snippet]
-            properties:
-              title:
-                type: string
-              url:
-                type: string
-              source_name:
-                type: string
-              snippet:
-                type: string
-              published_date:
-                type: string
-              is_official:
-                type: boolean
+            $ref: '#/components/schemas/SearchCitationItem'
+
 

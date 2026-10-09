@@ -35,10 +35,33 @@ describe('SearchCitationCard', () => {
     expect(screen.getByText('西门子家电服务中心')).toBeInTheDocument()
     expect(screen.getByText('家电维修实录')).toBeInTheDocument()
 
+    expect(screen.getByText('⚡ Jev 智能精排')).toBeInTheDocument()
+
     // Citation links should open in new tab with security attributes
     const link = screen.getByRole('link', { name: /西门子官方家电故障代码表/ })
     expect(link).toHaveAttribute('href', 'https://siemens-home.bsh-group.cn/faq/e15')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('renders pre-ranked items with Jev score pills when jev_score is present', () => {
+    const cardData = {
+      type: 'search_citation' as const,
+      query: '西门子洗碗机',
+      results: [
+        {
+          title: '官方排查指南',
+          url: 'https://example.com/guide',
+          snippet: '排查指南详细步骤',
+          source_name: 'example.com',
+          is_official: true,
+          jev_score: 0.96,
+          jev_label: '高可信推荐',
+        },
+      ],
+    }
+
+    render(<SearchCitationCard card={cardData} />)
+    expect(screen.getByText('⚡ Jev 智能精排')).toBeInTheDocument()
   })
 })

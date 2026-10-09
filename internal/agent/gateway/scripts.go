@@ -78,10 +78,56 @@ func isExpenseContent(msgs []Message) bool {
 	return true
 }
 
+func parseSearchFromMessages(msgs []Message) (bool, string) {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == RoleUser {
+			content := strings.TrimSpace(msgs[i].Content)
+			if strings.Contains(content, "搜") ||
+				strings.Contains(content, "查") ||
+				strings.Contains(content, "怎么") ||
+				strings.Contains(content, "如何") ||
+				strings.Contains(content, "排查") ||
+				strings.Contains(content, "故障") ||
+				strings.Contains(content, "洗碗机") ||
+				strings.Contains(content, "红灯") ||
+				strings.Contains(content, "为什么") {
+				q := content
+				q = strings.TrimPrefix(q, "帮我搜一下")
+				q = strings.TrimPrefix(q, "搜一下")
+				q = strings.TrimPrefix(q, "查一下")
+				q = strings.TrimPrefix(q, "搜索")
+				q = strings.TrimPrefix(q, "查询")
+				q = strings.TrimSpace(q)
+				if q == "" {
+					q = content
+				}
+				return true, q
+			}
+		}
+	}
+	return false, ""
+}
+
 func RecordExpenseScript() func(int, ChatRequest) []StreamEvent {
 	var lastAmount float64 = 120.0
 	return func(round int, req ChatRequest) []StreamEvent {
 		if !isExpenseContent(req.Messages) {
+			if isSearch, query := parseSearchFromMessages(req.Messages); isSearch {
+				isToolResponse := (round%2 == 1) || (len(req.Messages) > 0 && req.Messages[len(req.Messages)-1].Role == RoleTool)
+				if isToolResponse {
+					return []StreamEvent{
+						{Delta: "已为您完成联网检索与智能排序，以下为权威信源与故障排查参考："},
+						{Done: true, Usage: &Usage{PromptTokens: 120, CompletionTokens: 25, TotalTokens: 145}},
+					}
+				}
+				args, _ := json.Marshal(map[string]any{"query": query})
+				return []StreamEvent{
+					{Delta: "正在为您联网检索与事实核查..."},
+					{ToolCall: &ToolCall{ID: "call_search_1", Name: "web_search", Args: args}},
+					{Done: true, Usage: &Usage{PromptTokens: 50, CompletionTokens: 30, TotalTokens: 80}},
+				}
+			}
+
 			return []StreamEvent{
 				{Delta: "好的，收到。"},
 				{Done: true, Usage: &Usage{PromptTokens: 20, CompletionTokens: 5, TotalTokens: 25}},

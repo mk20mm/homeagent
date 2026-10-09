@@ -20,12 +20,14 @@ import (
 
 // SearchCitationItem 结构化信源条目，对齐 Stitch 设计与 OpenAPI 契约。
 type SearchCitationItem struct {
-	Title         string `json:"title"`
-	URL           string `json:"url"`
-	SourceName    string `json:"source_name"`
-	Snippet       string `json:"snippet"`
-	PublishedDate string `json:"published_date,omitempty"`
-	IsOfficial    bool   `json:"is_official,omitempty"`
+	Title         string   `json:"title"`
+	URL           string   `json:"url"`
+	SourceName    string   `json:"source_name"`
+	Snippet       string   `json:"snippet"`
+	PublishedDate string   `json:"published_date,omitempty"`
+	IsOfficial    bool     `json:"is_official,omitempty"`
+	JevScore      *float64 `json:"jev_score,omitempty"`
+	JevLabel      string   `json:"jev_label,omitempty"`
 }
 
 // SearchCitationCard 结构化信源卡片。
@@ -447,28 +449,22 @@ func cleanSnippet(content string, maxLen int) string {
 	return c
 }
 
-// reRankCandidates 对初筛候选池执行两阶段智能重排：优先调用 TypeSafe Jev System One，无 Key 时启发式降级。
+// reRankCandidates 默认执行本地多因子语义启发式排序（0 延迟、0 外部 token 消耗）。
+// Jev 深度决策模型由用户在前端主动点击「⚡ Jev 智能精排」按需触发。
 func reRankCandidates(ctx context.Context, query string, candidates []SearchCitationItem, maxResults int) []SearchCitationItem {
 	if len(candidates) <= 1 {
 		return candidates
 	}
-
-	// 1. 尝试 TypeSafe Jev System One 决策模型打分重排
-	if apiKey := os.Getenv("TYPESAFE_API_KEY"); apiKey != "" {
-		if ranked := reRankWithJev(ctx, apiKey, query, candidates); len(ranked) > 0 {
-			if len(ranked) > maxResults {
-				return ranked[:maxResults]
-			}
-			return ranked
-		}
-	}
-
-	// 2. 平滑降级：多因子语义启发式重排（官方权威域名加权 + 关键词匹配密度）
 	ranked := reRankHeuristic(query, candidates)
 	if len(ranked) > maxResults {
 		return ranked[:maxResults]
 	}
 	return ranked
+}
+
+// ReRankWithJev 提供给 HTTP 接口 /search/rerank 按需调用。
+func ReRankWithJev(ctx context.Context, apiKey, query string, candidates []SearchCitationItem) []SearchCitationItem {
+	return reRankWithJev(ctx, apiKey, query, candidates)
 }
 
 type typeSafeQuestion struct {
@@ -581,6 +577,15 @@ func reRankWithJev(ctx context.Context, apiKey, query string, candidates []Searc
 		if ans, ok := tsResp.Answers[qID]; ok {
 			score = ans.Noul
 		}
+		sCopy := score
+		c.JevScore = &sCopy
+		if score >= 0.85 {
+			c.JevLabel = "高可信推荐"
+		} else if score >= 0.50 {
+			c.JevLabel = "社区参考"
+		} else {
+			c.JevLabel = "营销/降权"
+		}
 		scoredList[i] = scoredItem{item: c, score: score}
 	}
 
@@ -594,6 +599,11 @@ func reRankWithJev(ctx context.Context, apiKey, query string, candidates []Searc
 		result[i] = s.item
 	}
 	return result
+}
+
+// ReRankHeuristic 提供外部调用的本地多因子启发式重排。
+func ReRankHeuristic(query string, candidates []SearchCitationItem) []SearchCitationItem {
+	return reRankHeuristic(query, candidates)
 }
 
 // reRankHeuristic 多因子启发式排序：基于权威域名权重、关键词匹配密度及信息量评分。

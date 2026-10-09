@@ -7,6 +7,13 @@
   padding: 14px 16px;
   box-shadow: 0 4px 20px -2px rgb(0 122 255 / 8%);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'SF Pro Text', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.cardJevActive {
+  border-color: rgb(88 86 214 / 35%);
+  box-shadow: 0 6px 24px -2px rgb(88 86 214 / 14%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 96%) 0%, rgb(248 247 255 / 92%) 100%);
 }
 
 .header {
@@ -16,6 +23,8 @@
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgb(0 0 0 / 5%);
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .titleBox {
@@ -40,6 +49,65 @@
   font-weight: 500;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jevActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgb(88 86 214 / 10%);
+  color: #5856d6;
+  border: 1px solid rgb(88 86 214 / 25%);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.jevActionBtn:hover:not(:disabled) {
+  background: rgb(88 86 214 / 18%);
+  border-color: rgb(88 86 214 / 45%);
+  transform: translateY(-1px);
+}
+
+.jevActiveBtn {
+  background: linear-gradient(135deg, #5856d6 0%, #af52de 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgb(88 86 214 / 35%);
+}
+
+.jevActiveBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4b48c8 0%, #9e43cf 100%);
+}
+
+.sparkleIcon {
+  font-size: 11px;
+}
+
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgb(88 86 214 / 30%);
+  border-top-color: #5856d6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .verifiedBadge {
   display: inline-flex;
   align-items: center;
@@ -50,6 +118,37 @@
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 20px;
+}
+
+.jevTipBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgb(88 86 214 / 8%);
+  border: 1px solid rgb(88 86 214 / 15%);
+  border-radius: 10px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #4b48c8;
+}
+
+.jevTipIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.jevTipText {
+  line-height: 1.4;
+}
+
+.errorBar {
+  background: rgb(255 59 48 / 8%);
+  color: #ff3b30;
+  border-radius: 8px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
 }
 
 .list {
@@ -65,7 +164,7 @@
   border: 1px solid rgb(0 0 0 / 4%);
   border-radius: 12px;
   padding: 10px 12px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .item:hover {
@@ -73,6 +172,15 @@
   border-color: rgb(0 122 255 / 30%);
   box-shadow: 0 3px 12px rgb(0 122 255 / 10%);
   transform: translateY(-1px);
+}
+
+.itemJevRanked {
+  border-color: rgb(88 86 214 / 12%);
+}
+
+.itemJevRanked:hover {
+  border-color: rgb(88 86 214 / 40%);
+  box-shadow: 0 3px 12px rgb(88 86 214 / 12%);
 }
 
 .itemHeader {
@@ -104,6 +212,11 @@
   flex-shrink: 0;
 }
 
+.topIndexPill {
+  background: linear-gradient(135deg, #ff9500 0%, #ff5e3a 100%);
+  box-shadow: 0 2px 6px rgb(255 149 0 / 40%);
+}
+
 .itemTitle {
   font-size: 13px;
   font-weight: 600;
@@ -116,6 +229,42 @@
   font-weight: 600;
   color: #007aff;
   background: rgb(0 122 255 / 10%);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.jevHighTag {
+  font-size: 10px;
+  font-weight: 600;
+  color: #34c759;
+  background: rgb(52 199 89 / 12%);
+  border: 1px solid rgb(52 199 89 / 25%);
+  padding: 1px 7px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.jevMidTag {
+  font-size: 10px;
+  font-weight: 600;
+  color: #5856d6;
+  background: rgb(88 86 214 / 10%);
+  border: 1px solid rgb(88 86 214 / 20%);
+  padding: 1px 7px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.jevLowTag {
+  font-size: 10px;
+  font-weight: 500;
+  color: #8e8e93;
+  background: rgb(142 142 147 / 10%);
+  border: 1px solid rgb(142 142 147 / 20%);
   padding: 1px 6px;
   border-radius: 10px;
 }

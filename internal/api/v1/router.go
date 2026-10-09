@@ -59,6 +59,7 @@ func Register(
 	jwtGroup.POST("/chat", Chat(rt))
 	jwtGroup.POST("/undo/:id", Undo(executor, undoStore))
 	jwtGroup.POST("/voice/transcribe", TranscribeVoice())
+	jwtGroup.POST("/search/rerank", RerankSearch())
 	jwtGroup.GET("/models", ListModels(modelLister))
 	jwtGroup.GET("/audit", ListAudit(auditLister))
 	jwtGroup.GET("/usage", ListUsage(usageLister))
