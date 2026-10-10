@@ -83,6 +83,12 @@ export function generateExecutionTrajectory(
     card?.type === 'trip' ||
     /(车|出行|加油|充电|公里|驾驶|里程)/.test(cleanPrompt)
 
+  const isKnowledge =
+    toolName?.includes('knowledge') ||
+    card?.type === 'knowledge_citation' ||
+    card?.type === 'knowledge_document_created' ||
+    /(知识库|说明书|保单|合同|体检|备忘|滤芯|私密空间|共享空间)/.test(cleanPrompt)
+
   const isSearch =
     toolName?.includes('search') ||
     card?.type === 'search_citation' ||
@@ -101,8 +107,74 @@ export function generateExecutionTrajectory(
     return 'pending'
   }
 
-  // 0. 联网搜索与事实排查场景（豆包交错风格：思维短句 + 微动作胶囊）
-  if (isSearch) {
+  // 0. 知识库私域检索场景（飞书风：家庭共享与个人私密双空间）
+  if (isKnowledge) {
+    traces = [
+      `我先检索家庭知识库关于【${cleanPrompt.slice(0, 16) || '私域资料'}】的文档与切片。`,
+      `📚 知识库混合检索: ${cleanPrompt.slice(0, 22) || '说明书与家庭私密档案'}`,
+      '执行权限双保险验证（家庭共享空间 + 本人私密空间），物理阻断未授权访问。',
+      '🔒 权限双保险: 过滤隔离敏感数据',
+      '精准匹配到相关片段，提取关键操作要点与说明内容。',
+      '📖 提炼知识库核心要点',
+    ]
+
+    nodes = [
+      {
+        id: 'node-input',
+        title: '用户知识库提问',
+        subtitle: 'Knowledge Query',
+        kind: 'input',
+        status: 'completed',
+        icon: '💬',
+        details: cleanPrompt || '家庭私域知识检索意图',
+        meta: { 消息类型: '用户输入', 范围: '家庭共享 / 个人私密' },
+        x: 60,
+        y: 180,
+      },
+      {
+        id: 'node-action-knowledge',
+        title: '知识库混合检索',
+        subtitle: 'query_knowledge',
+        kind: 'action',
+        status: stepStatus('action'),
+        icon: '📚',
+        details: '从 SQLite FTS5 与向量切片中检索最相关的文档与段落。',
+        meta: { 工具名: 'query_knowledge', 索引: 'FTS5 + 向量切片' },
+        x: 360,
+        y: 180,
+      },
+      {
+        id: 'node-reasoning-perm',
+        title: '权限隔离与上下文装配',
+        subtitle: 'Permission Boundary',
+        kind: 'reasoning',
+        status: stepStatus('reasoning'),
+        icon: '🔒',
+        details: '严格校验空间访问权限，注入防越权上下文摘要。',
+        meta: { 权限: '双保险隔离', 空间: 'Shared & Private' },
+        x: 660,
+        y: 180,
+      },
+      {
+        id: 'node-output',
+        title: '飞书风知识引用响应',
+        subtitle: 'Knowledge Citation',
+        kind: 'output',
+        status: !isStreaming ? 'completed' : 'pending',
+        icon: '📄',
+        details: '输出精准答复与信源卡片，支持一键打开原文阅读。',
+        meta: { 卡片: 'KnowledgeCitationCard', 体验: '飞书 Wiki' },
+        x: 960,
+        y: 180,
+      },
+    ]
+
+    connections = [
+      { from: 'node-input', to: 'node-action-knowledge', label: '发起检索' },
+      { from: 'node-action-knowledge', to: 'node-reasoning-perm', label: '召回切片' },
+      { from: 'node-reasoning-perm', to: 'node-output', label: '结构化综合' },
+    ]
+  } else if (isSearch) {
     traces = [
       `我先检索关于【${cleanPrompt.slice(0, 16) || '洗碗机故障'}】的官方售后库与排查指引。`,
       `🌐 联网检索: ${cleanPrompt.slice(0, 22) || '西门子洗碗机水龙头红灯排查'}`,

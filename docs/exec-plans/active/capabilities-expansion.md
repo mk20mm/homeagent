@@ -84,7 +84,7 @@ graph TD
 - [x] 扩展 `api/openapi.yaml`：
   - [x] 语音转文字接口：`POST /api/v1/voice/transcribe`
   - [x] 智能搜索按需精排接口：`POST /api/v1/search/rerank`（TypeSafe Jev System One）
-  - [ ] 知识库管理接口：`GET/POST /api/v1/knowledge/documents`，`POST /api/v1/knowledge/query`
+  - [x] 知识库管理接口：`GET /api/v1/knowledge/spaces`，`GET/POST /api/v1/knowledge/documents`，`POST /api/v1/knowledge/query`
   - [ ] Skills 管理接口：`GET /api/v1/skills`，`POST /api/v1/skills/{id}/toggle`
   - [ ] MCP 服务配置接口：`GET/POST /api/v1/admin/mcp/servers`，`POST /api/v1/admin/mcp/servers/{id}/test`
 - [x] 执行 `make generate`（生成 Go 接口与前端 TS 类型）。
@@ -92,7 +92,7 @@ graph TD
 ### 阶段三：逐个功能实施与自测联调（进行中）
 - [x] **M8 语音输入**：前端录音组件 + 本地/后端 Whisper 适配层全链路落地。
 - [x] **M7 智能搜索**：`web_search` 工具 + DuckDuckGo/Tavily 候选检索 + TypeSafe Jev System One 按需重排 + iOS 磨砂信源卡片 + 豆包交互对齐。
-- [ ] **M9 知识库**：SQLite FTS5 + 向量嵌入 + 权限隔离检索 + 上下文注入。
+- [x] **M9 知识库**：飞书双空间架构（家庭共享 🌐 + 个人私密 🔒 物理隔离）+ 400字滑动窗口分块切片 + SQLite FTS5/关键词加权混合检索 (RAG) + 24h 可撤销写入 (ADR-004) + 权限双保险 + 飞书风独立页面与引用卡片。
 - [ ] **M10 Skills 体系**：技能目录定义 + 渐进式发现器 + Admin 技能卡片。
 - [ ] **M11 MCP 网关**：stdio 进程客户端 + 工具动态注册 + 双保险权限与人工确认拦截。
 
@@ -117,3 +117,11 @@ graph TD
 - **方案**：
   1. **思维流重构**：`ThoughtProcess` 采用“已处理 X 秒 + 细虚线分隔 + 思维短句与微动作小胶囊（`🌐 联网检索`、`⚡ Jev 精排`、`📖 提取步骤`）交错排列”的豆包设计。
   2. **正文卡片化**：`StructuredContent` 自动解析排查/操作序号（1. 2. 3.）为带专属圆形编号徽章的独立卡片；重点警示抽离为浅黄色 Callout 盒；末尾提问自动生成一键闭环行动胶囊（`[+ 帮我建待办]`、`[+ 记一笔维修预算]`）。
+
+### 决策 5：飞书知识库双空间模型（家庭共享空间 vs 个人私密空间），实现权限双保险物理隔离
+- **理由**：家庭场景下既有需全家共享的信息（家电说明书、网络配置、家庭公共菜谱），也有高度敏感的私人信息（个人健康体检、私房账单、工作合同）。若无严格隔离，孩子或来访亲友可能无意中通过 AI 对话探知父母的敏感数据。
+- **方案**：
+  1. **空间隔离**：划分 `family`（家庭共享）与 `private`（个人私密）两大空间，私密文档强绑定 `member_id`。
+  2. **物理隔离**：检索时如果非私密文档拥有者，SQL 层强制附加 `space_type = 'family'` 过滤，即使 AI 提权也无法跨成员探知。
+  3. **双端闭环**：AI 只读工具 `query_knowledge` 返回飞书风引用卡片（含置信度匹配度）；写操作 `save_knowledge` 接入 24h `undo_log` 回滚机制；前端提供飞书风沉浸式独立知识库页面。
+

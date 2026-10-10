@@ -4,10 +4,12 @@
  * 消息先乐观渲染，工具结果以服务器回执为准（CONVENTIONS-frontend §4）。
  */
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 
 import { ERROR_MESSAGE, type ErrorCode } from '@homeagent/shared'
 
 import { api, ApiError, unwrap } from '../../api/client'
+import { KnowledgeCitationCard } from '../../components/Cards/KnowledgeCitationCard'
 import { SearchCitationCard } from '../../components/Cards/SearchCitationCard'
 import { ConversationSidebar } from '../../components/ConversationSidebar'
 import { ExpenseCard } from '../../components/ExpenseCard'
@@ -55,6 +57,7 @@ export function ChatPage() {
   const [webSearchActive, setWebSearchActive] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   const { connect, abort } = useSSE({
     url: '/api/v1/chat',
@@ -193,6 +196,15 @@ export function ChatPage() {
             ☰
           </button>
           <h1 className={styles.title}>家事助手</h1>
+          <button
+            type="button"
+            className={styles.knowledgeHeaderBtn}
+            onClick={() => navigate('/knowledge')}
+            title="打开家庭知识库"
+          >
+            <span>📚</span>
+            <span>知识库</span>
+          </button>
         </div>
 
         {/* 苹果毛玻璃胶囊模型选择器 */}
@@ -283,6 +295,13 @@ export function ChatPage() {
               >
                 <span>📋</span> 我还有什么待办活
               </button>
+              <button
+                type="button"
+                className={styles.promptChip}
+                onClick={() => void handlePromptClick('查查净水器滤芯怎么换')}
+              >
+                <span>📖</span> 查查净水器滤芯怎么换
+              </button>
             </div>
           </div>
         )}
@@ -360,6 +379,12 @@ export function ChatPage() {
                   <SearchCitationCard
                     card={
                       m.card as React.ComponentProps<typeof SearchCitationCard>['card']
+                    }
+                  />
+                ) : m.card.type === 'knowledge_citation' ? (
+                  <KnowledgeCitationCard
+                    card={
+                      m.card as React.ComponentProps<typeof KnowledgeCitationCard>['card']
                     }
                   />
                 ) : (

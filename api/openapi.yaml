@@ -34,6 +34,8 @@ tags:
     description: 出行与爱车台账
   - name: dispatch
     description: 任务编排与调度中心
+  - name: knowledge
+    description: 个人与家庭知识库（飞书风空间与混合检索）
 
 paths:
   /auth/token:
@@ -148,6 +150,186 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SearchCitationItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /knowledge/spaces:
+    get:
+      tags: [knowledge]
+      summary: 获取知识库空间列表与概览
+      description: 返回当前成员有权访问的空间（家庭共享空间 + 个人私密空间）及分类文档统计
+      operationId: listKnowledgeSpaces
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 空间列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSpacesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /knowledge/documents:
+    get:
+      tags: [knowledge]
+      summary: 浏览知识库文档列表
+      description: 按可见性（空间）、分类或关键词筛选文档，严格执行当前成员权限过滤
+      operationId: listKnowledgeDocuments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: visibility
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, family, private]
+            default: all
+          description: "空间范围（family: 家庭共享, private: 个人私密）"
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, manual, insurance, contract, health, memo, recipe]
+            default: all
+          description: 分类过滤
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 标题或正文关键词
+      responses:
+        '200':
+          description: 文档列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDocumentListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [knowledge]
+      summary: 创建/沉淀知识文档
+      description: 上传或新建知识笔记，自动触发智能文本切片并建立混合检索索引
+      operationId: createKnowledgeDocument
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKnowledgeDocumentRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDocumentDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /knowledge/documents/{id}:
+    get:
+      tags: [knowledge]
+      summary: 获取知识文档详情
+      description: 获取单篇文档完整元数据与正文内容，对私密文档执行严格权限校验
+      operationId: getKnowledgeDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 文档详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDocumentDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [knowledge]
+      summary: 删除知识文档（可撤销）
+      description: 软删除文档并记录 undo_log，支持 24 小时内本地撤销恢复
+      operationId: deleteKnowledgeDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteKnowledgeDocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /knowledge/query:
+    post:
+      tags: [knowledge]
+      summary: 检索知识库（混合检索 RAG）
+      description: 结合关键词与语义匹配，在当前成员权限允许范围内检索最相关的知识片段
+      operationId: queryKnowledge
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                  description: 检索关键词或问题句
+                  example: 净水器滤芯怎么复位
+                category:
+                  type: string
+                  enum: [all, manual, insurance, contract, health, memo, recipe]
+                  default: all
+                top_k:
+                  type: integer
+                  default: 3
+                  minimum: 1
+                  maximum: 5
+      responses:
+        '200':
+          description: 检索结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeQueryResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2264,5 +2446,205 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchCitationItem'
+
+    KnowledgeSpaceItem:
+      type: object
+      required: [id, name, visibility, document_count, description, is_personal]
+      properties:
+        id:
+          type: string
+          example: family
+        name:
+          type: string
+          example: 家庭共享空间
+        visibility:
+          type: string
+          enum: [family, private]
+        document_count:
+          type: integer
+          example: 8
+        description:
+          type: string
+          example: 全家成员可见，包含家电说明书、家庭保单与公共生活备忘
+        is_personal:
+          type: boolean
+          example: false
+
+    KnowledgeSpacesResponse:
+      type: object
+      required: [spaces]
+      properties:
+        spaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeSpaceItem'
+
+    KnowledgeDocumentItem:
+      type: object
+      required: [id, title, category, visibility, author_name, member_id, file_size_bytes, chunk_count, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: 美的净水器RO-800G使用说明书
+        category:
+          type: string
+          enum: [manual, insurance, contract, health, memo, recipe]
+          example: manual
+        visibility:
+          type: string
+          enum: [family, private]
+          example: family
+        author_name:
+          type: string
+          example: 爸爸
+        member_id:
+          type: string
+          format: uuid
+        file_size_bytes:
+          type: integer
+          example: 12048
+        chunk_count:
+          type: integer
+          example: 4
+        status:
+          type: string
+          enum: [indexed, processing, failed]
+          example: indexed
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    KnowledgeDocumentListResponse:
+      type: object
+      required: [documents]
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeDocumentItem'
+
+    KnowledgeDocumentDetail:
+      type: object
+      required: [id, title, category, visibility, author_name, member_id, file_size_bytes, chunk_count, status, content, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+          enum: [manual, insurance, contract, health, memo, recipe]
+        visibility:
+          type: string
+          enum: [family, private]
+        author_name:
+          type: string
+        member_id:
+          type: string
+          format: uuid
+        file_size_bytes:
+          type: integer
+        chunk_count:
+          type: integer
+        status:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateKnowledgeDocumentRequest:
+      type: object
+      required: [title, category, visibility, content]
+      properties:
+        title:
+          type: string
+          example: 主卧空调滤网尺寸与清洗周期
+        category:
+          type: string
+          enum: [manual, insurance, contract, health, memo, recipe]
+          example: manual
+        visibility:
+          type: string
+          enum: [family, private]
+          example: family
+        content:
+          type: string
+          example: 滤网尺寸为 24x15cm，每年5月入夏前需拆下用水冲洗并在阴凉处晾干。
+
+    DeleteKnowledgeDocumentResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        undo_id:
+          type: string
+          description: 撤销记录 ID（24 小时内可通过 /api/v1/undo 恢复）
+
+    KnowledgeQueryResultItem:
+      type: object
+      required: [document_id, document_title, category, visibility, chunk_index, content, score, is_private]
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        document_title:
+          type: string
+          example: 美的净水器使用说明书
+        category:
+          type: string
+          example: manual
+        visibility:
+          type: string
+          example: family
+        chunk_index:
+          type: integer
+          example: 2
+        content:
+          type: string
+          example: 滤芯寿命复位方法：按住选择键3秒进入复位模式，指示灯闪烁后按确认键。
+        score:
+          type: number
+          example: 0.92
+        is_private:
+          type: boolean
+          example: false
+
+    KnowledgeQueryResponse:
+      type: object
+      required: [query, results]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeQueryResultItem'
+
+    KnowledgeCitationCard:
+      type: object
+      required: [type, query, results]
+      properties:
+        type:
+          type: string
+          enum: [knowledge_citation]
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeQueryResultItem'
 
 

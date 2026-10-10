@@ -62,6 +62,7 @@ func (Member) Edges() []ent.Edge {
 		edge.To("usages", LLMUsage.Type),
 		edge.To("trips", TripRecord.Type),
 		edge.To("runs", AgentRun.Type),
+		edge.To("documents", KnowledgeDocument.Type),
 	}
 }
 

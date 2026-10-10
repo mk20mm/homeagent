@@ -69,6 +69,27 @@
   white-space: nowrap;
 }
 
+.knowledgeHeaderBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid rgb(0 122 255 / 20%);
+  background: rgb(0 122 255 / 8%);
+  color: #007aff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.knowledgeHeaderBtn:hover {
+  background: rgb(0 122 255 / 16%);
+  transform: translateY(-1px);
+}
+
 .micBtn {
   width: 36px;
   height: 36px;

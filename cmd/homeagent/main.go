@@ -23,6 +23,7 @@ import (
 	v1 "github.com/mk20mm/homeagent/internal/api/v1"
 	"github.com/mk20mm/homeagent/internal/auth"
 	"github.com/mk20mm/homeagent/internal/domain/expense"
+	domknow "github.com/mk20mm/homeagent/internal/domain/knowledge"
 	"github.com/mk20mm/homeagent/internal/domain/meal"
 	"github.com/mk20mm/homeagent/internal/domain/model"
 	domrun "github.com/mk20mm/homeagent/internal/domain/run"
@@ -82,6 +83,7 @@ func main() {
 	travelSvc := travel.NewService(storeRepo, expenseSvc)
 	modelSvc := model.NewService(storeRepo, provRepo)
 	runSvc := domrun.NewService(storeRepo)
+	knowledgeSvc := domknow.NewService(storeRepo)
 	for _, t := range []tool.Tool{
 		expense.NewRecordExpenseTool(expenseSvc),
 		expense.NewQueryBudgetTool(expenseSvc),
@@ -98,13 +100,15 @@ func main() {
 		model.NewSwitchModelTool(modelSvc),
 		domrun.NewSubmitTaskPlanTool(runSvc),
 		tool.NewWebSearchTool(),
+		domknow.NewQueryKnowledgeTool(knowledgeSvc),
+		domknow.NewSaveKnowledgeTool(knowledgeSvc),
 	} {
 		if err := registry.Register(t); err != nil {
 			slog.Error("register tool failed", "tool", t.Spec().Name, "err", err)
 			os.Exit(1)
 		}
 	}
-	slog.Info("tools registered", "count", 15)
+	slog.Info("tools registered", "count", 17)
 
 	// 执行器：统一包办权限校验→参数校验→执行→undo_log→审计
 	executor := tool.NewExecutor(registry, storeRepo, storeRepo)
@@ -138,7 +142,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Logger(), middleware.Recover(), middleware.TraceID(), middleware.CORS())
 	api := r.Group("/api/v1")
-	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo, storeRepo, expenseSvc, expenseSvc, storeRepo, expenseSvc, travelSvc, runSvc)
+	v1.Register(api, executor, rt, storeRepo, storeRepo, storeRepo, storeRepo, signer, storeRepo, storeRepo, storeRepo, modelSvc, sessions, storeRepo, expenseSvc, expenseSvc, storeRepo, gw, taskSvc, mealSvc, storeRepo, storeRepo, expenseSvc, expenseSvc, storeRepo, expenseSvc, travelSvc, runSvc, knowledgeSvc)
 
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: r}

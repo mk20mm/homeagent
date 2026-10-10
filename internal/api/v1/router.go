@@ -49,6 +49,7 @@ func Register(
 	financeSummarizer FinanceSummarizer,
 	travelSvc TravelService,
 	runSvc RunService,
+	knowledgeSvc KnowledgeService,
 ) {
 	rg.POST("/auth/token", CreateToken(authLookup, signer))
 	rg.GET("/health", health)
@@ -94,6 +95,12 @@ func Register(
 	jwtGroup.POST("/runs/:runId/steer", SteerRun(runSvc, rt))
 	jwtGroup.POST("/runs/:runId/cancel", CancelRun(runSvc, rt))
 	jwtGroup.GET("/runs/:runId/events", WatchRunEvents(runSvc, rt))
+	jwtGroup.GET("/knowledge/spaces", ListKnowledgeSpaces(knowledgeSvc))
+	jwtGroup.GET("/knowledge/documents", ListKnowledgeDocuments(knowledgeSvc))
+	jwtGroup.POST("/knowledge/documents", CreateKnowledgeDocument(knowledgeSvc))
+	jwtGroup.GET("/knowledge/documents/:id", GetKnowledgeDocument(knowledgeSvc))
+	jwtGroup.DELETE("/knowledge/documents/:id", DeleteKnowledgeDocument(knowledgeSvc))
+	jwtGroup.POST("/knowledge/query", QueryKnowledge(knowledgeSvc))
 
 	// 管理端配置写端点（只有 parent 能写，handler 内 requireParent 双保险）
 	adminGroup := jwtGroup.Group("/admin")
