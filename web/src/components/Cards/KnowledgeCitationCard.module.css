@@ -136,6 +136,36 @@
   color: #48484a;
 }
 
+.categoryPill[data-category="manual"] {
+  background: rgb(0 122 255 / 10%);
+  color: #007aff;
+}
+
+.categoryPill[data-category="insurance"] {
+  background: rgb(52 199 89 / 10%);
+  color: #34c759;
+}
+
+.categoryPill[data-category="contract"] {
+  background: rgb(255 149 0 / 10%);
+  color: #ff9500;
+}
+
+.categoryPill[data-category="health"] {
+  background: rgb(255 59 48 / 10%);
+  color: #ff3b30;
+}
+
+.categoryPill[data-category="memo"] {
+  background: rgb(142 142 147 / 10%);
+  color: #8e8e93;
+}
+
+.categoryPill[data-category="recipe"] {
+  background: rgb(255 149 0 / 12%);
+  color: #ff9500;
+}
+
 .docTitle {
   font-size: 12px;
   font-weight: 600;

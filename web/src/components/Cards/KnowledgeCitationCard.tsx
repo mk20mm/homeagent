@@ -79,7 +79,7 @@ export const KnowledgeCitationCard: React.FC<KnowledgeCitationCardProps> = ({ ca
                   ) : (
                     <span className={styles.familyPill}>🌐 家庭共享</span>
                   )}
-                  <span className={styles.categoryPill}>
+                  <span className={styles.categoryPill} data-category={item.category}>
                     {cat.icon} {cat.label}
                   </span>
                   <span className={styles.docTitle} title={item.document_title}>
