@@ -80,17 +80,18 @@ graph TD
   - [x] `docs/specs/04-agent-skills-design.md`（Skills 扩展体系深化设计）
   - [x] `docs/specs/05-mcp-integration-design.md`（MCP 集成体系深化设计）
 
-### 阶段二：OpenAPI 契约先行与模型生成（待开始）
-- [ ] 扩展 `api/openapi.yaml`：
-  - [ ] 语音转文字接口：`POST /api/v1/voice/transcribe`
+### 阶段二：OpenAPI 契约先行与模型生成（进行中）
+- [x] 扩展 `api/openapi.yaml`：
+  - [x] 语音转文字接口：`POST /api/v1/voice/transcribe`
+  - [x] 智能搜索按需精排接口：`POST /api/v1/search/rerank`（TypeSafe Jev System One）
   - [ ] 知识库管理接口：`GET/POST /api/v1/knowledge/documents`，`POST /api/v1/knowledge/query`
   - [ ] Skills 管理接口：`GET /api/v1/skills`，`POST /api/v1/skills/{id}/toggle`
   - [ ] MCP 服务配置接口：`GET/POST /api/v1/admin/mcp/servers`，`POST /api/v1/admin/mcp/servers/{id}/test`
-- [ ] 执行 `make generate`（生成 Go 接口与前端 TS 类型）。
+- [x] 执行 `make generate`（生成 Go 接口与前端 TS 类型）。
 
-### 阶段三：逐个功能实施与自测联调（待开始）
-- [ ] **M8 语音输入**：前端录音组件 + 后端 Whisper 适配层落地。
-- [ ] **M7 智能搜索**：`web_search` 工具 + Tavily/Brave 客户端 + 引用卡片渲染。
+### 阶段三：逐个功能实施与自测联调（进行中）
+- [x] **M8 语音输入**：前端录音组件 + 本地/后端 Whisper 适配层全链路落地。
+- [x] **M7 智能搜索**：`web_search` 工具 + DuckDuckGo/Tavily 候选检索 + TypeSafe Jev System One 按需重排 + iOS 磨砂信源卡片 + 豆包交互对齐。
 - [ ] **M9 知识库**：SQLite FTS5 + 向量嵌入 + 权限隔离检索 + 上下文注入。
 - [ ] **M10 Skills 体系**：技能目录定义 + 渐进式发现器 + Admin 技能卡片。
 - [ ] **M11 MCP 网关**：stdio 进程客户端 + 工具动态注册 + 双保险权限与人工确认拦截。
@@ -106,3 +107,13 @@ graph TD
 ### 决策 2：MCP 集成必须经由 HomeAgent 确定性安全执行器与 ADR-004 包装
 - **理由**：外部 MCP 协议允许 Server 任意暴露工具，若直接透传给 LLM 且无状态拦截，可能导致未授权文件修改或不可逆外部命令。
 - **方案**：所有 MCP 发现的外部工具，必须在运行时自动注册为经过 `PermissionLookup` 过滤的 ToolSpec；若工具产生写操作且未声明补偿撤销逻辑，运行时强制将其危险等级提升至 A3，必须经过用户确认弹窗方可执行。
+
+### 决策 3：TypeSafe Jev (System One) 采用两阶段按需显式精排，而非默认静默运行
+- **理由**：默认静默消耗会占用用户 Jev API 配额；且用户在界面无法感知 Jev 到底发挥了什么作用。
+- **方案**：普通检索默认走本地规则多因子重排（0 成本、0 额外延迟）；在卡片右上角提供显式的 `[⚡ Jev 智能精排]` 按钮，用户按需点击才触发 `POST /api/v1/search/rerank`；返回后展现 Jev 打分徽章（`90% 高可信`、`1% 营销降权`），并支持点击一键还原初始顺序对比差异。
+
+### 决策 4：对话交互全面对齐豆包式交错思维流与步骤卡片化（彻底解决长篇大论杂乱问题）
+- **理由**：大模型原始输出多为无格式长文本或简单 Markdown，缺乏结构化视觉层级，用户阅读体验差、压迫感强。
+- **方案**：
+  1. **思维流重构**：`ThoughtProcess` 采用“已处理 X 秒 + 细虚线分隔 + 思维短句与微动作小胶囊（`🌐 联网检索`、`⚡ Jev 精排`、`📖 提取步骤`）交错排列”的豆包设计。
+  2. **正文卡片化**：`StructuredContent` 自动解析排查/操作序号（1. 2. 3.）为带专属圆形编号徽章的独立卡片；重点警示抽离为浅黄色 Callout 盒；末尾提问自动生成一键闭环行动胶囊（`[+ 帮我建待办]`、`[+ 记一笔维修预算]`）。

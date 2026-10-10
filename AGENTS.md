@@ -25,6 +25,7 @@ Go 后端（Gin + ent + SQLite）+ React 前端（web 移动端 PWA / admin 管�
 6. **边界处解析数据形状**：外部输入在进入领域层前必须被解析/校验（`unwrap`、ent schema 约束），领域层不防御。
 7. **分层依赖单向**：`api/v1 → domain → store`；`infra/config` 横切；`store` 禁止反向依赖 `domain`。横切关注点走显式 Provider 接口。
 8. **错误三段式**：`{code, message, trace_id}`，code 取 `apperr.Code` 枚举，前端用 `ERROR_MESSAGE` 映射中文。
+9. **交互结构化与按需非默认触发**：禁止大模型长文本直接以无格式纯文本平铺堆砌（易乱且长）；必须经过 `StructuredContent` 实现步骤清单卡片化（序号徽章+加粗标题+操作导引）、核心建议 Callout 盒及快捷闭环行动胶囊。高阶决策模型（如 TypeSafe Jev System One）默认不触发（0 成本、0 额外延迟），在卡片右上角提供明确的 `[⚡ Jev 智能精排]` 按钮，支持透明打分、研判徽标与双向对比切换。
 
 ## 目录地图
 
@@ -94,7 +95,7 @@ pnpm run format        # Prettier
 | E2E 测试轮次与遗留问题 | `docs/e2e-issues.md` | 每轮通过率、暴露的真实 bug、已修/待修清单（T-e2e-* 编号） |
 | 「为什么这么选」 | `docs/ADR/` | 技术选型决策记录（含被否方案） |
 | 领域术语与实体不变量 | `docs/DOMAIN/家庭领域模型.md` | 限界上下文、统一语言、跨模块联动不变量 |
-| 前端规范（气泡/卡片/撤销交互） | `docs/CONVENTIONS-frontend.md` + `docs/ui/design-system.md` | 设计令牌、对话状态机、撤销交互约定 |
+| 前端规范（气泡/卡片/撤销交互） | `docs/CONVENTIONS-frontend.md` + `docs/ui/design-system.md` | 设计令牌、对话状态机、豆包式交错思考流、步骤清单卡片化、按需 Jev 精排约定 |
 | 技术债 | `docs/tech-debt.md` | T1–T16 登记与偿还时机 |
 
 **走查方法**（复用）：`web/e2e/ux-walkthrough.spec.ts` 是可回归的端到端走查脚本——登录→记账→撤销→侧边栏→各 Tab→异常制造（空输入/错误令牌/重复提交/超长文本/刷新），截图落 `web/e2e-shots/`（已 gitignore），截图用 `docling_describe_image` 做 VLM 分析。
